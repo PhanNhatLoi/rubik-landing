@@ -333,16 +333,14 @@ export default function App() {
 
       activeCubies.forEach((cubie) => {
         cubeGroup.attach(cubie)
-        const ix = getIndexFromPosition(cubie.position.x, spacing, size)
-        const iy = getIndexFromPosition(cubie.position.y, spacing, size)
-        const iz = getIndexFromPosition(cubie.position.z, spacing, size)
-        cubie.position.x = getCoordFromIndex(ix, spacing, size)
-        cubie.position.y = getCoordFromIndex(iy, spacing, size)
-        cubie.position.z = getCoordFromIndex(iz, spacing, size)
-        cubie.userData.grid = { x: ix, y: iy, z: iz }
+        const { x, y, z } = cubie.userData.grid
+        cubie.position.x = getCoordFromIndex(x, spacing, size)
+        cubie.position.y = getCoordFromIndex(y, spacing, size)
+        cubie.position.z = getCoordFromIndex(z, spacing, size)
         cubie.rotation.x = Math.round(cubie.rotation.x / (Math.PI / 2)) * (Math.PI / 2)
         cubie.rotation.y = Math.round(cubie.rotation.y / (Math.PI / 2)) * (Math.PI / 2)
         cubie.rotation.z = Math.round(cubie.rotation.z / (Math.PI / 2)) * (Math.PI / 2)
+        cubie.updateMatrixWorld(true)
       })
 
       cubeGroup.remove(pivot)
