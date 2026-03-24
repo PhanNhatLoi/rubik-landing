@@ -377,7 +377,7 @@ export default function App() {
         start,
         end: normalized * step,
         startTime: performance.now(),
-        duration: 220
+        duration: 100
       }
     }
 
