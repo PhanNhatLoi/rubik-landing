@@ -11,18 +11,15 @@ const COLORS = {
   core: 0x0f1116
 }
 
-function getVariantFaceColors(variant) {
-  if (variant === 'neon') {
-    return [0xff6b6b, 0xffb347, 0xe6f7ff, 0xfff36b, 0x5cffb8, 0x58a6ff]
-  }
+function getVariantFaceColors() {
   return [COLORS.red, COLORS.orange, COLORS.white, COLORS.yellow, COLORS.green, COLORS.blue]
 }
 
 export default function App() {
   const mountRef = useRef(null)
   const [size, setSize] = useState(3)
-  const [variant, setVariant] = useState('classic')
   const [resetKey, setResetKey] = useState(0)
+  const [showSizeModal, setShowSizeModal] = useState(false)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
@@ -49,7 +46,7 @@ export default function App() {
     setRunning(false)
     setScrambled(false)
     setSolved(true)
-  }, [size, variant, resetKey])
+  }, [size, resetKey])
 
   useEffect(() => {
     if (!running) return
@@ -97,7 +94,7 @@ export default function App() {
     scene.add(stars)
 
     const spacing = 1.06
-    const { cubeGroup, cubies } = createRubikGroup(size, variant, spacing)
+    const { cubeGroup, cubies } = createRubikGroup(size, spacing)
     scene.add(cubeGroup)
 
     const raycaster = new THREE.Raycaster()
@@ -171,7 +168,7 @@ export default function App() {
       return best
     }
 
-    const expectedFaceColors = getVariantFaceColors(variant)
+    const expectedFaceColors = getVariantFaceColors()
 
     function normalizeSteps(steps) {
       let s = ((steps % 4) + 4) % 4
@@ -281,24 +278,15 @@ export default function App() {
     }
 
     function isCubeSolved() {
-      if (variant === 'classic' || variant === 'neon') {
-        for (const cubie of cubies) {
-          const { x, y, z } = cubie.userData.grid
-          const stickers = cubie.userData.stickers
-          if (x === size - 1 && stickers.px !== expectedFaceColors[0]) return false
-          if (x === 0 && stickers.nx !== expectedFaceColors[1]) return false
-          if (y === size - 1 && stickers.py !== expectedFaceColors[2]) return false
-          if (y === 0 && stickers.ny !== expectedFaceColors[3]) return false
-          if (z === size - 1 && stickers.pz !== expectedFaceColors[4]) return false
-          if (z === 0 && stickers.nz !== expectedFaceColors[5]) return false
-        }
-        return true
-      }
-
       for (const cubie of cubies) {
         const { x, y, z } = cubie.userData.grid
-        const home = cubie.userData.home
-        if (x !== home.x || y !== home.y || z !== home.z) return false
+        const stickers = cubie.userData.stickers
+        if (x === size - 1 && stickers.px !== expectedFaceColors[0]) return false
+        if (x === 0 && stickers.nx !== expectedFaceColors[1]) return false
+        if (y === size - 1 && stickers.py !== expectedFaceColors[2]) return false
+        if (y === 0 && stickers.ny !== expectedFaceColors[3]) return false
+        if (z === size - 1 && stickers.pz !== expectedFaceColors[4]) return false
+        if (z === 0 && stickers.nz !== expectedFaceColors[5]) return false
       }
       return true
     }
@@ -602,7 +590,7 @@ export default function App() {
         }
       })
     }
-  }, [size, variant, resetKey])
+  }, [size, resetKey])
 
   return (
     <div className="app">
@@ -634,26 +622,33 @@ export default function App() {
       </div>
       <div className="controls">
         <div className="control">
-          <label htmlFor="size">Size</label>
-          <select id="size" value={size} onChange={(e) => setSize(Number(e.target.value))}>
-            <option value={3}>3x3</option>
-            <option value={4}>4x4</option>
-            <option value={5}>5x5</option>
-            <option value={6}>6x6</option>
-            <option value={7}>7x7</option>
-          </select>
-        </div>
-        <div className="control">
-          <label htmlFor="variant">Variant</label>
-          <select id="variant" value={variant} onChange={(e) => setVariant(e.target.value)}>
-            <option value="classic">Classic</option>
-            <option value="neon">Neon</option>
-            <option value="mirror">Mirror</option>
-            <option value="void">Void</option>
-            <option value="glass">Glass</option>
-          </select>
+          <label>Size</label>
+          <button className="size-btn" onClick={() => setShowSizeModal(true)}>
+            {size}x{size}
+          </button>
         </div>
       </div>
+      {showSizeModal && (
+        <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Chọn kích thước</div>
+            <div className="modal-grid">
+              {[3, 4, 5, 6, 7].map((n) => (
+                <button
+                  key={n}
+                  className={`modal-option${size === n ? ' active' : ''}`}
+                  onClick={() => {
+                    setSize(n)
+                    setShowSizeModal(false)
+                  }}
+                >
+                  {n}x{n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -668,7 +663,7 @@ function getCoordFromIndex(index, spacing, size) {
   return (index - half) * spacing
 }
 
-function createRubikGroup(size, variant, spacing) {
+function createRubikGroup(size, spacing) {
   const cubeGroup = new THREE.Group()
   const cubies = []
   const half = (size - 1) / 2
@@ -676,9 +671,7 @@ function createRubikGroup(size, variant, spacing) {
   for (let i = 0; i < size; i += 1) {
     for (let j = 0; j < size; j += 1) {
       for (let k = 0; k < size; k += 1) {
-        const isOuter = i === 0 || i === size - 1 || j === 0 || j === size - 1 || k === 0 || k === size - 1
-        if (variant === 'void' && !isOuter) continue
-        const cubie = createCubie(i, j, k, size, variant)
+        const cubie = createCubie(i, j, k, size)
         cubie.position.set((i - half) * spacing, (j - half) * spacing, (k - half) * spacing)
         const stickers = cubie.userData.stickers
         cubie.userData = {
@@ -699,7 +692,7 @@ function createRubikGroup(size, variant, spacing) {
   return { cubeGroup, cubies }
 }
 
-function createCubie(i, j, k, size, variant) {
+function createCubie(i, j, k, size) {
   const geometry = new THREE.BoxGeometry(0.98, 0.98, 0.98)
   const isOuterPosX = i === size - 1
   const isOuterNegX = i === 0
@@ -708,7 +701,7 @@ function createCubie(i, j, k, size, variant) {
   const isOuterPosZ = k === size - 1
   const isOuterNegZ = k === 0
 
-  const baseColors = getVariantFaceColors(variant)
+  const baseColors = getVariantFaceColors()
   let faceColors = [
     isOuterPosX ? baseColors[0] : COLORS.core,
     isOuterNegX ? baseColors[1] : COLORS.core,
@@ -717,17 +710,6 @@ function createCubie(i, j, k, size, variant) {
     isOuterPosZ ? baseColors[4] : COLORS.core,
     isOuterNegZ ? baseColors[5] : COLORS.core
   ]
-
-  if (variant === 'mirror') {
-    const t = (i + j + k) / (3 * Math.max(1, size - 1))
-    const shade = lerpColor(0x3a3a3a, 0xe2e2e2, t)
-    faceColors = Array(6).fill(shade)
-  }
-
-  if (variant === 'glass') {
-    const tint = 0x9fd3ff
-    faceColors = Array(6).fill(tint)
-  }
 
   const stickers = {
     px: isOuterPosX ? faceColors[0] : null,
@@ -738,52 +720,14 @@ function createCubie(i, j, k, size, variant) {
     nz: isOuterNegZ ? faceColors[5] : null
   }
 
-  const materials = faceColors.map((color) => {
-    if (variant === 'glass') {
-      return new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.1,
-        roughness: 0.08,
-        transparent: true,
-        opacity: 0.55,
-        transmission: 0.85,
-        clearcoat: 0.6,
-        clearcoatRoughness: 0.15
-      })
-    }
-
-    if (variant === 'neon') {
-      return new THREE.MeshStandardMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: 0.35,
-        roughness: 0.25,
-        metalness: 0.15
-      })
-    }
-
-    return new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.35,
-      metalness: 0.1
-    })
-  })
+  const materials = faceColors.map((color) => new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.35,
+    metalness: 0.1
+  }))
   const mesh = new THREE.Mesh(geometry, materials)
   mesh.userData = { stickers }
   return mesh
-}
-
-function lerpColor(a, b, t) {
-  const ar = (a >> 16) & 255
-  const ag = (a >> 8) & 255
-  const ab = a & 255
-  const br = (b >> 16) & 255
-  const bg = (b >> 8) & 255
-  const bb = b & 255
-  const rr = Math.round(ar + (br - ar) * t)
-  const rg = Math.round(ag + (bg - ag) * t)
-  const rb = Math.round(ab + (bb - ab) * t)
-  return (rr << 16) + (rg << 8) + rb
 }
 
 function formatTime(ms) {
