@@ -27,6 +27,8 @@ export default function App() {
   const [solved, setSolved] = useState(true)
 
   const scrambleRef = useRef(null)
+  const zoomInRef = useRef(null)
+  const zoomOutRef = useRef(null)
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
   const scrambledRef = useRef(scrambled)
@@ -101,6 +103,8 @@ export default function App() {
     const pointerNdc = new THREE.Vector2()
     const cameraDir = camera.position.clone().normalize()
     let zoomRadius = camera.position.length()
+    let hasUserZoomed = false
+    const zoomStep = 0.7
 
     let isPointerDown = false
     let mode = null
@@ -506,21 +510,45 @@ export default function App() {
     window.addEventListener('pointerup', onPointerUp)
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false })
 
+    function getDefaultScale(rect) {
+      const isMobile = rect.width < 720
+      return isMobile ? 0.78 : 0.9
+    }
+
+    function getDefaultZoom(rect) {
+      const isMobile = rect.width < 720
+      return isMobile ? 11.2 : 9.6
+    }
+
     function resize() {
       const rect = mount.getBoundingClientRect()
       camera.aspect = rect.width / rect.height
       camera.updateProjectionMatrix()
       camera.lookAt(0, 0, 0)
       renderer.setSize(rect.width, rect.height)
+
+      cubeGroup.scale.setScalar(getDefaultScale(rect))
+      if (!hasUserZoomed) {
+        zoomRadius = getDefaultZoom(rect)
+        camera.position.copy(cameraDir.clone().multiplyScalar(zoomRadius))
+        camera.lookAt(0, 0, 0)
+      }
     }
 
-    function onWheel(event) {
-      event.preventDefault()
-      const delta = event.deltaY * 0.003
+    function applyZoom(delta) {
+      hasUserZoomed = true
       zoomRadius = THREE.MathUtils.clamp(zoomRadius + delta, 5.5, 14)
       camera.position.copy(cameraDir.clone().multiplyScalar(zoomRadius))
       camera.lookAt(0, 0, 0)
     }
+
+    function onWheel(event) {
+      event.preventDefault()
+      applyZoom(event.deltaY * 0.003)
+    }
+
+    zoomInRef.current = () => applyZoom(-zoomStep)
+    zoomOutRef.current = () => applyZoom(zoomStep)
 
     resize()
     window.addEventListener('resize', resize)
@@ -574,6 +602,8 @@ export default function App() {
 
     return () => {
       scrambleRef.current = null
+      zoomInRef.current = null
+      zoomOutRef.current = null
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
       window.removeEventListener('pointermove', onPointerMove)
@@ -598,7 +628,13 @@ export default function App() {
       <div className="intro">
         <div className="intro-title">Rubik 3D Playground</div>
         <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
+            <span className="label">Zoom-Out</span>
+           <div className="zoom-row">
+            <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
+            <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
+        </div>  
         <div className="stats">
+        
           <div className="stat">
             <span className="label">Time</span>
             <span className="value">{formatTime(timeMs)}</span>
