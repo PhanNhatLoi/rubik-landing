@@ -299,11 +299,18 @@ p {
 
   .intro {
     width: calc(100% - 40px);
+    top: auto;
+    bottom: 20px;
+  }
+
+  .intro-text {
+    display: none;
   }
 
   .controls {
-    left: 20px;
-    right: 20px;
-    top: 20px;
+    left: auto;
+    right: 16px;
+    top: 16px;
+    padding: 10px 12px;
   }
 }
