@@ -1,4 +1,4 @@
-import type { Facelets, Move, ValidationError } from '../core/types'
+import type { Face, Facelets, Move, ValidationError } from '../core/types'
 import type { TurnEvent } from './stickerModel'
 
 export type SetFaceletsResult =
@@ -13,7 +13,15 @@ export interface CubeController {
   setFacelets(facelets: Facelets): SetFaceletsResult
   /** Animates one face turn (relative to the centers); rejects if the scene is torn down before it finishes. */
   playMove(move: Move): Promise<void>
-  /** Lights up the layer that `move` turns (null clears it); follows the layer as the cube changes. */
+  /**
+   * Repaints the cube with these center colors (0xRRGGBB per face), keeping its state.
+   * Returns false while a turn is animating.
+   */
+  setFaceColors(colors: Record<Face, number>): boolean
+  /**
+   * Lights up the layer that `move` turns and shows direction arrows around it (null clears both);
+   * follows the layer as the cube changes.
+   */
   highlight(move: Move | null): void
   /**
    * Fires after each turn made by dragging, with moves relative to the centers

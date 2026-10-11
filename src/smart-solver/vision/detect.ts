@@ -1,4 +1,4 @@
-import { fitLattice, project, type Point, type SquareCandidate } from './lattice'
+import { findGrid, project, type Point, type SquareCandidate } from './lattice'
 import type { OpenCv } from './opencv'
 
 export type Rgb = [number, number, number]
@@ -22,7 +22,10 @@ export interface FaceDetection {
 }
 
 export interface DetectResult {
+  /** The 3x3 face in view; null when none is found or the face belongs to another cube size. */
   face: FaceDetection | null
+  /** Stickers per side of the face in view (2..5), or null when no grid is visible. */
+  gridSize: number | null
   candidates: number
   sharpness: number
 }
@@ -195,7 +198,8 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
       const sharpness = sharpnessOf(g)
       const size = Math.min(w, h)
       const minSide = size * 0.06
-      const maxSide = size * 0.34
+      // Up to ~half the frame: 2x2 stickers are big.
+      const maxSide = size * 0.48
       const raw: SquareCandidate[] = []
 
       // Source 1: edges on gray. Works for stickerless cubes; misses dark stickers on black plastic.
@@ -217,8 +221,9 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
       collectCandidates(mk, cv.RETR_EXTERNAL, minSide, maxSide, raw)
 
       const candidates = dedupe(raw)
-      const fit = fitLattice(candidates)
-      if (!fit) return { face: null, candidates: candidates.length, sharpness }
+      const grid = findGrid(candidates)
+      const fit = grid.fit3
+      if (!fit) return { face: null, gridSize: grid.size, candidates: candidates.length, sharpness }
 
       const H = fit.homography
       const at = (col: number, row: number) => project(H, col, row)
@@ -242,6 +247,7 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
           error: fit.error,
           pitch: fit.pitch
         },
+        gridSize: 3,
         candidates: candidates.length,
         sharpness
       }

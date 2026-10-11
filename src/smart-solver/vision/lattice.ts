@@ -15,7 +15,9 @@ export type Homography = readonly number[]
 
 export interface LatticeFit {
   homography: Homography
-  /** Candidate index assigned to each of the 9 cells (row-major), or -1 when unseen. */
+  /** Grid size (n×n stickers). */
+  n: number
+  /** Candidate index assigned to each of the n² cells (row-major), or -1 when unseen. */
   assignment: number[]
   inliers: number
   /** RMS reprojection error of the inliers, in units of lattice pitch. */
@@ -24,13 +26,15 @@ export interface LatticeFit {
 }
 
 export interface LatticeOptions {
+  /** Stickers per side. */
+  n: number
   minInliers: number
   /** Max distance from the predicted cell center, as a fraction of the pitch. */
   tolerance: number
   maxError: number
 }
 
-const DEFAULTS: LatticeOptions = { minInliers: 5, tolerance: 0.3, maxError: 0.15 }
+const DEFAULTS: LatticeOptions = { n: 3, minInliers: 5, tolerance: 0.3, maxError: 0.15 }
 
 export function project(h: Homography, col: number, row: number): Point {
   const [a, b, c, d, e, f, g, k, m] = h as [number, number, number, number, number, number, number, number, number]
@@ -111,22 +115,22 @@ interface Hypothesis {
   residual: number
 }
 
-function bestAxisAlignedHypothesis(points: readonly Point[], pitch: number, tolerance: number): Hypothesis | null {
+function bestAxisAlignedHypothesis(points: readonly Point[], pitch: number, tolerance: number, n: number): Hypothesis | null {
   let best: Hypothesis | null = null
   points.forEach((anchor) => {
-    for (let ai = 0; ai < 9; ai += 1) {
-      const aCol = ai % 3
-      const aRow = Math.floor(ai / 3)
-      const assignment = new Array<number>(9).fill(-1)
-      const cellResidual = new Array<number>(9).fill(Infinity)
+    for (let ai = 0; ai < n * n; ai += 1) {
+      const aCol = ai % n
+      const aRow = Math.floor(ai / n)
+      const assignment = new Array<number>(n * n).fill(-1)
+      const cellResidual = new Array<number>(n * n).fill(Infinity)
       points.forEach((p, pi) => {
         const u = (p.x - anchor.x) / pitch
         const v = (p.y - anchor.y) / pitch
         const col = aCol + Math.round(u)
         const row = aRow + Math.round(v)
-        if (col < 0 || col > 2 || row < 0 || row > 2) return
+        if (col < 0 || col >= n || row < 0 || row >= n) return
         const r = Math.hypot(u - Math.round(u), v - Math.round(v))
-        const cell = row * 3 + col
+        const cell = row * n + col
         if (r < tolerance && r < (cellResidual[cell] as number)) {
           assignment[cell] = pi
           cellResidual[cell] = r
@@ -143,23 +147,23 @@ function bestAxisAlignedHypothesis(points: readonly Point[], pitch: number, tole
   return best
 }
 
-function spansGrid(assignment: readonly number[]): boolean {
+function spansGrid(assignment: readonly number[], n: number): boolean {
   const cols = new Set<number>()
   const rows = new Set<number>()
   assignment.forEach((a, cell) => {
     if (a < 0) return
-    cols.add(cell % 3)
-    rows.add(Math.floor(cell / 3))
+    cols.add(cell % n)
+    rows.add(Math.floor(cell / n))
   })
   return cols.size >= 2 && rows.size >= 2
 }
 
-function fitAssignment(points: readonly Point[], assignment: readonly number[], scale: number) {
+function fitAssignment(points: readonly Point[], assignment: readonly number[], scale: number, n: number) {
   const src: Point[] = []
   const dst: Point[] = []
   assignment.forEach((a, cell) => {
     if (a < 0) return
-    src.push({ x: cell % 3, y: Math.floor(cell / 3) })
+    src.push({ x: cell % n, y: Math.floor(cell / n) })
     dst.push(points[a] as Point)
   })
   const h = fitHomography(src, dst, scale)
@@ -173,7 +177,7 @@ function fitAssignment(points: readonly Point[], assignment: readonly number[], 
 }
 
 /**
- * Finds the 3x3 sticker lattice among candidates. Assumes a roughly frontal view:
+ * Finds an n×n sticker lattice (3x3 by default) among candidates. Assumes a roughly frontal view:
  * moderate rotation and perspective, uniform-ish pitch.
  */
 export function fitLattice(
@@ -181,6 +185,7 @@ export function fitLattice(
   options: Partial<LatticeOptions> = {}
 ): LatticeFit | null {
   const opts = { ...DEFAULTS, ...options }
+  const n = opts.n
   if (candidates.length < opts.minInliers) return null
 
   const theta = dominantAngle(candidates)
@@ -196,21 +201,21 @@ export function fitLattice(
   const pitch = median(nn)
   if (!Number.isFinite(pitch) || pitch <= 0) return null
 
-  const hyp = bestAxisAlignedHypothesis(rotated, pitch, opts.tolerance)
-  if (!hyp || !spansGrid(hyp.assignment)) return null
+  const hyp = bestAxisAlignedHypothesis(rotated, pitch, opts.tolerance, n)
+  if (!hyp || !spansGrid(hyp.assignment, n)) return null
   let assignment = hyp.assignment
   if (assignment.filter((a) => a >= 0).length < opts.minInliers) return null
 
-  const scale = pitch * 3
-  let fit = fitAssignment(centers, assignment, scale)
+  const scale = pitch * n
+  let fit = fitAssignment(centers, assignment, scale, n)
   if (!fit) return null
 
   // One refinement pass: re-associate every candidate through the fitted homography.
-  const refined = new Array<number>(9).fill(-1)
-  const refinedDist = new Array<number>(9).fill(Infinity)
+  const refined = new Array<number>(n * n).fill(-1)
+  const refinedDist = new Array<number>(n * n).fill(Infinity)
   centers.forEach((p, pi) => {
-    for (let cell = 0; cell < 9; cell += 1) {
-      const q = project((fit as { h: Homography }).h, cell % 3, Math.floor(cell / 3))
+    for (let cell = 0; cell < n * n; cell += 1) {
+      const q = project((fit as { h: Homography }).h, cell % n, Math.floor(cell / n))
       const d = Math.hypot(p.x - q.x, p.y - q.y) / pitch
       if (d < opts.tolerance && d < (refinedDist[cell] as number)) {
         refined[cell] = pi
@@ -218,8 +223,8 @@ export function fitLattice(
       }
     }
   })
-  if (refined.filter((a) => a >= 0).length >= assignment.filter((a) => a >= 0).length && spansGrid(refined)) {
-    const refit = fitAssignment(centers, refined, scale)
+  if (refined.filter((a) => a >= 0).length >= assignment.filter((a) => a >= 0).length && spansGrid(refined, n)) {
+    const refit = fitAssignment(centers, refined, scale, n)
     if (refit) {
       assignment = refined
       fit = refit
@@ -229,5 +234,50 @@ export function fitLattice(
   const error = fit.rms / pitch
   const inliers = assignment.filter((a) => a >= 0).length
   if (inliers < opts.minInliers || error > opts.maxError) return null
-  return { homography: fit.h, assignment, inliers, error, pitch }
+  return { homography: fit.h, n, assignment, inliers, error, pitch }
+}
+
+/**
+ * Candidates sitting on the lattice just outside it (one row/column beyond an edge):
+ * a sign that the face is bigger than the fitted grid (e.g. 3x3 found inside a 4x4 face).
+ */
+export function alignedOutside(fit: LatticeFit, candidates: readonly SquareCandidate[], tolerance = 0.3): number {
+  const { n } = fit
+  let count = 0
+  candidates.forEach((c) => {
+    for (let row = -1; row <= n; row += 1) {
+      for (let col = -1; col <= n; col += 1) {
+        if (row >= 0 && row < n && col >= 0 && col < n) continue
+        const q = project(fit.homography, col, row)
+        if (Math.hypot(c.center.x - q.x, c.center.y - q.y) / fit.pitch < tolerance) {
+          count += 1
+          return
+        }
+      }
+    }
+  })
+  return count
+}
+
+export interface GridMatch {
+  /** Stickers per side of the face in view (2..5), or null when no lattice was found. */
+  size: number | null
+  /** The 3x3 lattice, only when the face is a 3x3 one. */
+  fit3: LatticeFit | null
+}
+
+/**
+ * Tells which cube the face belongs to. Larger grids are tried first because a big face
+ * contains smaller sub-grids; a 3x3 or 2x2 fit with stickers lined up just outside it is
+ * part of a bigger face.
+ */
+export function findGrid(candidates: readonly SquareCandidate[]): GridMatch {
+  for (const n of [5, 4]) {
+    if (fitLattice(candidates, { n, minInliers: Math.ceil(0.7 * n * n) })) return { size: n, fit3: null }
+  }
+  const fit3 = fitLattice(candidates, { n: 3, minInliers: 5 })
+  if (fit3) return alignedOutside(fit3, candidates) >= 2 ? { size: 4, fit3: null } : { size: 3, fit3 }
+  const fit2 = fitLattice(candidates, { n: 2, minInliers: 3 })
+  if (fit2 && alignedOutside(fit2, candidates) < 2) return { size: 2, fit3: null }
+  return { size: null, fit3: null }
 }

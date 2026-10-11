@@ -24,8 +24,12 @@ async function loadImage(file: Blob): Promise<HTMLImageElement> {
   }
 }
 
-const better = (a: DetectResult, b: DetectResult | null) =>
-  !b || !b.face || (a.face !== null && (a.face.inliers > b.face.inliers || (a.face.inliers === b.face.inliers && a.face.error < b.face.error)))
+/** A 3x3 face beats everything; without one, a recognised grid of another size is still worth reporting. */
+const better = (a: DetectResult, b: DetectResult | null) => {
+  if (!b) return true
+  if (!b.face) return a.face !== null || (b.gridSize === null && a.gridSize !== null)
+  return a.face !== null && (a.face.inliers > b.face.inliers || (a.face.inliers === b.face.inliers && a.face.error < b.face.error))
+}
 
 /**
  * Finds a 3x3 face in a photo (camera app or gallery). Photos are sharper than video frames

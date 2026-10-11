@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitHomography, fitLattice, project, type Homography, type SquareCandidate } from './lattice'
+import { findGrid, fitHomography, fitLattice, project, type Homography, type SquareCandidate } from './lattice'
 
 function syntheticH(angleDeg: number, pitch: number, origin: { x: number; y: number }, persp = 0): Homography {
   const t = (angleDeg * Math.PI) / 180
@@ -74,5 +74,32 @@ describe('fitLattice', () => {
       { x: 13, y: 40 }, { x: 90, y: 17 }, { x: 150, y: 140 }, { x: 47, y: 230 }, { x: 260, y: 90 }, { x: 200, y: 260 }
     ].map((center) => ({ center, side: 40, angle: 0 }))
     expect(fitLattice(cands)).toBeNull()
+  })
+})
+
+describe('findGrid', () => {
+  const grid = (n: number, angle: number, skip: number[] = []) => {
+    const pitch = 240 / n
+    const h = syntheticH(angle, pitch, { x: 60, y: 60 })
+    return Array.from({ length: n * n }, (_, i) => i)
+      .filter((i) => !skip.includes(i))
+      .map((i) => ({ center: project(h, i % n, Math.floor(i / n)), side: pitch * 0.85, angle }))
+  }
+
+  it('recognises 2x2, 3x3, 4x4 and 5x5 faces', () => {
+    for (const n of [2, 3, 4, 5]) expect(findGrid(grid(n, 12)).size, `${n}x${n}`).toBe(n)
+    expect(findGrid(grid(3, 12)).fit3?.inliers).toBe(9)
+    expect(findGrid(grid(4, 12)).fit3).toBeNull()
+  })
+
+  it('does not take part of a partly hidden 4x4 face for a 3x3 one', () => {
+    // Five of sixteen stickers hidden: too few for a 4x4 fit, but a 3x3 block is complete.
+    const r = findGrid(grid(4, -8, [3, 7, 11, 12, 13]))
+    expect(r.size).not.toBe(3)
+    expect(r.fit3).toBeNull()
+  })
+
+  it('keeps a 3x3 face with two hidden stickers as 3x3', () => {
+    expect(findGrid(grid(3, 20, [2, 6])).size).toBe(3)
   })
 })

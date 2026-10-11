@@ -8,7 +8,7 @@ import { SolverClient } from '../solver/SolverClient'
 import { VisionClient } from '../vision/VisionClient'
 import CameraPanel from './CameraPanel'
 import GuideView, { type OptimalStatus } from './GuideView'
-import { STANDARD_COLOR, type ColorName } from './palette'
+import { buildScheme, duplicateColors, loadSchemeSettings, saveSchemeSettings, schemeHex, type Scheme, type SchemeSettings } from './palette'
 import ScanView, { type ScanMode } from './ScanView'
 
 const PHASE_SUMMARY: Record<GuidePhase, string> = {
@@ -48,11 +48,60 @@ export interface SmartSolverPanelProps {
   headerSlot: HTMLElement | null
   /** Must be stable across renders: effects subscribe through it. */
   getController: () => CubeController | null
+  /** Size picked in the playground; the solver only handles 3x3. */
+  cubeSize: number
+  /** Bumped whenever the 3D scene (and its controller) is rebuilt: size change or reset. */
+  sceneVersion: number
+  onRequestSize: (size: number) => void
 }
 
-export default function SmartSolverPanel({ open, headerSlot, getController }: SmartSolverPanelProps) {
+export default function SmartSolverPanel({
+  open,
+  headerSlot,
+  getController,
+  cubeSize,
+  sceneVersion,
+  onRequestSize
+}: SmartSolverPanelProps) {
   const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
-  const [colors, setColors] = useState<Record<Face, ColorName>>(STANDARD_COLOR)
+  const sizeOk = cubeSize === 3
+  const guideRef = useRef(guide)
+  guideRef.current = guide
+
+  // A rebuilt scene starts solved: put the cube we are tracking back on it.
+  useEffect(() => {
+    const { cube, phase } = guideRef.current
+    if (!sizeOk || !cube || phase === 'SCANNING' || phase === 'IDLE') return
+    let tries = 0
+    let timer = 0
+    const apply = () => {
+      const r = getController()?.setFacelets(toFacelets(cube))
+      if (r && !r.ok && r.reason === 'busy' && tries++ < 10) timer = window.setTimeout(apply, 300)
+    }
+    apply()
+    return () => window.clearTimeout(timer)
+  }, [sceneVersion, sizeOk, getController])
+  const [schemeSettings, setSchemeSettings] = useState<SchemeSettings>(loadSchemeSettings)
+  /** Colors shown in guidance and on the 3D cube: the chosen scheme, then what the scan learned. */
+  const [colors, setColors] = useState<Scheme>(() => buildScheme(schemeSettings))
+  useEffect(() => saveSchemeSettings(schemeSettings), [schemeSettings])
+  const changeScheme = (settings: SchemeSettings) => {
+    setSchemeSettings(settings)
+    // Two faces sharing a color can't be painted apart; keep the last usable colors until fixed.
+    if (settings.preset !== 'custom' || !duplicateColors(settings.custom).length) setColors(buildScheme(settings))
+  }
+
+  // Paint the 3D cube in the user's colors; retry briefly if a turn is animating.
+  useEffect(() => {
+    let tries = 0
+    let timer = 0
+    const apply = () => {
+      const ok = getController()?.setFaceColors(schemeHex(colors)) ?? true
+      if (!ok && tries++ < 10) timer = window.setTimeout(apply, 300)
+    }
+    apply()
+    return () => window.clearTimeout(timer)
+  }, [colors, getController, sceneVersion])
   const [notice, setNotice] = useState<string | null>(null)
   const frameHandlerRef = useRef<((r: ScheduledResult) => void) | null>(null)
   const grabStillRef = useRef<(() => HTMLCanvasElement | null) | null>(null)
@@ -121,7 +170,7 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
   const expected = expectedMove(guide)
   useEffect(() => {
     getController()?.highlight(expected)
-  }, [expected, getController])
+  }, [expected, getController, sceneVersion])
   useEffect(() => () => getController()?.highlight(null), [getController])
 
   // Turns dragged on the 3D cube count as turns on the real cube.
@@ -129,11 +178,11 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
     const controller = getController()
     if (!controller) return
     return controller.onUserMove((event) => dispatch({ type: 'MOVES_DONE', moves: event.moves }))
-  }, [getController])
+  }, [getController, sceneVersion])
 
   const onResult = useCallback((r: ScheduledResult) => frameHandlerRef.current?.(r), [])
 
-  const onScanned = (facelets: Facelets, scannedColors: Record<Face, ColorName>) => {
+  const onScanned = (facelets: Facelets, scannedColors: Scheme) => {
     const parsed = fromFacelets(facelets)
     const controller = getController()
     if (!parsed.ok) return
@@ -176,7 +225,7 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
       )}
     </>
   ) : (
-    <span className="panel-summary-text">{PHASE_SUMMARY[guide.phase]}</span>
+    <span className="panel-summary-text">{sizeOk ? PHASE_SUMMARY[guide.phase] : 'Chỉ hỗ trợ khối 3x3'}</span>
   )
 
   return (
@@ -184,7 +233,7 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
       title="Smart Solver"
       headerSlot={headerSlot}
       vision={vision}
-      cameraEnabled={open && !collapsed && scanning && (scanMode === 'webcam' || canShutter)}
+      cameraEnabled={open && !collapsed && sizeOk && scanning && (scanMode === 'webcam' || canShutter)}
       hidden={!open}
       collapsed={collapsed}
       onToggleCollapsed={() => setCollapsed((v) => !v)}
@@ -193,91 +242,107 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
       grabRef={grabStillRef}
       onResult={onResult}
     >
-      {notice && <div className="scan-error">{notice}</div>}
+      {!sizeOk && (
+        <div className="scan">
+          <div className="scan-error">
+            Smart Solver chỉ hỗ trợ khối 3x3. Bạn đang chọn khối {cubeSize}x{cubeSize}.
+          </div>
+          <div className="scan-step-text">Dữ liệu quét và tiến trình giải vẫn được giữ; chuyển về 3x3 để tiếp tục.</div>
+          <button className="scramble" onClick={() => onRequestSize(3)}>
+            Chuyển sang 3x3
+          </button>
+        </div>
+      )}
 
-      {/* Kept mounted while reviewing so "Sửa lại" returns to the same faces and edits. */}
-      {(scanning || guide.phase === 'REVIEWING') && (
-        <div hidden={!scanning}>
-          <ScanView
-            key={guide.scanId}
-            mode={scanMode}
-            onModeChange={setScanMode}
-            vision={vision}
-            frameHandlerRef={frameHandlerRef}
-            grabStillRef={grabStillRef}
-            canShutter={canShutter}
-            onOverlay={setOverlay}
-            confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Áp lên khối 3D'}
-            onConfirm={onScanned}
+      <div className="scan" hidden={!sizeOk}>
+        {notice && <div className="scan-error">{notice}</div>}
+
+        {/* Kept mounted while reviewing so "Sửa lại" returns to the same faces and edits. */}
+        {(scanning || guide.phase === 'REVIEWING') && (
+          <div hidden={!scanning}>
+            <ScanView
+              key={guide.scanId}
+              mode={scanMode}
+              onModeChange={setScanMode}
+              vision={vision}
+              frameHandlerRef={frameHandlerRef}
+              grabStillRef={grabStillRef}
+              canShutter={canShutter}
+              onOverlay={setOverlay}
+              confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Áp lên khối 3D'}
+              onConfirm={onScanned}
+              schemeSettings={schemeSettings}
+              onSchemeSettings={changeScheme}
+            />
+          </div>
+        )}
+
+        {guide.phase === 'REVIEWING' && (
+          <div className="scan">
+            <div className="scan-step-title">Kiểm tra trên khối 3D</div>
+            <div className="scan-step-text">
+              Khối 3D đang hiển thị trạng thái vừa quét. Kéo vào vùng nền để xoay khối 3D và so sánh từng mặt với khối thật.
+            </div>
+            <div className="scan-actions">
+              <button className="reset" onClick={() => dispatch({ type: 'BACK_TO_SCAN' })}>
+                Sửa lại
+              </button>
+              <button className="scramble" onClick={confirmReview}>
+                Đúng rồi — Giải
+              </button>
+            </div>
+          </div>
+        )}
+
+        {guide.phase === 'SOLVING' && <div className="scan-status">Đang tính lời giải...</div>}
+
+        {(guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
+          <GuideView
+            guide={guide}
+            colors={colors}
+            optimalStatus={optimalStatus}
+            onDone={() => expected && report(expected)}
+            onWrong={report}
+            onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
           />
-        </div>
-      )}
+        )}
 
-      {guide.phase === 'REVIEWING' && (
-        <div className="scan">
-          <div className="scan-step-title">Kiểm tra trên khối 3D</div>
-          <div className="scan-step-text">
-            Khối 3D đang hiển thị trạng thái vừa quét. Kéo vào vùng nền để xoay khối 3D và so sánh từng mặt với khối thật.
+        {guide.phase === 'VERIFYING' && (
+          <div className="scan">
+            <div className="scan-step-title">Theo tính toán, khối đã được giải</div>
+            <div className="scan-step-text">Quét lại 6 mặt để xác nhận khối thật đúng như vậy.</div>
+            <div className="scan-actions">
+              <button className="reset" onClick={() => dispatch({ type: 'SKIP_VERIFY' })}>
+                Bỏ qua
+              </button>
+              <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'verify' })}>
+                Quét xác nhận
+              </button>
+            </div>
           </div>
-          <div className="scan-actions">
-            <button className="reset" onClick={() => dispatch({ type: 'BACK_TO_SCAN' })}>
-              Sửa lại
-            </button>
-            <button className="scramble" onClick={confirmReview}>
-              Đúng rồi — Giải
-            </button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {guide.phase === 'SOLVING' && <div className="scan-status">Đang tính lời giải...</div>}
-
-      {(guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
-        <GuideView
-          guide={guide}
-          colors={colors}
-          optimalStatus={optimalStatus}
-          onDone={() => expected && report(expected)}
-          onWrong={report}
-          onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
-        />
-      )}
-
-      {guide.phase === 'VERIFYING' && (
-        <div className="scan">
-          <div className="scan-step-title">Theo tính toán, khối đã được giải</div>
-          <div className="scan-step-text">Quét lại 6 mặt để xác nhận khối thật đúng như vậy.</div>
-          <div className="scan-actions">
-            <button className="reset" onClick={() => dispatch({ type: 'SKIP_VERIFY' })}>
-              Bỏ qua
-            </button>
-            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'verify' })}>
-              Quét xác nhận
+        {guide.phase === 'COMPLETED' && (
+          <div className="scan">
+            <div className="scan-step-title">Hoàn thành!</div>
+            <div className="scan-step-text">
+              {guide.history.length ? `Khối đã được giải sau ${guide.history.length} bước.` : 'Khối đã ở trạng thái đã giải.'}
+            </div>
+            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+              Quét khối mới
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {guide.phase === 'COMPLETED' && (
-        <div className="scan">
-          <div className="scan-step-title">Hoàn thành!</div>
-          <div className="scan-step-text">
-            {guide.history.length ? `Khối đã được giải sau ${guide.history.length} bước.` : 'Khối đã ở trạng thái đã giải.'}
+        {guide.phase === 'ERROR' && (
+          <div className="scan">
+            <div className="scan-error">Không tìm được lời giải: {guide.error}</div>
+            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+              Quét lại
+            </button>
           </div>
-          <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
-            Quét khối mới
-          </button>
-        </div>
-      )}
-
-      {guide.phase === 'ERROR' && (
-        <div className="scan">
-          <div className="scan-error">Không tìm được lời giải: {guide.error}</div>
-          <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
-            Quét lại
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </CameraPanel>
   )
 }

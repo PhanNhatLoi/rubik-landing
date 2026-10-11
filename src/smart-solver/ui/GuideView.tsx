@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { parseMove } from '../core/cubie'
 import { FACES, type Face, type Move } from '../core/types'
 import { OPTIMAL_SEARCH_MAX_REMAINING, type GuideState } from '../guidance/fsm'
-import { PALETTE, type ColorName } from './palette'
+import type { Scheme } from './palette'
 import { POSITION_NAME } from './ScanView'
 
 const DIRECTION: Record<1 | 2 | 3, string> = {
@@ -11,16 +11,16 @@ const DIRECTION: Record<1 | 2 | 3, string> = {
   3: 'xoay ngược chiều kim đồng hồ'
 }
 
-export function describeMove(move: Move, colors: Record<Face, ColorName>): string {
+export function describeMove(move: Move, colors: Scheme): string {
   const { face, turns } = parseMove(move)
-  return `Mặt ${POSITION_NAME[face]} (${PALETTE[colors[face]].label}): ${DIRECTION[turns]}, khi nhìn thẳng vào mặt đó.`
+  return `Mặt ${POSITION_NAME[face]} (${colors[face].label}): ${DIRECTION[turns]}, khi nhìn thẳng vào mặt đó.`
 }
 
 export type OptimalStatus = 'proven' | 'searching' | 'unproven'
 
 export interface GuideViewProps {
   guide: GuideState
-  colors: Record<Face, ColorName>
+  colors: Scheme
   optimalStatus: OptimalStatus
   onDone: () => void
   onWrong: (move: Move) => void
@@ -37,11 +37,11 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
   return (
     <div className="guide">
       <div className="scan-step-text">
-        Cầm khối: mặt {PALETTE[colors.F].label} hướng về bạn, mặt {PALETTE[colors.U].label} ở trên.
+        Cầm khối: mặt {colors.F.label} hướng về bạn, mặt {colors.U.label} ở trên.
       </div>
 
       <div className="guide-move">
-        <span className="guide-swatch" style={{ background: PALETTE[colors[face]].css }} />
+        <span className="guide-swatch" style={{ background: colors[face].css }} />
         <span className="guide-notation">{move}</span>
         <span className="guide-count">
           Bước {guide.index + 1}/{total}
@@ -74,7 +74,7 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
                       onWrong(m)
                     }}
                   >
-                    <span className="guide-swatch small" style={{ background: PALETTE[colors[f]].css }} />
+                    <span className="guide-swatch small" style={{ background: colors[f].css }} />
                     {m}
                   </button>
                 )

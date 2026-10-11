@@ -22,14 +22,15 @@ const COLORS = {
   core: 0x0f1116
 }
 
-function getVariantFaceColors() {
-  return [COLORS.red, COLORS.orange, COLORS.white, COLORS.yellow, COLORS.green, COLORS.blue]
+/** Sticker colors in createCubie order: +x, -x, +y, -y, +z, -z. */
+function getVariantFaceColors(faceColor) {
+  return [faceColor.R, faceColor.L, faceColor.U, faceColor.D, faceColor.F, faceColor.B]
 }
 
 const STICKER_KEYS = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
-const FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
-const COLOR_FACE = new Map(Object.entries(FACE_COLOR).map(([face, color]) => [color, face]))
+const DEFAULT_FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
 const HIGHLIGHT_EMISSIVE = 0x2a3f66
+const ARROW_COLOR = 0x5ee7ff
 
 export default function App() {
   const mountRef = useRef(null)
@@ -40,6 +41,8 @@ export default function App() {
   // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
   const [cameraMounted, setCameraMounted] = useState(false)
   const [solverHeadSlot, setSolverHeadSlot] = useState(null)
+  // Tells the smart solver a new scene/controller exists (child effects run before this one's).
+  const [sceneVersion, setSceneVersion] = useState(0)
   const [introCollapsed, setIntroCollapsed] = useState(() => window.matchMedia?.('(max-width: 720px)').matches ?? false)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
@@ -51,6 +54,8 @@ export default function App() {
   const zoomInRef = useRef(null)
   const zoomOutRef = useRef(null)
   const cubeControllerRef = useRef(null)
+  // Center colors survive size changes and resets (the smart solver may set the user's scheme).
+  const faceColorRef = useRef({ ...DEFAULT_FACE_COLOR })
   const getCubeController = useCallback(() => cubeControllerRef.current, [])
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
@@ -119,7 +124,9 @@ export default function App() {
     scene.add(stars)
 
     const spacing = 1.06
-    const { cubeGroup, cubies } = createRubikGroup(size, spacing)
+    const faceColor = faceColorRef.current
+    let colorFace = new Map(Object.entries(faceColor).map(([face, color]) => [color, face]))
+    const { cubeGroup, cubies } = createRubikGroup(size, spacing, faceColor)
     scene.add(cubeGroup)
 
     const raycaster = new THREE.Raycaster()
@@ -197,11 +204,58 @@ export default function App() {
       return best
     }
 
-    const expectedFaceColors = getVariantFaceColors()
-    const colorToFace = (color) => COLOR_FACE.get(color) ?? null
+    const colorToFace = (color) => colorFace.get(color) ?? null
 
     function readSceneOrientation() {
       return readOrientation(cubies.map((c) => c.userData), colorToFace)
+    }
+
+    // Curved arrow around the layer to turn: an arc in the layer's plane plus a cone head.
+    const arrowGroup = new THREE.Group()
+    const arrowMaterial = new THREE.MeshBasicMaterial({ color: ARROW_COLOR, transparent: true, opacity: 0.85 })
+    const arrowAxis = new THREE.Vector3()
+    let arrowOffset = 0
+    arrowGroup.visible = false
+    cubeGroup.add(arrowGroup)
+
+    function buildArrow(turn) {
+      arrowGroup.children.forEach((child) => child.geometry.dispose())
+      arrowGroup.clear()
+      if (!turn) return
+      // Built around +Z, centred on +X; positive steps turn +X towards +Y (right-hand rule).
+      const span = Math.abs(turn.steps) === 2 ? Math.PI : Math.PI / 2
+      const sign = turn.steps > 0 ? 1 : -1
+      const radius = 1.5 * spacing * Math.SQRT2 + 0.35
+      const points = []
+      for (let i = 0; i <= 32; i += 1) {
+        const a = -span / 2 + (span * i) / 32
+        points.push(new THREE.Vector3(radius * Math.cos(a), radius * Math.sin(a), 0))
+      }
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.07, 8, false), arrowMaterial)
+      const end = (sign * span) / 2
+      const tangent = new THREE.Vector3(-Math.sin(end) * sign, Math.cos(end) * sign, 0)
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 20), arrowMaterial)
+      head.position.set(radius * Math.cos(end), radius * Math.sin(end), 0).addScaledVector(tangent, 0.18)
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent)
+      arrowGroup.add(tube, head)
+      arrowAxis.set(turn.axis === 'x' ? 1 : 0, turn.axis === 'y' ? 1 : 0, turn.axis === 'z' ? 1 : 0)
+      arrowOffset = getCoordFromIndex(turn.layer, spacing, size)
+    }
+
+    const arrowBasis = new THREE.Matrix4()
+    const arrowX = new THREE.Vector3()
+    const arrowY = new THREE.Vector3()
+    /** Keeps the arc on the side of the layer facing the camera. */
+    function orientArrow(time) {
+      const toCamera = cubeGroup.worldToLocal(camera.position.clone())
+      arrowX.copy(toCamera).addScaledVector(arrowAxis, -toCamera.dot(arrowAxis))
+      if (arrowX.lengthSq() < 1e-6) arrowX.set(arrowAxis.y, arrowAxis.z, arrowAxis.x)
+      arrowX.normalize()
+      arrowY.crossVectors(arrowAxis, arrowX)
+      arrowBasis.makeBasis(arrowX, arrowY, arrowAxis)
+      arrowGroup.quaternion.setFromRotationMatrix(arrowBasis)
+      arrowGroup.position.copy(arrowAxis).multiplyScalar(arrowOffset)
+      arrowMaterial.opacity = 0.6 + 0.3 * Math.sin(time * 0.006)
     }
 
     function applyHighlight() {
@@ -210,9 +264,11 @@ export default function App() {
         const lit = turn && cubie.userData.grid[turn.axis] === turn.layer
         cubie.material.forEach((m) => m.emissive.setHex(lit ? HIGHLIGHT_EMISSIVE : 0x000000))
       })
+      buildArrow(turn)
     }
 
     function isCubeSolved() {
+      const expectedFaceColors = getVariantFaceColors(faceColor)
       for (const cubie of cubies) {
         const { x, y, z } = cubie.userData.grid
         const stickers = cubie.userData.stickers
@@ -523,6 +579,9 @@ export default function App() {
         isAuto = false
       }
 
+      arrowGroup.visible = highlightedMove !== null && !tween && !pivot && arrowGroup.children.length > 0
+      if (arrowGroup.visible) orientArrow(time)
+
       renderer.render(scene, camera)
       requestAnimationFrame(animate)
     }
@@ -557,7 +616,7 @@ export default function App() {
           const stickers = {}
           STICKER_KEYS.forEach((key, i) => {
             const face = faces?.[key]
-            stickers[key] = face ? FACE_COLOR[face] : null
+            stickers[key] = face ? faceColor[face] : null
             cubie.material[i].color.setHex(stickers[key] ?? COLORS.core)
           })
           cubie.userData.stickers = stickers
@@ -577,6 +636,15 @@ export default function App() {
           })
         })
       },
+      setFaceColors(colors) {
+        if (tween || pivot || moveQueue.length > 0) return false
+        // Read the state with the old colors, then repaint it with the new ones.
+        const facelets = controller.getFacelets()
+        Object.assign(faceColor, colors)
+        colorFace = new Map(Object.entries(faceColor).map(([face, color]) => [color, face]))
+        controller.setFacelets(facelets)
+        return true
+      },
       highlight(move) {
         highlightedMove = move
         applyHighlight()
@@ -587,6 +655,7 @@ export default function App() {
       }
     }
     cubeControllerRef.current = controller
+    setSceneVersion((v) => v + 1)
     if (import.meta.env.DEV) window.__cube = controller
 
     return () => {
@@ -691,7 +760,14 @@ export default function App() {
           {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
         </div>
         {cameraMounted && (
-          <SmartSolverPanel open={showCamera} headerSlot={solverHeadSlot} getController={getCubeController} />
+          <SmartSolverPanel
+            open={showCamera}
+            headerSlot={solverHeadSlot}
+            getController={getCubeController}
+            cubeSize={size}
+            sceneVersion={sceneVersion}
+            onRequestSize={setSize}
+          />
         )}
       </div>
       {showSizeModal && (
@@ -699,7 +775,7 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Chọn kích thước</div>
             <div className="modal-grid">
-              {[3, 4, 5, 6, 7].map((n) => (
+              {[2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   className={`modal-option${size === n ? ' active' : ''}`}
@@ -729,7 +805,7 @@ function getCoordFromIndex(index, spacing, size) {
   return (index - half) * spacing
 }
 
-function createRubikGroup(size, spacing) {
+function createRubikGroup(size, spacing, faceColor) {
   const cubeGroup = new THREE.Group()
   const cubies = []
   const half = (size - 1) / 2
@@ -737,7 +813,7 @@ function createRubikGroup(size, spacing) {
   for (let i = 0; i < size; i += 1) {
     for (let j = 0; j < size; j += 1) {
       for (let k = 0; k < size; k += 1) {
-        const cubie = createCubie(i, j, k, size)
+        const cubie = createCubie(i, j, k, size, faceColor)
         cubie.position.set((i - half) * spacing, (j - half) * spacing, (k - half) * spacing)
         const stickers = cubie.userData.stickers
         cubie.userData = {
@@ -758,7 +834,7 @@ function createRubikGroup(size, spacing) {
   return { cubeGroup, cubies }
 }
 
-function createCubie(i, j, k, size) {
+function createCubie(i, j, k, size, faceColor) {
   const geometry = new THREE.BoxGeometry(0.98, 0.98, 0.98)
   const isOuterPosX = i === size - 1
   const isOuterNegX = i === 0
@@ -767,7 +843,7 @@ function createCubie(i, j, k, size) {
   const isOuterPosZ = k === size - 1
   const isOuterNegZ = k === 0
 
-  const baseColors = getVariantFaceColors()
+  const baseColors = getVariantFaceColors(faceColor)
   let faceColors = [
     isOuterPosX ? baseColors[0] : COLORS.core,
     isOuterNegX ? baseColors[1] : COLORS.core,

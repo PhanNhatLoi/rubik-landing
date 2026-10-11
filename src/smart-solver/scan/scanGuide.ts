@@ -1,9 +1,9 @@
 import type { Face } from '../core/types'
 
 /**
- * Geometry of the guided scan. Faces are named in the standard scheme
- * (U white, D yellow, F green, B blue, R red, L orange); the user holds the cube
- * green to the camera with yellow on top, so red is on the left and orange on the right.
+ * Geometry of the guided scan. Faces keep their standard names (in the standard scheme
+ * U white, D yellow, F green, B blue, R red, L orange); the user holds the cube F to the
+ * camera with D on top, so R is on the left and L on the right.
  */
 
 /** How the cube is held: which face points at the camera and which points up. */
@@ -86,27 +86,32 @@ export interface ScanStep {
   face: Face
   /** Hold the net shows (and the user keeps) while this face is scanned. */
   hold: Hold
-  instruction: string
+  /** What to do, given the color name of each face in the user's scheme. */
+  instruction: (name: (f: Face) => string) => string
 }
 
-// Yellow up for the whole scan.
-const SIDE = { top: 'D' } as const
+// Front face first, the scheme's D face up for the whole scan.
+const TOP: Face = 'D'
 
 /** Around the side ring turning the cube right (left face comes forward), then top and bottom. */
 export const SCAN_STEPS: readonly ScanStep[] = [
-  { face: 'F', hold: { front: 'F', top: SIDE.top }, instruction: 'Hướng mặt xanh lá vào camera, mặt vàng ở trên.' },
-  { face: 'R', hold: { front: 'R', top: SIDE.top }, instruction: 'Xoay cả khối sang phải 90°: mặt đỏ (bên trái) ra trước, vàng vẫn ở trên.' },
-  { face: 'B', hold: { front: 'B', top: SIDE.top }, instruction: 'Tiếp tục xoay sang phải: mặt xanh dương ra trước.' },
-  { face: 'L', hold: { front: 'L', top: SIDE.top }, instruction: 'Tiếp tục xoay sang phải: mặt cam ra trước.' },
+  { face: 'F', hold: { front: 'F', top: TOP }, instruction: (n) => `Hướng mặt ${n('F')} vào camera, mặt ${n('D')} ở trên.` },
+  {
+    face: 'R',
+    hold: { front: 'R', top: TOP },
+    instruction: (n) => `Xoay cả khối sang phải 90°: mặt ${n('R')} (bên trái) ra trước, ${n('D')} vẫn ở trên.`
+  },
+  { face: 'B', hold: { front: 'B', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('B')} ra trước.` },
+  { face: 'L', hold: { front: 'L', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('L')} ra trước.` },
   {
     face: 'D',
-    hold: { front: 'L', top: SIDE.top },
-    instruction: 'Lật mặt trên về phía camera: mặt vàng đối diện, cam ở dưới, xanh lá bên trái.'
+    hold: { front: 'L', top: TOP },
+    instruction: (n) => `Lật mặt trên về phía camera: mặt ${n('D')} đối diện, ${n('L')} ở dưới, ${n('F')} bên trái.`
   },
   {
     face: 'U',
-    hold: { front: 'L', top: SIDE.top },
-    instruction: 'Lật khối 180° (giữ xanh lá bên trái): mặt trắng đối diện, cam ở trên.'
+    hold: { front: 'L', top: TOP },
+    instruction: (n) => `Lật khối 180° (giữ ${n('F')} bên trái): mặt ${n('U')} đối diện, ${n('L')} ở trên.`
   }
 ]
 

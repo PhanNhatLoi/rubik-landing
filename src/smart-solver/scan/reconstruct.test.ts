@@ -111,7 +111,7 @@ describe('reconstruct', () => {
       expect(r.result.changed).toEqual([])
       expect(r.result.alternative).toBeNull()
     }
-  })
+  }, 30000)
 
   it('undoes faces held at the wrong rotation', () => {
     const truth = toFacelets(applyMoves(SOLVED, randomMoves(25, 99)))

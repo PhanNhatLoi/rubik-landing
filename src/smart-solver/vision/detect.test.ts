@@ -39,6 +39,8 @@ interface Scene {
   half?: number
   /** Sticker corner radius in lattice units. */
   radius?: number
+  /** Stickers per side (3 unless testing other cube sizes). */
+  n?: number
 }
 
 function insideRoundedSquare(dx: number, dy: number, half: number, radius: number): boolean {
@@ -51,7 +53,7 @@ function insideRoundedSquare(dx: number, dy: number, half: number, radius: numbe
 }
 
 function render(
-  { h, colors, occluded = [], glare = [], background, light = () => 1, half = 0.42, radius = 0 }: Scene,
+  { h, colors, occluded = [], glare = [], background, light = () => 1, half = 0.42, radius = 0, n = 3 }: Scene,
   seed = 1
 ): Uint8ClampedArray {
   const inv = invert(h)
@@ -65,13 +67,13 @@ function render(
     for (let x = 0; x < SIZE; x += 1) {
       const p = project(inv, x, y)
       let rgb: Rgb = background ?? [110 + y * 0.2, 105 + x * 0.1, 100]
-      if (p.x > -0.55 && p.x < 2.55 && p.y > -0.55 && p.y < 2.55) {
+      if (p.x > -0.55 && p.x < n - 0.45 && p.y > -0.55 && p.y < n - 0.45) {
         rgb = [22, 22, 24]
         const col = Math.round(p.x)
         const row = Math.round(p.y)
-        if (col >= 0 && col <= 2 && row >= 0 && row <= 2 && insideRoundedSquare(p.x - col, p.y - row, half, radius)) {
-          const cell = row * 3 + col
-          rgb = occluded.includes(cell) ? [215, 160, 130] : (colors[cell] as Rgb)
+        if (col >= 0 && col < n && row >= 0 && row < n && insideRoundedSquare(p.x - col, p.y - row, half, radius)) {
+          const cell = row * n + col
+          rgb = occluded.includes(cell) ? [215, 160, 130] : (colors[cell % colors.length] as Rgb)
           // Elliptical highlight in the upper-left part of the sticker.
           if (glare.includes(cell) && ((p.x - col + 0.12) / 0.22) ** 2 + ((p.y - row + 0.15) / 0.12) ** 2 < 1) {
             rgb = [255, 255, 255]
@@ -89,13 +91,14 @@ function render(
   return out
 }
 
-function lattice(angleDeg: number, pitch: number, persp = 0): Homography {
+function lattice(angleDeg: number, pitch: number, persp = 0, n = 3): Homography {
   const t = (angleDeg * Math.PI) / 180
   const c = Math.cos(t) * pitch
   const s = Math.sin(t) * pitch
-  // Center the lattice (cell 1,1) in the frame.
-  const cx = SIZE / 2 - (c * 1 - s * 1)
-  const cy = SIZE / 2 - (s * 1 + c * 1)
+  // Center the lattice in the frame.
+  const m = (n - 1) / 2
+  const cx = SIZE / 2 - (c * m - s * m)
+  const cy = SIZE / 2 - (s * m + c * m)
   return [c, -s, cx, s, c, cy, persp, persp * 0.5, 1]
 }
 
@@ -163,6 +166,17 @@ describe('createFaceDetector', () => {
       expect(r.face?.inliers, name).toBe(9)
     })
   }
+
+  it('tells other cube sizes apart and returns no 3x3 face for them', () => {
+    for (const n of [2, 4, 5]) {
+      const scene: Scene = { h: lattice(10, 220 / n, 0, n), colors: colorsA, n }
+      const r = detector.detect(render(scene, n), SIZE, SIZE)
+      expect(r.gridSize, `${n}x${n}`).toBe(n)
+      expect(r.face).toBeNull()
+    }
+    const r3 = detector.detect(render({ h: lattice(10, 72), colors: colorsA }), SIZE, SIZE)
+    expect(r3.gridSize).toBe(3)
+  })
 
   it('finds nothing on an empty background', () => {
     const scene = { h: lattice(0, 1e-3), colors: colorsA }

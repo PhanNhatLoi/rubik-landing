@@ -187,6 +187,23 @@ Lời giải là **gần tối ưu**, không chứng minh tối ưu (tối ưu t
 - [x] **Chụp ảnh trên desktop** (`pointer: fine`): bật webcam kèm nút "Chụp mặt …" (chụp tay), vẫn giữ "Chọn ảnh từ máy". Điện thoại: mở app camera gốc như trước.
 - E2E (Chrome): webcam — đếm 3‑2‑1 cho cả 6 mặt, đưa nhầm mặt xanh dương lúc chờ đỏ → "Đây là mặt xanh dương — hãy đưa mặt đỏ vào", không chụp → khối 3D khớp đáp án. Chụp ảnh — chặn nhầm mặt, chọn lại mặt khi đang quét dở và ghi đè, "Quét lại mặt này" xoá 8 ô rồi quét lại → khớp đáp án.
 
+### Phase 2E — Bộ màu khối & mũi tên hướng dẫn
+
+- [x] **Bộ màu** (`ui/palette.ts`): mỗi mặt có màu hiển thị, tên tiếng Việt và màu tham chiếu khi nhìn qua camera.
+  - **A — có sẵn**: Chuẩn quốc tế, Nhật Bản (trắng đối diện xanh dương, xanh lá đối diện vàng; chiều đỏ/cam theo bộ chuẩn — cần kiểm tra lại với khối Nhật thật).
+  - **B — tuỳ chỉnh** (`ui/SchemePicker.tsx`): bấm ô tâm trên sơ đồ (cùng bố cục với lưới quét) để chọn từ 10 màu hoặc màu tự do; cảnh báo hai mặt trùng màu (khi đó không áp lên khối 3D). Lưu trong `localStorage`.
+  - **C — tự học**: tâm đo được khác hẳn màu của bộ (ΔE > 25, ví dụ mặt tím thay cho cam) thì dùng màu đo được (làm sạch độ bão hoà/sáng) cho lưới, hướng dẫn và khối 3D. Khác biệt sắc độ thông thường được bỏ qua để khối chuẩn vẫn dùng màu sạch.
+  - Bộ màu đi qua: câu hướng dẫn quét, chặn nhầm mặt (chỉ chặn khi tâm thật sự giống mặt khác — màu lạ được nhận để học), lưới, hướng dẫn giải, màu khối 3D (`CubeController.setFaceColors`, giữ qua đổi size/Reset).
+- [x] **Mũi tên 3D khi hướng dẫn**: cung tròn + đầu mũi tên quanh tầng cần xoay (90° hoặc 180°), đúng chiều, luôn quay về phía camera, nhấp nháy nhẹ, ẩn trong lúc tầng đang xoay; đi kèm tô sáng tầng.
+- E2E (Chrome): khối có mặt tím (bộ Chuẩn) → quét được, "Đã cập nhật màu tâm…: tím", khối 3D khớp đáp án, mũi tên hiển thị khi giải; bộ Nhật đổi lưới + câu hướng dẫn; tuỳ chỉnh đổi màu, cảnh báo trùng, giữ sau khi tải lại.
+
+### Phase 2F — Kiểm tra kích thước khối (Playground có 2x2 – 5x5)
+
+- [x] **Kích thước đang chọn**: Smart Solver chỉ chạy với 3x3. Chọn 2x2/4x4/5x5 → panel báo lỗi, tắt camera, nút "Chuyển sang 3x3"; dữ liệu quét và tiến trình giải được giữ.
+- [x] **Đồng bộ khi dựng lại scene**: đổi size hoặc Reset tạo scene/controller mới; App tăng `sceneVersion` sau khi controller sẵn sàng → panel đặt lại trạng thái khối đang theo dõi, màu, tô sáng/mũi tên và đăng ký lại lượt kéo xoay.
+- [x] **Khối thật trước camera** (`lattice.findGrid`): bộ khớp lưới tổng quát n×n, thử 5→4→3→2; 3x3/2x2 có ô thẳng hàng ngay ngoài lưới → thuộc mặt lớn hơn (tránh nhận 3x3 bên trong một mặt 4x4 bị che). `DetectResult.gridSize`; ảnh chụp báo "Ảnh này là khối 4x4…", webcam báo khi thấy 3 frame liên tiếp và không đếm ngược.
+- E2E (Chrome): ảnh 2x2/4x4/5x5 bị báo đúng kích thước; webcam 4x4 báo lỗi liên tục, không chụp; app 4x4 → lỗi → chuyển 3x3; đang giải bước 2/6 → đổi 2x2 → về 3x3 → khối 3D khôi phục đúng, tiếp tục bước 3.
+
 ### Phase 3B — Đường đi ngắn nhất trên đồ thị trạng thái
 
 **Nguồn:** `docs/root-cube.png` (54 ô dán, mỗi vòng là quỹ đạo của một phép xoay) và `docs/rubik_3x3_node_graph.xlsx` (mô hình cubie Kociemba, 18 bảng phép xoay, đồ thị BFS độ sâu 2 từ trạng thái đã giải). Đã đối chiếu tự động: 18/18 bảng phép xoay, 262/262 node, 342/342 cạnh **khớp hoàn toàn** với `core/`.

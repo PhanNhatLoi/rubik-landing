@@ -11,15 +11,16 @@ import type { Lab } from '../vision/color'
 import type { VisionClient } from '../vision/VisionClient'
 import { drawLattice } from './overlay'
 import ScanNet, { type NetCell } from './ScanNet'
-import { PALETTE, STANDARD_COLOR, nameCenters, previewColor, wrongCenter, type ColorName } from './palette'
+import { buildScheme, learnScheme, previewFace, wrongCenter, type MeasuredCenter, type Scheme, type SchemeSettings } from './palette'
+import SchemePicker from './SchemePicker'
 
 export const POSITION_NAME: Record<Face, string> = { F: 'trước', R: 'phải', B: 'sau', L: 'trái', U: 'trên', D: 'dưới' }
 
 
-function describeError(e: ValidationError, colorOf: (f: Face) => ColorName): string {
+function describeError(e: ValidationError, label: (f: Face) => string): string {
   switch (e.kind) {
     case 'colorCount':
-      return `Màu ${PALETTE[colorOf(e.face)].label} có ${e.count} ô (cần 9).`
+      return `Màu ${label(e.face)} có ${e.count} ô (cần 9).`
     case 'invalidCorner':
       return 'Có một góc không tồn tại trên khối thật.'
     case 'invalidEdge':
@@ -57,7 +58,10 @@ export interface ScanViewProps {
   onOverlay: (text: string | null) => void
   confirmLabel: string
   /** Called with a valid facelet string and the color name of each center. */
-  onConfirm: (facelets: Facelets, colors: Record<Face, ColorName>) => void
+  onConfirm: (facelets: Facelets, scheme: Scheme) => void
+  /** Center colors chosen by the user (preset or custom). */
+  schemeSettings: SchemeSettings
+  onSchemeSettings: (settings: SchemeSettings) => void
 }
 
 type Analysis = { status: 'idle' } | { status: 'running' } | { status: 'done'; result: ReconstructResult }
@@ -71,15 +75,22 @@ export default function ScanView({
   canShutter,
   onOverlay,
   confirmLabel,
-  onConfirm
+  onConfirm,
+  schemeSettings,
+  onSchemeSettings
 }: ScanViewProps) {
+  // The identify check reads the current scheme through this ref (the session lives across renders).
+  const schemeRef = useRef<Scheme>(buildScheme(schemeSettings))
   const sessionRef = useRef<ScanSession>(
-    new ScanSession({ identify: (center, target, scanned) => wrongCenter(center, target, scanned) })
+    new ScanSession({ identify: (center, target, scanned) => wrongCenter(center, target, scanned, schemeRef.current) })
   )
   const autoRef = useRef(new AutoCapture())
   /** Live check of the webcam frame (null = a face that would be accepted is in view). */
   const [live, setLive] = useState<ScanFeedback | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
+  /** Grid size of another cube seen steadily by the webcam (e.g. 4 for a 4x4), or null. */
+  const [wrongSize, setWrongSize] = useState<number | null>(null)
+  const wrongSizeFrames = useRef(0)
   const [feedback, setFeedback] = useState<ScanFeedback>({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   const [faces, setFaces] = useState<Partial<Record<Face, FaceScan>>>({})
   const [analysis, setAnalysis] = useState<Analysis>({ status: 'idle' })
@@ -117,9 +128,18 @@ export default function ScanView({
     })
     return out
   }, [faces])
-  const names = useMemo(() => nameCenters(centers), [centers])
-  const colorOf = useCallback((f: Face): ColorName => names[f] ?? STANDARD_COLOR[f], [names])
-  const standardScheme = SCAN_ORDER.every((f) => names[f] === STANDARD_COLOR[f])
+  // The chosen scheme, with clearly different scanned centers (e.g. a purple face) adopted as measured.
+  const baseScheme = useMemo(() => buildScheme(schemeSettings), [schemeSettings])
+  const { scheme, learned } = useMemo(() => {
+    const measured: Partial<Record<Face, MeasuredCenter>> = {}
+    FACES.forEach((f) => {
+      const scan = faces[f]
+      if (scan) measured[f] = { lab: scan.labs[4] as Lab, rgb: scan.rgbs[4] as MeasuredCenter['rgb'] }
+    })
+    return learnScheme(baseScheme, measured)
+  }, [baseScheme, faces])
+  schemeRef.current = scheme
+  const label = useCallback((f: Face) => scheme[f].label, [scheme])
 
   const finalFacelets = useMemo(() => {
     if (!result) return null
@@ -135,7 +155,7 @@ export default function ScanView({
       const suspicious = new Set([...result.lowConfidence, ...(result.alternative?.differing ?? [])])
       const changed = new Set(result.changed)
       return [...finalFacelets].map((label, i) => ({
-        color: PALETTE[colorOf(label as Face)].css,
+        color: scheme[label as Face].css,
         mark: edits[i] !== undefined ? null : changed.has(i) ? 'changed' : suspicious.has(i) ? 'uncertain' : null
       }))
     }
@@ -143,13 +163,12 @@ export default function ScanView({
     return FACES.flatMap((face) =>
       Array.from({ length: 9 }, (_, k) => {
         const lab = faces[face]?.labs[k]
-        const name = k === 4 ? names[face] : lab ? previewColor(lab, centers, names) : undefined
-        // Unscanned faces still show their center, in the color it has in the standard scheme.
-        const color = name ?? (k === 4 ? STANDARD_COLOR[face] : undefined)
-        return { color: color ? PALETTE[color].css : null, mark: null }
+        // Unscanned faces still show their center, in the color the scheme gives it.
+        const shown = k === 4 ? face : lab ? previewFace(lab, centers, scheme) : null
+        return { color: shown ? scheme[shown].css : null, mark: null }
       })
     )
-  }, [result, finalFacelets, faces, edits, centers, names, colorOf])
+  }, [result, finalFacelets, faces, edits, centers, scheme])
 
   const cycleCell = (index: number) => {
     if (!finalFacelets) return
@@ -187,7 +206,6 @@ export default function ScanView({
     setFeedback({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   }
 
-  const label = (f: Face) => PALETTE[colorOf(f)].label
 
   /** Captures (or rejects) a still: photo file, desktop shutter or webcam countdown. */
   const handleStill = (det: PhotoDetection | null) => {
@@ -197,6 +215,11 @@ export default function ScanView({
       const ctx = det.crop.getContext('2d')
       if (ctx && face) drawLattice(ctx, face)
       thumb = det.crop.toDataURL('image/jpeg', 0.8)
+    }
+    const size = det?.result.gridSize ?? null
+    if (!face && size !== null && size !== 3) {
+      setPhoto({ status: 'done', thumb, message: `Ảnh này là khối ${size}x${size} — Smart Solver chỉ quét được khối 3x3.` })
+      return
     }
     const session = sessionRef.current
     const expected = session.currentTarget
@@ -246,6 +269,9 @@ export default function ScanView({
         setCountdown(null)
         return
       }
+      const grid = r.result.gridSize
+      wrongSizeFrames.current = grid !== null && grid !== 3 ? wrongSizeFrames.current + 1 : 0
+      setWrongSize(wrongSizeFrames.current >= 3 ? grid : null)
       const check = session.check(r.result.face, r.result.sharpness, 5)
       setLive(check)
       const now = performance.now()
@@ -267,8 +293,7 @@ export default function ScanView({
 
   const confirm = () => {
     if (!finalFacelets || !validation?.ok) return
-    const colors: Record<Face, ColorName> = { U: colorOf('U'), R: colorOf('R'), F: colorOf('F'), D: colorOf('D'), L: colorOf('L'), B: colorOf('B') }
-    onConfirm(finalFacelets, colors)
+    onConfirm(finalFacelets, scheme)
   }
 
   const target = feedback.target
@@ -297,16 +322,17 @@ export default function ScanView({
           </button>
         ))}
       </div>
+      <SchemePicker settings={schemeSettings} onChange={onSchemeSettings} scheme={scheme} learned={learned} />
       {photo.status === 'done' && photo.thumb && (mode === 'photo' || photo.message) && (
         <img className="scan-photo" src={photo.thumb} alt="Ảnh vừa chụp và lưới phát hiện được" />
       )}
       {scanning ? (
         <div className="scan-step">
           <div className="scan-step-title">
-            <span className="scan-swatch" style={{ background: PALETTE[colorOf(target)].css }} />
-            Mặt {PALETTE[colorOf(target)].label} · {SCAN_ORDER.filter((f) => faces[f]).length}/6
+            <span className="scan-swatch" style={{ background: scheme[target].css }} />
+            Mặt {label(target)} · {SCAN_ORDER.filter((f) => faces[f]).length}/6
           </div>
-          <div className="scan-step-text">{stepFor(target).instruction}</div>
+          <div className="scan-step-text">{stepFor(target).instruction(label)}</div>
           {rescanning && (
             <div className="scan-rescan">
               <span className="scan-status">Mặt này đã quét — lần chụp tiếp theo sẽ ghi đè.</span>
@@ -317,7 +343,13 @@ export default function ScanView({
           )}
           {mode === 'webcam' ? (
             <>
-              <div className="scan-status">{status}</div>
+              {wrongSize !== null ? (
+                <div className="scan-error">
+                  Camera thấy khối {wrongSize}x{wrongSize} — Smart Solver chỉ quét được khối 3x3.
+                </div>
+              ) : (
+                <div className="scan-status">{status}</div>
+              )}
               {photo.status === 'done' && photo.message && <div className="scan-error">{photo.message}</div>}
             </>
           ) : (
@@ -354,14 +386,14 @@ export default function ScanView({
           {analysis.status === 'running' && <div className="scan-status">Đang phân tích...</div>}
           {analysis.status === 'done' && !analysis.result.ok && (
             <div className="scan-error">
-              Mặt {PALETTE[colorOf(analysis.result.faces[0])].label} và mặt {PALETTE[colorOf(analysis.result.faces[1])].label} có màu tâm giống
+              Mặt {label(analysis.result.faces[0])} và mặt {label(analysis.result.faces[1])} có màu tâm giống
               nhau. Hãy quét lại một trong hai mặt.
             </div>
           )}
           {result && validation && !validation.ok && (
             <div className="scan-error">
               {validation.errors
-                .map((e) => describeError(e, colorOf))
+                .map((e) => describeError(e, label))
                 .filter((v, i, a) => a.indexOf(v) === i)
                 .join(' ')}
             </div>
@@ -374,9 +406,6 @@ export default function ScanView({
                   ? `Đã tự sửa ${result.changed.length} ô theo luật của khối (viền cam). Kiểm tra lại trước khi tiếp tục.`
                   : 'Trạng thái hợp lệ.'}
             </div>
-          )}
-          {result && !standardScheme && (
-            <div className="scan-status">Bố cục màu của khối khác chuẩn; khối 3D sẽ hiển thị theo màu chuẩn.</div>
           )}
         </div>
       )}
