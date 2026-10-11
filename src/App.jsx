@@ -10,6 +10,7 @@ import {
   readOrientation,
   stickerModelToFacelets
 } from './smart-solver/adapter/stickerModel'
+import SmartSolverPanel from './smart-solver/ui/SmartSolverPanel'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -34,6 +35,7 @@ export default function App() {
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
@@ -634,7 +636,16 @@ export default function App() {
             {size}x{size}
           </button>
         </div>
+        <div className="control">
+          <label>Quét</label>
+          <button className="size-btn" onClick={() => setShowCamera((v) => !v)}>
+            {showCamera ? 'Tắt' : 'Bật'}
+          </button>
+        </div>
       </div>
+      {showCamera && (
+        <SmartSolverPanel onClose={() => setShowCamera(false)} getController={() => cubeControllerRef.current} />
+      )}
       {showSizeModal && (
         <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>

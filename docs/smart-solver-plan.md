@@ -72,13 +72,27 @@ public/
 
 **Công việc**
 
-- [ ] `camera/CameraController`: `start/stop`, `getUserMedia` (ideal 1280×720, 30fps), `playsInline muted`, xử lý từ chối quyền, `track.onended`, `visibilitychange`, `pagehide`; an toàn với StrictMode (mount/unmount 2 lần).
-- [ ] `camera/FrameScheduler`: `requestVideoFrameCallback` (fallback `requestAnimationFrame`), `createImageBitmap(video, { resizeWidth: 640 })`, transfer sang worker, **tối đa 1 frame in-flight**, giới hạn tần suất (mặc định 15 lần/giây).
-- [ ] `vision/vision.worker.ts`: lazy-load OpenCV.js, nhận `ImageBitmap` → OffscreenCanvas → `cv.Mat`, `bitmap.close()`, preallocate Mat, `try/finally delete()`.
-- [ ] Detector bản đầu: tìm lưới 3×3 **trong khung overlay cố định** (Canny → contour → quad → fit lưới), trả về 4 góc lưới + 9 polygon ô.
-- [ ] `ui/CameraPanel` + `ui/Overlay`: hiển thị video, khung ngắm, lưới phát hiện được, FPS UI và ms/frame của worker.
-- [ ] Theo dõi heap WASM (`cv.HEAPU8.length`) trong chế độ debug.
-- [ ] Deploy preview lên Vercel; test trên Chrome desktop, Safari macOS, iOS Safari, Android Chrome.
+- [x] `camera/CameraController`: `start/stop`, `getUserMedia` (ideal 1280×720, 30fps, `facingMode: environment`), `playsInline muted`, mã lỗi tiếng Việt (HTTPS, từ chối quyền, không có camera, camera bận), `track.onended`; an toàn với StrictMode (generation token).
+- [x] `camera/FrameScheduler`: `requestVideoFrameCallback` (fallback `requestAnimationFrame`), cắt khung ngắm (62% cạnh ngắn) → 320×320 qua canvas 2D (`OffscreenCanvas` nếu có) → `getImageData` → transfer buffer sang worker; tối đa 1 frame in-flight; giới hạn 15 lần/giây.
+  - Quyết định: dùng `getImageData` trên main thread thay cho `createImageBitmap` + OffscreenCanvas trong worker vì chạy được ở mọi trình duyệt; chi phí đo được ~2–3 ms/frame ở 320×320.
+- [x] OpenCV.js: `@techstark/opencv-js@4.12.0-release.1` (docs.opencv.org chặn tải tự động). Nạp trong worker, chunk riêng 10.8 MB (gzip 3.36 MB), chỉ tải khi bật camera. Module là thenable tự resolve chính nó → `initOpenCv` trả `{ cv }`; test nạp qua `require`.
+- [x] `vision/vision.worker.ts` + `VisionClient` (protocol có `frameId`, dispose giải phóng Mat rồi terminate).
+- [x] `vision/detect.ts`: gray → Laplacian (độ nét) → blur → Canny (ngưỡng theo median) → dilate → contour → lọc blob vuông (solidity, aspect, fill) → `vision/lattice.ts` khớp lưới 3×3 bằng homography (thuần TS, có refine) → 9 ô + màu trung bình.
+- [x] `ui/CameraPanel` + `ui/overlay`: video, khung ngắm, lưới phát hiện (ô thấy: viền liền; ô suy ra: viền đứt), số liệu UI fps / Vision fps / Capture / Detect / Blobs / Sharpness / Heap / OpenCV load. Nút Bật/Tắt trong `.controls`.
+- [x] Test: 6 test lattice (thuần), 5 test detector chạy OpenCV thật trên ảnh tổng hợp (xoay ±35°, phối cảnh, che 2 ô, nền trống, đổi kích thước frame).
+- [x] Smoke test Chrome headless với camera giả (video `.y4m` tổng hợp), cả dev và bản build production.
+- [ ] Deploy preview lên Vercel; test trên Safari macOS, iOS Safari, Android Chrome (cần thiết bị thật).
+
+**Kết quả đo (Chrome headless trên Mac, camera giả 640×480 @15fps, chưa phải thiết bị thật)**
+
+| Chỉ số | Kết quả |
+|---|---|
+| UI fps khi camera + worker chạy | 58–62 |
+| Vision fps | 12–16 (giới hạn bởi nguồn 15 fps) |
+| Capture (main thread) | 2–3 ms |
+| Detect (worker) | ~2.6 ms |
+| Heap WASM sau ~1000 frame (80 s) | 128 MB, không tăng |
+| Đóng/mở lại panel | Phát hiện lại bình thường |
 
 **Nghiệm thu**
 
@@ -98,12 +112,20 @@ public/
 
 **Công việc**
 
-- [ ] `vision/color`: lấy mẫu vùng lõi ô (bỏ viền), loại pixel lóa, median, chuyển sang CIELAB, ΔE2000; cân bằng trắng theo tâm trắng.
-- [ ] Tham chiếu màu = 6 ô tâm; xác suất màu mỗi ô (softmax), confidence, margin; xử lý riêng đỏ/cam theo hue.
-- [ ] `vision/stability`: mặt chỉ được nhận khi lưới ổn định ≥ k frame và đủ nét; gộp log-likelihood qua N frame.
-- [ ] `scan/ScanSession`: quét có hướng dẫn (F → R → B → L → U → D), nhận diện mặt theo màu tâm, mini-map mặt đã/chưa quét, cho quét lại một mặt.
-- [ ] `scan/reconstruct`: thử 4⁵ hướng xoay mặt, gán cubie có chi phí (Hungarian 8×8 góc, 12×12 cạnh), kiểm tra twist/flip/parity, phát hiện mơ hồ (state tốt nhất vs state khác tốt nhì).
-- [ ] `ui`: lưới 2D 54 ô để xem và sửa tay các ô nghi ngờ; nút xác nhận → `CubeController.setState`.
+- [x] `vision/color`: sRGB → CIELAB (D65), ΔE2000 (khớp bộ số liệu Sharma 2005), median Lab. Màu ô lấy bằng **trung vị** từng kênh trong vùng lõi ô (chống vệt lóa).
+- [x] Không dùng bảng màu cố định: mỗi ô so với **màu 6 ô tâm** đo trên chính khối đó, ΔE2000 với kL = 2 (giảm trọng số độ sáng vì mỗi mặt được chiếu sáng khác nhau).
+- [x] `scan/ScanSession` (thuần, không DOM): thứ tự F → R → B → L → U → D; chỉ chụp khi lưới ổn định 6 frame liên tiếp (dịch chuyển < 8% bước lưới), ≥ 7 ô thấy, đủ nét; từ chối mặt đã quét (so màu tâm); chọn lại một mặt để quét lại.
+- [x] `scan/reconstruct`: thử 4⁶ = 4096 tổ hợp hướng xoay mặt; với mỗi tổ hợp gán cubie bằng Hungarian (8×8 góc, 12×12 cạnh), sửa twist/flip/parity bằng thay đổi rẻ nhất; trả về ô đã tự sửa (`changed`), ô màu lưng chừng (`lowConfidence`), và lời giải thay thế nếu chênh lệch < ngưỡng (`alternative`) — **không tự chọn khi mơ hồ**.
+- [x] `ui/SmartSolverPanel` + `ui/FaceletNet`: hướng dẫn từng mặt, thanh "giữ yên", lưới 2D 54 ô (viền cam = đã tự sửa, viền vàng đứt = nghi ngờ), bấm ô tâm để quét lại mặt, bấm ô khác để đổi màu, "Áp dụng lên khối 3D" → `CubeController.setFacelets`.
+- [x] Chống quét trùng bằng **so cả 9 ô** (4 hướng xoay, ΔE2000 trung bình < 6) thay vì chỉ so ô tâm: qua webcam đỏ/cam chỉ cách nhau ΔE ~8–11 nên mặt cam từng bị coi là "mặt đỏ đã quét".
+- [x] Hiển thị không dùng chữ: tâm được đặt tên màu chuẩn (Hungarian giữa 6 tâm và 6 màu chuẩn), ô tô bằng màu chuẩn giống khối 3D; cảnh báo khi bố cục màu khác chuẩn.
+- [ ] Chạy `reconstruct` trong worker (hiện ~0.2 s trên main thread, chạy một lần khi quét xong).
+
+**Kết quả kiểm tra**
+
+- Unit test: ΔE2000, Hungarian (so với vét cạn), reconstruct (12 scramble ngẫu nhiên + ánh sáng lệch ±17% + nhiễu, mặt bị cầm xoay sai, đỏ đọc thành cam → tự sửa và báo đúng ô, ô màu lưng chừng bị đánh dấu, tâm trùng màu bị từ chối), ScanSession (ổn định, mất dấu, mờ, trùng mặt, quét lại).
+- End-to-end trong Chrome headless với camera giả (video tổng hợp 6 mặt của một khối đã xáo trộn, mỗi mặt độ sáng khác nhau): quét đủ 6 mặt trong ~15 s, trạng thái hợp lệ, khối 3D sau khi áp dụng **khớp 100%** với đáp án.
+- **Chưa kiểm chứng với khối thật.**
 
 **Nghiệm thu**
 

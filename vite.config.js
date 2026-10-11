@@ -6,5 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true
+  },
+  // Pre-bundle up front so the first camera start doesn't trigger a dev reload.
+  optimizeDeps: {
+    include: ['@techstark/opencv-js']
   }
 })
