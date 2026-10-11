@@ -55,6 +55,10 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
   const [colors, setColors] = useState<Record<Face, ColorName>>(STANDARD_COLOR)
   const [notice, setNotice] = useState<string | null>(null)
   const frameHandlerRef = useRef<((r: ScheduledResult) => void) | null>(null)
+  const grabStillRef = useRef<(() => HTMLCanvasElement | null) | null>(null)
+  const [overlay, setOverlay] = useState<string | null>(null)
+  // Desktops get a live preview with a shutter button in photo mode; phones use the camera app.
+  const [canShutter] = useState(() => window.matchMedia?.('(pointer: fine)').matches ?? false)
   const solverRef = useRef<SolverClient | null>(null)
   const [vision, setVision] = useState<VisionClient | null>(null)
   const [collapsed, setCollapsed] = useState(false)
@@ -180,11 +184,13 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
       title="Smart Solver"
       headerSlot={headerSlot}
       vision={vision}
-      cameraEnabled={open && !collapsed && scanning && scanMode === 'webcam'}
+      cameraEnabled={open && !collapsed && scanning && (scanMode === 'webcam' || canShutter)}
       hidden={!open}
       collapsed={collapsed}
       onToggleCollapsed={() => setCollapsed((v) => !v)}
       summary={summary}
+      overlay={overlay}
+      grabRef={grabStillRef}
       onResult={onResult}
     >
       {notice && <div className="scan-error">{notice}</div>}
@@ -198,6 +204,9 @@ export default function SmartSolverPanel({ open, headerSlot, getController }: Sm
             onModeChange={setScanMode}
             vision={vision}
             frameHandlerRef={frameHandlerRef}
+            grabStillRef={grabStillRef}
+            canShutter={canShutter}
+            onOverlay={setOverlay}
             confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Áp lên khối 3D'}
             onConfirm={onScanned}
           />

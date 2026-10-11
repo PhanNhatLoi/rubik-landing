@@ -523,25 +523,8 @@ p {
   transition: width 0.1s linear;
 }
 
-.facelet-net {
-  display: grid;
-  grid-template-columns: repeat(4, max-content);
-  gap: 4px;
-  justify-content: center;
-}
 
-.facelet-face {
-  display: grid;
-  grid-template-columns: repeat(3, 22px);
-  gap: 2px;
-  padding: 2px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-}
 
-.facelet-face.active {
-  border-color: rgba(94, 231, 255, 0.9);
-}
 
 .facelet {
   width: 22px;
@@ -777,6 +760,86 @@ p {
 
 .camera-panel.collapsed {
   gap: 8px;
+}
+
+.scan-net {
+  --cell: 20px;
+  --gap: 2px;
+  --pad: 3px;
+  --face-box: calc(3 * var(--cell) + 2 * var(--gap) + 2 * var(--pad) + 2px);
+  --face: calc(var(--face-box) + 6px);
+  position: relative;
+  width: calc(4 * var(--face));
+  height: calc(3 * var(--face));
+  margin: 0 auto;
+}
+
+.scan-net-face {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--face-box);
+  height: var(--face-box);
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+  padding: var(--pad);
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s;
+}
+
+.scan-net-face .facelet {
+  width: var(--cell);
+  height: var(--cell);
+}
+
+/* The far side of the cube. */
+.scan-net-face.slot-back {
+  opacity: 0.55;
+}
+
+.scan-net-face.active {
+  border-color: rgba(94, 231, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(94, 231, 255, 0.25);
+  opacity: 1;
+}
+
+/* Faces that wrap from the far end to the other side fade in instead of crossing the net. */
+.scan-net-face.entered {
+  animation: scan-net-enter 0.4s ease-out;
+}
+
+@keyframes scan-net-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+.camera-countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 4.5rem;
+  font-weight: 700;
+  color: #e8efff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.scan-rescan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scan-rescan .reset {
+  width: auto;
+  flex: none;
+  padding: 6px 10px;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 720px) {

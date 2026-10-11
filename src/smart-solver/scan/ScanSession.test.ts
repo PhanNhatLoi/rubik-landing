@@ -114,4 +114,28 @@ describe('ScanSession', () => {
     expect(s.currentTarget).toBe('R')
     expect(s.pushStill(detection(CENTER.F!), 100).phase).toBe('duplicate')
   })
+
+  it('rejects a face whose center belongs to another face', () => {
+    const s = new ScanSession({ identify: (center) => (center[2] < -30 ? 'B' : null) })
+    // Blue center (b* strongly negative) while green is expected.
+    const fb = s.pushStill(detection([30, 75, 195]), 100)
+    expect(fb.phase).toBe('wrongFace')
+    expect(fb.seenFace).toBe('B')
+    expect(s.pushStill(detection(CENTER.F!), 100).captured).toBe('F')
+  })
+
+  it('remove() clears a face and makes it the next one to scan', () => {
+    const s = new ScanSession()
+    s.pushStill(detection(CENTER.F!), 100)
+    s.remove('F')
+    expect(s.faces.F).toBeUndefined()
+    expect(s.currentTarget).toBe('F')
+  })
+
+  it('check() accepts partial lattices for live preview without capturing', () => {
+    const s = new ScanSession()
+    expect(s.check(detection(CENTER.F!, 0, 5), 100)?.phase).toBe('searching')
+    expect(s.check(detection(CENTER.F!, 0, 5), 100, 5)).toBeNull()
+    expect(s.faces.F).toBeUndefined()
+  })
 })

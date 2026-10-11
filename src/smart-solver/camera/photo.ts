@@ -33,13 +33,27 @@ const better = (a: DetectResult, b: DetectResult | null) =>
  */
 export async function detectFaceInPhoto(file: Blob, vision: VisionClient, size = 480): Promise<PhotoDetection | null> {
   const img = await loadImage(file)
-  const w = img.naturalWidth
-  const h = img.naturalHeight
+  return detectFaceInImage(img, img.naturalWidth, img.naturalHeight, vision, CROP_FRACTIONS, size)
+}
+
+/** Same as a photo, for a still already cropped to the guide square (webcam shutter). */
+export function detectFaceInStill(still: HTMLCanvasElement, vision: VisionClient, size = 480): Promise<PhotoDetection | null> {
+  return detectFaceInImage(still, still.width, still.height, vision, [1, 0.8], size)
+}
+
+async function detectFaceInImage(
+  img: CanvasImageSource,
+  w: number,
+  h: number,
+  vision: VisionClient,
+  fractions: readonly number[],
+  size: number
+): Promise<PhotoDetection | null> {
   if (!w || !h) return null
   await vision.ready
 
   let best: PhotoDetection | null = null
-  for (const fraction of CROP_FRACTIONS) {
+  for (const fraction of fractions) {
     const side = Math.round(Math.min(w, h) * fraction)
     const crop = Object.assign(document.createElement('canvas'), { width: size, height: size })
     const ctx = crop.getContext('2d', { willReadFrequently: true })

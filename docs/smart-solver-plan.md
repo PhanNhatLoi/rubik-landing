@@ -172,6 +172,21 @@ Lời giải là **gần tối ưu**, không chứng minh tối ưu (tối ưu t
 - [x] **Dev HTTPS cho điện thoại**: `yarn cert:dev` (chứng chỉ tự ký bằng openssl, thư mục `.cert/` đã gitignore) rồi `yarn dev:https` → mở `https://<IP-LAN>:5173` trên điện thoại. Chế độ "Chụp ảnh" chạy được cả qua HTTP thường.
 - E2E (Chrome headless): 6 ảnh 2000×1500 (mặt khối ~45% khung, nghiêng ±10°, độ sáng 0.7–1.05) → nhận đủ 6 mặt → khối 3D khớp đáp án → "Sửa lại" giữ đủ 54 ô → giải. **Chưa thử trên điện thoại thật.**
 
+### Phase 2C — Lưới quét theo cách cầm thực tế
+
+- [x] `scan/scanGuide.ts`: hình học quét. Cách cầm = (mặt đối diện camera, mặt hướng lên); từ đó tính vị trí 6 mặt trên lưới (giữa/trái/phải/xa nhất/trên/dưới) và góc xoay hiển thị của từng mặt. Kiểm chứng độc lập bằng dựng hình 3D từ mô hình sticker cho cả 24 cách cầm.
+- [x] Thứ tự và cách cầm mới: xanh lá đối diện, **vàng ở trên** → xoay sang phải: đỏ → xanh dương → cam → (giữ cam) lật mặt trên ra trước: vàng (cam ở dưới) → lật 180°: trắng (cam ở trên). Ảnh camera của các mặt bên bị xoay 180°, vàng/trắng xoay 90° so với bố cục chuẩn; `ScanSession` đưa mỗi mặt về bố cục chuẩn khi lưu (`toStandard`), nên `reconstruct` và phần sửa ô không đổi.
+- [x] `ui/ScanNet.tsx`: lưới chữ thập theo cách cầm hiện tại (mặt xa nhất ở cuối hàng giữa, làm mờ); mọi mặt chưa quét có sẵn màu ô tâm; chuyển mặt thì các mặt trượt/xoay tới vị trí mới (CSS transition, mặt "nhảy vòng" từ xa nhất sang trái thì hiện mờ dần); mặt trên/dưới được chọn mà lưới giữ nguyên ở mặt cam.
+- E2E (Chrome): 6 ảnh tạo đúng góc nhìn của người dùng → vị trí/góc xoay lưới sau mỗi bước đúng như mô tả → khối 3D khớp đáp án.
+
+### Phase 2D — Quét kỹ hơn: chặn nhầm mặt, chọn lại mặt, đếm ngược 3‑2‑1
+
+- [x] **Chặn quét nhầm mặt** (`palette.wrongCenter`, `ScanSession` option `identify`): màu tâm chỉ được so với các mặt **chưa quét** (mặt đã quét bị bắt bởi kiểm tra trùng), nên khi quét cam thì đỏ đã bị loại → không nhầm đỏ/cam. Chỉ từ chối khi chắc chắn (chênh ΔE > 6); trường hợp sát nhau để ràng buộc của khối xử lý.
+- [x] **Chọn lại mặt cũ**: đang quét dở thì bấm vào mặt bất kỳ (sau khi quét đủ 6 mặt: bấm ô tâm; ô khác vẫn để sửa màu) → mặt đó thành mặt đang quét, lần chụp sau ghi đè. Nút **"Quét lại mặt này"** xoá dữ liệu mặt đó (`ScanSession.remove`).
+- [x] **Webcam đếm ngược** (`scan/autoCapture.ts`): thấy khung (≥ 5 ô, đúng mặt, chưa quét) → đếm 3‑2‑1 (số lớn trên video), mất khung > 0.7 s thì huỷ; hết giờ chụp ảnh tĩnh ô ngắm ở độ phân giải gốc (tối đa 960 px) rồi phân tích như ảnh chụp (`detectFaceInStill`); nghỉ 1.5 s sau mỗi lần chụp.
+- [x] **Chụp ảnh trên desktop** (`pointer: fine`): bật webcam kèm nút "Chụp mặt …" (chụp tay), vẫn giữ "Chọn ảnh từ máy". Điện thoại: mở app camera gốc như trước.
+- E2E (Chrome): webcam — đếm 3‑2‑1 cho cả 6 mặt, đưa nhầm mặt xanh dương lúc chờ đỏ → "Đây là mặt xanh dương — hãy đưa mặt đỏ vào", không chụp → khối 3D khớp đáp án. Chụp ảnh — chặn nhầm mặt, chọn lại mặt khi đang quét dở và ghi đè, "Quét lại mặt này" xoá 8 ô rồi quét lại → khớp đáp án.
+
 ### Phase 3B — Đường đi ngắn nhất trên đồ thị trạng thái
 
 **Nguồn:** `docs/root-cube.png` (54 ô dán, mỗi vòng là quỹ đạo của một phép xoay) và `docs/rubik_3x3_node_graph.xlsx` (mô hình cubie Kociemba, 18 bảng phép xoay, đồ thị BFS độ sâu 2 từ trạng thái đã giải). Đã đối chiếu tự động: 18/18 bảng phép xoay, 262/262 node, 342/342 cạnh **khớp hoàn toàn** với `core/`.

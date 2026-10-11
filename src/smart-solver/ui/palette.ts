@@ -63,3 +63,22 @@ export function previewColor(lab: Lab, centers: Partial<Record<Face, Lab>>, name
   })
   return best
 }
+
+/**
+ * Which face a center color belongs to, when it is clearly not `target`.
+ * Only faces not scanned yet are candidates (scanned ones are caught by the duplicate check),
+ * which keeps red/orange apart: once red is scanned, an orange-ish center can only be orange.
+ * Returns null when the center fits `target` or is too close to call.
+ */
+export function wrongCenter(
+  center: Lab,
+  target: Face,
+  scanned: readonly Face[],
+  scheme: Record<Face, ColorName> = STANDARD_COLOR,
+  margin = 6
+): Face | null {
+  const candidates = FACES.filter((f) => f === target || !scanned.includes(f))
+  const dist = (f: Face) => deltaE2000(center, PALETTE[scheme[f]].typical, 2)
+  const nearest = candidates.reduce((a, b) => (dist(b) < dist(a) ? b : a))
+  return nearest !== target && dist(target) - dist(nearest) > margin ? nearest : null
+}

@@ -3,8 +3,9 @@ import { CORNER_COLORS, CORNER_FACELETS, EDGE_COLORS, EDGE_FACELETS, toFacelets 
 import { FACES, type CubieState, type Face, type Facelets } from '../core/types'
 import { deltaE2000, type Lab } from '../vision/color'
 import { hungarian } from './hungarian'
+import { ROTATION } from './scanGuide'
 
-/** Nine sticker colors per face, row-major as seen by the camera during the guided scan. */
+/** Nine sticker colors per face, row-major in the face's standard layout (see scanGuide.toStandard). */
 export type ScanInput = Record<Face, readonly Lab[]>
 
 export interface ReconstructOptions {
@@ -44,19 +45,6 @@ export interface Reconstruction {
 export type ReconstructResult =
   | { ok: true; result: Reconstruction }
   | { ok: false; reason: 'duplicateCenters'; faces: [Face, Face] }
-
-// ROTATION[t][k]: scanned cell feeding facelet cell k after t clockwise quarter turns.
-const ROTATION: number[][] = [0, 1, 2, 3].map((t) =>
-  Array.from({ length: 9 }, (_, k) => {
-    let idx = k
-    for (let i = 0; i < t; i += 1) {
-      const r = Math.floor(idx / 3)
-      const c = idx % 3
-      idx = (2 - c) * 3 + r
-    }
-    return idx
-  })
-)
 
 const FACE_INDEX: Record<Face, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 }
 const CORNER_LABELS = CORNER_COLORS.map((cc) => cc.map((f) => FACE_INDEX[f]))

@@ -2,25 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { fromFacelets } from '../core/facelets'
 import { FACES, type Face, type Facelets, type ValidationError } from '../core/types'
 import type { ScheduledResult } from '../camera/FrameScheduler'
-import { detectFaceInPhoto } from '../camera/photo'
+import { detectFaceInPhoto, detectFaceInStill, type PhotoDetection } from '../camera/photo'
 import { reconstruct, type ReconstructResult, type ScanInput } from '../scan/reconstruct'
 import { SCAN_ORDER, ScanSession, type FaceScan, type ScanFeedback } from '../scan/ScanSession'
+import { AutoCapture } from '../scan/autoCapture'
+import { stepFor, type Hold } from '../scan/scanGuide'
 import type { Lab } from '../vision/color'
 import type { VisionClient } from '../vision/VisionClient'
 import { drawLattice } from './overlay'
-import FaceletNet, { type NetCell } from './FaceletNet'
-import { PALETTE, STANDARD_COLOR, nameCenters, previewColor, type ColorName } from './palette'
+import ScanNet, { type NetCell } from './ScanNet'
+import { PALETTE, STANDARD_COLOR, nameCenters, previewColor, wrongCenter, type ColorName } from './palette'
 
 export const POSITION_NAME: Record<Face, string> = { F: 'trước', R: 'phải', B: 'sau', L: 'trái', U: 'trên', D: 'dưới' }
 
-const INSTRUCTION: Record<Face, string> = {
-  F: 'Hướng mặt xanh lá vào camera, mặt trắng ở trên.',
-  R: 'Xoay cả khối sang trái 90°: mặt đỏ vào camera, trắng vẫn ở trên.',
-  B: 'Tiếp tục xoay sang trái: mặt xanh dương vào camera.',
-  L: 'Tiếp tục xoay sang trái: mặt cam vào camera.',
-  U: 'Quay lại mặt xanh lá, rồi lật khối về phía bạn: mặt trắng vào camera, xanh lá ở dưới.',
-  D: 'Lật ngược lại: mặt vàng vào camera, xanh lá ở trên.'
-}
 
 function describeError(e: ValidationError, colorOf: (f: Face) => ColorName): string {
   switch (e.kind) {
@@ -55,6 +49,12 @@ export interface ScanViewProps {
   vision: VisionClient | null
   /** The panel forwards camera results here while this view is mounted. */
   frameHandlerRef: MutableRefObject<((r: ScheduledResult) => void) | null>
+  /** Grabs a full-resolution still of the guide square from the live camera (null if the camera is off). */
+  grabStillRef: MutableRefObject<(() => HTMLCanvasElement | null) | null>
+  /** Photo mode can use the live camera with a shutter button (desktop). */
+  canShutter: boolean
+  /** Countdown text to show over the video, or null. */
+  onOverlay: (text: string | null) => void
   confirmLabel: string
   /** Called with a valid facelet string and the color name of each center. */
   onConfirm: (facelets: Facelets, colors: Record<Face, ColorName>) => void
@@ -62,25 +62,33 @@ export interface ScanViewProps {
 
 type Analysis = { status: 'idle' } | { status: 'running' } | { status: 'done'; result: ReconstructResult }
 
-export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, confirmLabel, onConfirm }: ScanViewProps) {
-  const sessionRef = useRef<ScanSession>(new ScanSession())
+export default function ScanView({
+  mode,
+  onModeChange,
+  vision,
+  frameHandlerRef,
+  grabStillRef,
+  canShutter,
+  onOverlay,
+  confirmLabel,
+  onConfirm
+}: ScanViewProps) {
+  const sessionRef = useRef<ScanSession>(
+    new ScanSession({ identify: (center, target, scanned) => wrongCenter(center, target, scanned) })
+  )
+  const autoRef = useRef(new AutoCapture())
+  /** Live check of the webcam frame (null = a face that would be accepted is in view). */
+  const [live, setLive] = useState<ScanFeedback | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<ScanFeedback>({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   const [faces, setFaces] = useState<Partial<Record<Face, FaceScan>>>({})
   const [analysis, setAnalysis] = useState<Analysis>({ status: 'idle' })
   const [edits, setEdits] = useState<Record<number, Face>>({})
   const [photo, setPhoto] = useState<PhotoState>({ status: 'idle' })
 
-  useEffect(() => {
-    frameHandlerRef.current = (r: ScheduledResult) => {
-      const session = sessionRef.current
-      const fb = session.push(r.result.face, r.result.sharpness)
-      setFeedback(fb)
-      if (fb.captured) setFaces({ ...session.faces })
-    }
-    return () => {
-      frameHandlerRef.current = null
-    }
-  }, [frameHandlerRef])
+  // Latest values for the per-frame handler, which is installed once.
+  const latest = useRef({ mode, vision })
+  latest.current = { mode, vision }
 
   // Re-analyse whenever the set of scanned faces changes and all six are present.
   useEffect(() => {
@@ -136,7 +144,9 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
       Array.from({ length: 9 }, (_, k) => {
         const lab = faces[face]?.labs[k]
         const name = k === 4 ? names[face] : lab ? previewColor(lab, centers, names) : undefined
-        return { color: name ? PALETTE[name].css : null, mark: null }
+        // Unscanned faces still show their center, in the color it has in the standard scheme.
+        const color = name ?? (k === 4 ? STANDARD_COLOR[face] : undefined)
+        return { color: color ? PALETTE[color].css : null, mark: null }
       })
     )
   }, [result, finalFacelets, faces, edits, centers, names, colorOf])
@@ -148,45 +158,112 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
     setEdits((prev) => ({ ...prev, [index]: next }))
   }
 
-  const rescan = (face: Face) => {
+  /** Makes `face` the one being scanned; a scanned face gets overwritten by the next capture. */
+  const select = (face: Face) => {
     sessionRef.current.setTarget(face)
+    autoRef.current.reset()
+    setPhoto({ status: 'idle' })
     setFeedback((fb) => ({ ...fb, target: face, phase: 'searching', progress: 0 }))
+  }
+
+  /** "Quét lại mặt này": forgets the face so it is scanned from scratch. */
+  const clearFace = (face: Face) => {
+    sessionRef.current.remove(face)
+    setFaces({ ...sessionRef.current.faces })
+    select(face)
+  }
+
+  const onCellClick = (index: number) => {
+    // Once all six are read, cells are corrected by clicking; before that a click picks the face.
+    if (result) cycleCell(index)
+    else select(FACES[Math.floor(index / 9)] as Face)
   }
 
   const restart = () => {
     sessionRef.current.reset()
+    autoRef.current.reset()
     setFaces({})
+    setPhoto({ status: 'idle' })
     setFeedback({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   }
 
-  const onPhoto = async (file: File | undefined) => {
-    if (!file || !vision) return
-    setPhoto({ status: 'working' })
-    try {
-      const det = await detectFaceInPhoto(file, vision)
-      const face = det?.result.face ?? null
-      let thumb = ''
-      if (det) {
-        const ctx = det.crop.getContext('2d')
-        if (ctx && face) drawLattice(ctx, face)
-        thumb = det.crop.toDataURL('image/jpeg', 0.8)
-      }
-      const session = sessionRef.current
-      const fb = session.pushStill(face, det?.result.sharpness ?? 0)
-      setFeedback(fb)
-      if (fb.captured) setFaces({ ...session.faces })
-      const message = fb.captured
-        ? null
-        : fb.phase === 'duplicate' && fb.seenFace
-          ? `Ảnh này là mặt ${PALETTE[colorOf(fb.seenFace)].label} đã quét rồi.`
+  const label = (f: Face) => PALETTE[colorOf(f)].label
+
+  /** Captures (or rejects) a still: photo file, desktop shutter or webcam countdown. */
+  const handleStill = (det: PhotoDetection | null) => {
+    const face = det?.result.face ?? null
+    let thumb = ''
+    if (det) {
+      const ctx = det.crop.getContext('2d')
+      if (ctx && face) drawLattice(ctx, face)
+      thumb = det.crop.toDataURL('image/jpeg', 0.8)
+    }
+    const session = sessionRef.current
+    const expected = session.currentTarget
+    const fb = session.pushStill(face, det?.result.sharpness ?? 0)
+    setFeedback(fb)
+    if (fb.captured) setFaces({ ...session.faces })
+    const message = fb.captured
+      ? null
+      : fb.phase === 'duplicate' && fb.seenFace
+        ? `Ảnh này là mặt ${label(fb.seenFace)} đã quét rồi.`
+        : fb.phase === 'wrongFace' && fb.seenFace && expected
+          ? `Đây là mặt ${label(fb.seenFace)}, hãy đưa mặt ${label(expected)} vào.`
           : fb.phase === 'blurry'
             ? 'Ảnh bị mờ, hãy chụp lại.'
             : 'Không tìm thấy đủ lưới 3×3. Chụp thẳng vào mặt khối, gần hơn và đủ sáng.'
-      setPhoto({ status: 'done', thumb, message })
+    setPhoto({ status: 'done', thumb, message })
+  }
+
+  const analyse = async (load: () => Promise<PhotoDetection | null>) => {
+    setPhoto({ status: 'working' })
+    try {
+      handleStill(await load())
     } catch (e) {
       setPhoto({ status: 'done', thumb: '', message: `Không đọc được ảnh: ${e instanceof Error ? e.message : String(e)}` })
     }
   }
+
+  const onPhoto = (file: File | undefined) => {
+    if (file && vision) void analyse(() => detectFaceInPhoto(file, vision))
+  }
+
+  /** Takes a still from the live camera and analyses it like a photo. */
+  const shoot = async () => {
+    const still = grabStillRef.current?.()
+    if (still && vision) await analyse(() => detectFaceInStill(still, vision))
+  }
+  const shootRef = useRef(shoot)
+  shootRef.current = shoot
+
+  // Webcam mode: count down 3-2-1 while an acceptable face is in view, then shoot a still.
+  useEffect(() => {
+    const auto = autoRef.current
+    frameHandlerRef.current = (r: ScheduledResult) => {
+      const session = sessionRef.current
+      if (latest.current.mode !== 'webcam' || !session.currentTarget) {
+        auto.reset()
+        setCountdown(null)
+        return
+      }
+      const check = session.check(r.result.face, r.result.sharpness, 5)
+      setLive(check)
+      const now = performance.now()
+      if (auto.update(now, check === null)) {
+        void shootRef.current().finally(() => auto.finish(performance.now()))
+      }
+      setCountdown(auto.secondsLeft(now))
+    }
+    return () => {
+      frameHandlerRef.current = null
+      auto.reset()
+    }
+  }, [frameHandlerRef])
+
+  useEffect(() => {
+    onOverlay(countdown != null ? String(countdown) : null)
+  }, [countdown, onOverlay])
+  useEffect(() => () => onOverlay(null), [onOverlay])
 
   const confirm = () => {
     if (!finalFacelets || !validation?.ok) return
@@ -195,15 +272,21 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
   }
 
   const target = feedback.target
+  // The net follows how the cube is held for the face being scanned; once done it stays on the last hold.
+  const lastHold = useRef<Hold>(stepFor('F').hold)
+  if (target) lastHold.current = stepFor(target).hold
+  const hold = lastHold.current
   const scanning = target !== null
   let status = ''
   if (scanning) {
-    if (feedback.phase === 'holding') status = `Giữ yên... ${Math.round(feedback.progress * 100)}%`
-    else if (feedback.phase === 'blurry') status = 'Ảnh bị mờ, giữ yên khối.'
-    else if (feedback.phase === 'duplicate' && feedback.seenFace)
-      status = `Mặt ${PALETTE[colorOf(feedback.seenFace)].label} đã quét rồi.`
-    else status = 'Đưa mặt rubik vào khung.'
+    if (photo.status === 'working') status = 'Đang phân tích ảnh...'
+    else if (countdown != null) status = `Giữ yên — tự chụp sau ${countdown} giây.`
+    else if (live?.phase === 'blurry') status = 'Ảnh bị mờ, giữ yên khối.'
+    else if (live?.phase === 'duplicate' && live.seenFace) status = `Mặt ${label(live.seenFace)} đã quét rồi — xoay sang mặt ${label(target)}.`
+    else if (live?.phase === 'wrongFace' && live.seenFace) status = `Đây là mặt ${label(live.seenFace)} — hãy đưa mặt ${label(target)} vào.`
+    else status = `Đưa mặt ${label(target)} vào khung, tự chụp sau 3 giây.`
   }
+  const rescanning = target !== null && faces[target] !== undefined
 
   return (
     <div className="scan">
@@ -214,34 +297,49 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
           </button>
         ))}
       </div>
-      {mode === 'photo' && photo.status === 'done' && photo.thumb && (
+      {photo.status === 'done' && photo.thumb && (mode === 'photo' || photo.message) && (
         <img className="scan-photo" src={photo.thumb} alt="Ảnh vừa chụp và lưới phát hiện được" />
       )}
       {scanning ? (
         <div className="scan-step">
           <div className="scan-step-title">
             <span className="scan-swatch" style={{ background: PALETTE[colorOf(target)].css }} />
-            Mặt {PALETTE[colorOf(target)].label} ({POSITION_NAME[target]}) · {SCAN_ORDER.filter((f) => faces[f]).length}/6
+            Mặt {PALETTE[colorOf(target)].label} · {SCAN_ORDER.filter((f) => faces[f]).length}/6
           </div>
-          <div className="scan-step-text">{INSTRUCTION[target]}</div>
+          <div className="scan-step-text">{stepFor(target).instruction}</div>
+          {rescanning && (
+            <div className="scan-rescan">
+              <span className="scan-status">Mặt này đã quét — lần chụp tiếp theo sẽ ghi đè.</span>
+              <button className="reset" onClick={() => clearFace(target)}>
+                Quét lại mặt này
+              </button>
+            </div>
+          )}
           {mode === 'webcam' ? (
             <>
-              <div className="scan-progress">
-                <div className="scan-progress-bar" style={{ width: `${feedback.progress * 100}%` }} />
-              </div>
               <div className="scan-status">{status}</div>
+              {photo.status === 'done' && photo.message && <div className="scan-error">{photo.message}</div>}
             </>
           ) : (
             <>
-              <label className={`scramble scan-photo-button${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
-                {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp / chọn ảnh mặt ${PALETTE[colorOf(target)].label}`}
+              {canShutter && (
+                <button className="scramble" onClick={() => void shoot()} disabled={!vision || photo.status === 'working'}>
+                  {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp mặt ${label(target)}`}
+                </button>
+              )}
+              <label className={`${canShutter ? 'reset' : 'scramble'} scan-photo-button${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
+                {photo.status === 'working' && !canShutter
+                  ? 'Đang phân tích ảnh...'
+                  : canShutter
+                    ? 'Chọn ảnh từ máy'
+                    : `Chụp / chọn ảnh mặt ${label(target)}`}
                 <input
                   type="file"
                   accept="image/*"
                   hidden
                   disabled={!vision || photo.status === 'working'}
                   onChange={(e) => {
-                    void onPhoto(e.target.files?.[0])
+                    onPhoto(e.target.files?.[0])
                     e.target.value = ''
                   }}
                 />
@@ -256,7 +354,7 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
           {analysis.status === 'running' && <div className="scan-status">Đang phân tích...</div>}
           {analysis.status === 'done' && !analysis.result.ok && (
             <div className="scan-error">
-              Mặt {POSITION_NAME[analysis.result.faces[0]]} và mặt {POSITION_NAME[analysis.result.faces[1]]} có màu tâm giống
+              Mặt {PALETTE[colorOf(analysis.result.faces[0])].label} và mặt {PALETTE[colorOf(analysis.result.faces[1])].label} có màu tâm giống
               nhau. Hãy quét lại một trong hai mặt.
             </div>
           )}
@@ -283,8 +381,10 @@ export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, 
         </div>
       )}
 
-      <FaceletNet cells={cells} activeFace={target} onCellClick={cycleCell} onFaceClick={rescan} />
-      <div className="scan-legend">Bấm ô tâm để quét lại mặt đó{result ? ', bấm ô khác để đổi màu' : ''}.</div>
+      <ScanNet cells={cells} hold={hold} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />
+      <div className="scan-legend">
+        {result ? 'Bấm ô tâm để chọn lại mặt đó, bấm ô khác để đổi màu.' : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
+      </div>
 
       <div className="scan-actions">
         <button className="reset" onClick={restart}>

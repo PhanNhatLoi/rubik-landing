@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { CameraController, CameraError, type CameraInfo } from '../camera/CameraController'
 import { FrameScheduler, computeRoi, type ScheduledResult } from '../camera/FrameScheduler'
@@ -36,6 +36,10 @@ export interface CameraPanelProps {
   onToggleCollapsed: () => void
   /** One-line status shown next to the title. */
   summary?: ReactNode
+  /** Big text over the video (countdown). */
+  overlay?: ReactNode
+  /** Filled with a function that grabs the guide square from the live video at full resolution. */
+  grabRef?: MutableRefObject<(() => HTMLCanvasElement | null) | null>
   /** Called for every vision result (up to maxFps times per second). */
   onResult?: (r: ScheduledResult) => void
   /** Shown under the video instead of the default detection hint. */
@@ -51,6 +55,8 @@ export default function CameraPanel({
   collapsed,
   onToggleCollapsed,
   summary,
+  overlay,
+  grabRef,
   onResult,
   children
 }: CameraPanelProps) {
@@ -170,6 +176,24 @@ export default function CameraPanel({
     }
   }, [cameraEnabled, vision])
 
+  useEffect(() => {
+    if (!grabRef) return
+    grabRef.current = () => {
+      const video = videoRef.current
+      if (!cameraEnabled || !video?.videoWidth) return null
+      const roi = computeRoi(video.videoWidth, video.videoHeight, SCHEDULER_OPTIONS.roiFraction)
+      const side = Math.min(roi.side, 960)
+      const canvas = Object.assign(document.createElement('canvas'), { width: side, height: side })
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return null
+      ctx.drawImage(video, roi.x, roi.y, roi.side, roi.side, 0, 0, side, side)
+      return canvas
+    }
+    return () => {
+      grabRef.current = null
+    }
+  }, [grabRef, cameraEnabled])
+
   /** Downloads the exact square the detector sees, for debugging detection failures. */
   const saveFrame = () => {
     const video = videoRef.current
@@ -213,6 +237,7 @@ export default function CameraPanel({
         <div className="camera-view" hidden={!cameraEnabled}>
           <video ref={videoRef} className="camera-video" muted playsInline />
           <canvas ref={overlayRef} className="camera-overlay" />
+          {status === 'running' && overlay != null && <div className="camera-countdown">{overlay}</div>}
           {status !== 'running' && (
             <div className="camera-message">
               {status === 'starting' && 'Đang mở camera...'}

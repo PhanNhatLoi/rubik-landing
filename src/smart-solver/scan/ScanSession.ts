@@ -1,10 +1,11 @@
 import type { Face } from '../core/types'
 import { deltaE2000, medianLab, rgbToLab, type Lab } from '../vision/color'
 import type { FaceDetection, Rgb } from '../vision/detect'
+import { SCAN_ORDER, toStandard } from './scanGuide'
 
-/** Guided order: four sides with U on top, then U and D. */
-export const SCAN_ORDER: readonly Face[] = ['F', 'R', 'B', 'L', 'U', 'D']
+export { SCAN_ORDER }
 
+/** A captured face, stored in its standard facelet layout (not as the camera saw it). */
 export interface FaceScan {
   labs: Lab[]
   rgbs: Rgb[]
@@ -23,6 +24,11 @@ export interface ScanSessionOptions {
    * can be only ~8–11 apart, so centers alone cannot tell those faces apart.
    */
   sameFaceDeltaE: number
+  /**
+   * Optional check that the center belongs to the face being scanned; returns the face it
+   * looks like instead, or null when it fits.
+   */
+  identify?: (center: Lab, target: Face, scanned: readonly Face[]) => Face | null
 }
 
 const DEFAULTS: ScanSessionOptions = { stableFrames: 6, maxMotion: 0.08, minInliers: 7, minSharpness: 15, sameFaceDeltaE: 6 }
@@ -47,6 +53,7 @@ export type ScanPhase =
   | 'blurry'
   | 'holding' // stable lattice, collecting frames
   | 'duplicate' // the face in view was already scanned
+  | 'wrongFace' // the center color belongs to another face
   | 'done' // all six faces captured
 
 export interface ScanFeedback {
@@ -56,7 +63,7 @@ export interface ScanFeedback {
   progress: number
   /** Face that was just captured by this frame, if any. */
   captured: Face | null
-  /** For 'duplicate': which scanned face is in view. */
+  /** For 'duplicate' / 'wrongFace': which face is in view. */
   seenFace: Face | null
 }
 
@@ -94,6 +101,17 @@ export class ScanSession {
     this.buffer = []
   }
 
+  /** Forgets a scanned face and scans it next. */
+  remove(face: Face) {
+    delete this.faces[face]
+    this.setTarget(face)
+  }
+
+  /** Runs the capture checks on a live frame without capturing; null means it would be accepted. */
+  check(face: FaceDetection | null, sharpness: number, minInliers = this.opts.minInliers): ScanFeedback | null {
+    return this.reject(face, sharpness, minInliers)
+  }
+
   reset() {
     SCAN_ORDER.forEach((f) => delete this.faces[f])
     this.target = 'F'
@@ -112,23 +130,29 @@ export class ScanSession {
   }
 
   /** Checks shared by video frames and still photos; returns feedback when the face is rejected. */
-  private reject(face: FaceDetection | null, sharpness: number): ScanFeedback | null {
+  private reject(face: FaceDetection | null, sharpness: number, minInliers = this.opts.minInliers): ScanFeedback | null {
     if (!this.target) return this.feedback('done')
-    if (!face || face.inliers < this.opts.minInliers) return this.feedback('searching')
+    if (!face || face.inliers < minInliers) return this.feedback('searching')
     if (sharpness < this.opts.minSharpness) return this.feedback('blurry')
     const labs = face.cells.map((c) => rgbToLab(c.rgb))
     const seen = SCAN_ORDER.find((f) => {
       const scan = this.faces[f]
       return f !== this.target && scan && faceDistance(labs, scan.labs) < this.opts.sameFaceDeltaE
     })
-    return seen ? this.feedback('duplicate', { seenFace: seen }) : null
+    if (seen) return this.feedback('duplicate', { seenFace: seen })
+    const scanned = SCAN_ORDER.filter((f) => this.faces[f] && f !== this.target)
+    const other = this.opts.identify?.(labs[4] as Lab, this.target, scanned) ?? null
+    return other ? this.feedback('wrongFace', { seenFace: other }) : null
   }
 
   private capture(frames: FaceDetection[]): ScanFeedback {
     const captured = this.target as Face
     this.faces[captured] = {
-      labs: Array.from({ length: 9 }, (_, k) => medianLab(frames.map((f) => rgbToLab(f.cells[k]!.rgb)))),
-      rgbs: Array.from({ length: 9 }, (_, k) => [0, 1, 2].map((ch) => median(frames.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
+      labs: toStandard(captured, Array.from({ length: 9 }, (_, k) => medianLab(frames.map((f) => rgbToLab(f.cells[k]!.rgb))))),
+      rgbs: toStandard(
+        captured,
+        Array.from({ length: 9 }, (_, k) => [0, 1, 2].map((ch) => median(frames.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
+      )
     }
     this.buffer = []
     this.target = SCAN_ORDER.find((f) => !this.faces[f]) ?? null
