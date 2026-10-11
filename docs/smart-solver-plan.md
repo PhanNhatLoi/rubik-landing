@@ -237,6 +237,31 @@ Lời giải là **gần tối ưu**, không chứng minh tối ưu (tối ưu t
 - Đã chứng minh → nhãn "Đường đi ngắn nhất (đã chứng minh)"; làm đúng từng bước thì giữ nhãn mà không tính lại (đoạn cuối của đường ngắn nhất cũng ngắn nhất). Xoay sai → mất nhãn, hiện lời giải dự phòng, tìm lại.
 - E2E (Chrome): scramble 8 bước → lời giải 8 bước có nhãn ngay từ đầu; xoay sai → chứng minh lại 7 bước; scramble 13 bước → chưa chứng minh trong 3 s, giữ two-phase và thử lại ở các bước sau.
 
+### Phase 3C — Bộ giải 2x2 → 5x5 (thư viện, chưa nối giao diện)
+
+Nguồn công thức: `docs/huong-dan-rubik-co-ban/` (sách Cresta). Mã: `src/smart-solver/nxn/`.
+
+- **Move engine NxN** (`engine.ts`): sticker 6·N², mỗi phép xoay là hoán vị suy từ hình học 3D. Ký hiệu: `R R' R2`, tầng trong `2R`, rộng `Rw`/`3Rw`, xoay khối `x y z`; ký hiệu của sách: chữ thường = 2 tầng (`r` = `Rw`), `MR` = `2R`. Test: X⁴ = X X' = X2 X2 = id cho mọi phép trên 2..5, bảo toàn số màu, 3x3 khớp core cubie trên 50 chuỗi ngẫu nhiên.
+- **API** `solveRubik(size, state, { mode, timeoutMs })` (`solveRubik.ts`): `CubeState` dùng tên màu bất kỳ. Lẻ: tâm làm mốc; chẵn: bộ màu (cả chiều đỏ/cam) suy từ các góc → chạy với bộ chuẩn, Nhật, tuỳ chỉnh. Lỗi phân biệt: `InvalidCubeError` (`sizeMismatch`, `faceLength`, `colorCount`, `impossibleCorner`, `duplicateCorner`, `cornerTwist`, `unsolvable`) / `SolveTimeoutError` / `StuckError` / `VerificationError`. Mọi lời giải được **xác minh trên toàn bộ sticker NxN** trước khi trả về. Chạy trong worker (`nxn.worker.ts`, `NxnSolverClient`).
+- **Chế độ**: 2x2 `beginner` | `fast` (tối ưu tuyệt đối); 3x3 `beginner` | `fast` (two-phase); 4x4, 5x5 chỉ `beginner` (reduction).
+- **Người mới 2x2/3x3** (`beginner.ts`): mỗi bước của sách là một mục tiêu; tìm kiếm ngắn trên "xoay U chuẩn bị + công thức của sách" — công thức chỉ được dùng khi engine xác nhận nó đạt mục tiêu và không phá phần đã xong. Bước trả về kèm tiêu đề tiếng Việt và tên công thức.
+- **2x2 tối ưu** (`optimal2.ts`): BFS toàn bộ 3.674.160 trạng thái; phân phối khoảng cách khớp số liệu công bố (God's number 11).
+- **Reduction 4x4/5x5** (`reduction.ts`): tâm từng mặt (D, U, F, R, B; sau khi xong U/D chỉ dùng commutator tầng ngang × mặt bên không phá U/D; mảnh cuối khó dùng commutator thuần `r U l' U' r' U l U'` kèm 1 bước setup) → ghép cạnh (đếm từng mảnh; kỹ thuật sách `u · R U R' F R' F' R · u'`, hai cạnh cuối `Dw R F' U R' F Dw'`, parity sách khi hoán vị mảnh lẻ) → parity 4x4 (validator 3x3 phát hiện lật cạnh / lệch chẵn lẻ) → giải như 3x3. 5x5 không bao giờ xoay đơn tầng giữa (giữ tâm cố định làm mốc).
+- **Đo công thức sách bằng engine**: OLL parity của sách (cả cách đọc rộng và tầng trong) giữ tâm 4x4/5x5; trên 5x5 nó đảo đúng 2 mảnh của cạnh UF (đúng như sách dùng). PLL parity của sách đúng trên 4x4 nhưng **phá tâm 5x5** → không dùng cho 5x5. 5 công thức hoán vị 2x2 đều hợp lệ; Alg 1–3 chỉ cho trường hợp cả hai lớp chưa giải nên không xuất hiện trong phương pháp giải đáy trước.
+
+**Kết quả (Node, MacBook)**
+
+| | Số bước TB (max) | Thời gian TB (max) |
+|---|---|---|
+| 2x2 người mới ×100 | 45.7 (74) | 0.7 ms |
+| 2x2 tối ưu ×100 | 7.5 (10) | 1.9 ms |
+| 3x3 người mới ×100 | 129.4 (170) | 1.3 ms |
+| 3x3 nhanh ×20 | 14.4 (20) | 0.7 s |
+| 4x4 reduction ×100 | 296.8 (354) | 42 ms (239 ms) |
+| 5x5 reduction ×100 (`BENCH=1`) | 456.5 (543) | 5.3 s (12.9 s) |
+
+**Chưa làm**: nối vào giao diện (hướng dẫn NxN trên khối 3D, chọn chế độ), quét khối 2x2/4x4/5x5 bằng camera.
+
 **Nghiệm thu**
 
 - 100 state ngẫu nhiên: solver trả lời giải hợp lệ (áp vào `core` ra trạng thái đã giải), độ dài ≤ 22, đo và ghi lại thời gian trên laptop và mobile.
