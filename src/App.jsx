@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { normalizeSteps, rotateGridIndex, rotateStickers } from './rubikLogic'
 import { fromFacelets } from './smart-solver/core'
@@ -29,6 +29,7 @@ function getVariantFaceColors() {
 const STICKER_KEYS = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
 const FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
 const COLOR_FACE = new Map(Object.entries(FACE_COLOR).map(([face, color]) => [color, face]))
+const HIGHLIGHT_EMISSIVE = 0x2a3f66
 
 export default function App() {
   const mountRef = useRef(null)
@@ -46,6 +47,7 @@ export default function App() {
   const zoomInRef = useRef(null)
   const zoomOutRef = useRef(null)
   const cubeControllerRef = useRef(null)
+  const getCubeController = useCallback(() => cubeControllerRef.current, [])
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
   const scrambledRef = useRef(scrambled)
@@ -144,6 +146,7 @@ export default function App() {
     let isAuto = false
     let lastMove = null
     const userMoveListeners = new Set()
+    let highlightedMove = null
 
     function setPointerNdc(event) {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -195,6 +198,14 @@ export default function App() {
 
     function readSceneOrientation() {
       return readOrientation(cubies.map((c) => c.userData), colorToFace)
+    }
+
+    function applyHighlight() {
+      const turn = highlightedMove ? moveToLayerTurn(highlightedMove, readSceneOrientation() ?? undefined) : null
+      cubies.forEach((cubie) => {
+        const lit = turn && cubie.userData.grid[turn.axis] === turn.layer
+        cubie.material.forEach((m) => m.emissive.setHex(lit ? HIGHLIGHT_EMISSIVE : 0x000000))
+      })
     }
 
     function isCubeSolved() {
@@ -279,6 +290,8 @@ export default function App() {
           setRunning(false)
         }
       }
+
+      applyHighlight()
 
       if (source === 'user' && steps !== 0 && orientation) {
         const event = layerTurnToEvent(turn, orientation)
@@ -547,6 +560,7 @@ export default function App() {
           cubie.rotation.set(0, 0, 0)
           cubie.updateMatrixWorld(true)
         })
+        applyHighlight()
         return { ok: true }
       },
       playMove(move) {
@@ -558,6 +572,10 @@ export default function App() {
             onCancel: () => reject(new Error('cube scene disposed'))
           })
         })
+      },
+      highlight(move) {
+        highlightedMove = move
+        applyHighlight()
       },
       onUserMove(listener) {
         userMoveListeners.add(listener)
@@ -644,7 +662,7 @@ export default function App() {
         </div>
       </div>
       {showCamera && (
-        <SmartSolverPanel onClose={() => setShowCamera(false)} getController={() => cubeControllerRef.current} />
+        <SmartSolverPanel onClose={() => setShowCamera(false)} getController={getCubeController} />
       )}
       {showSizeModal && (
         <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>

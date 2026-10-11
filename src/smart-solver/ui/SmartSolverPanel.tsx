@@ -1,232 +1,175 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import type { CubeController } from '../adapter/types'
-import { fromFacelets } from '../core/facelets'
-import { FACES, type Face, type ValidationError } from '../core/types'
 import type { ScheduledResult } from '../camera/FrameScheduler'
-import { reconstruct, type ReconstructResult, type ScanInput } from '../scan/reconstruct'
-import { SCAN_ORDER, ScanSession, type FaceScan, type ScanFeedback } from '../scan/ScanSession'
-import type { Lab } from '../vision/color'
+import { fromFacelets } from '../core/facelets'
+import type { Face, Facelets, Move } from '../core/types'
+import { INITIAL_GUIDE_STATE, expectedMove, guideReducer, needsSolve, wantsOptimal } from '../guidance/fsm'
+import { SolverClient } from '../solver/SolverClient'
 import CameraPanel from './CameraPanel'
-import FaceletNet, { type NetCell } from './FaceletNet'
-import { PALETTE, STANDARD_COLOR, nameCenters, previewColor, type ColorName } from './palette'
-
-const POSITION_NAME: Record<Face, string> = { F: 'trước', R: 'phải', B: 'sau', L: 'trái', U: 'trên', D: 'dưới' }
-
-const INSTRUCTION: Record<Face, string> = {
-  F: 'Hướng mặt xanh lá vào camera, mặt trắng ở trên.',
-  R: 'Xoay cả khối sang trái 90°: mặt đỏ vào camera, trắng vẫn ở trên.',
-  B: 'Tiếp tục xoay sang trái: mặt xanh dương vào camera.',
-  L: 'Tiếp tục xoay sang trái: mặt cam vào camera.',
-  U: 'Quay lại mặt xanh lá, rồi lật khối về phía bạn: mặt trắng vào camera, xanh lá ở dưới.',
-  D: 'Lật ngược lại: mặt vàng vào camera, xanh lá ở trên.'
-}
-
-function describeError(e: ValidationError, colorOf: (f: Face) => ColorName): string {
-  switch (e.kind) {
-    case 'colorCount':
-      return `Màu ${PALETTE[colorOf(e.face)].label} có ${e.count} ô (cần 9).`
-    case 'invalidCorner':
-      return 'Có một góc không tồn tại trên khối thật.'
-    case 'invalidEdge':
-      return 'Có một cạnh không tồn tại trên khối thật.'
-    case 'duplicateCorner':
-      return 'Có hai góc giống hệt nhau.'
-    case 'duplicateEdge':
-      return 'Có hai cạnh giống hệt nhau.'
-    case 'cornerTwist':
-      return 'Một góc bị xoắn (không thể có trên khối thật).'
-    case 'edgeFlip':
-      return 'Một cạnh bị lật (không thể có trên khối thật).'
-    case 'parity':
-      return 'Sai tính chẵn lẻ: có hai mảnh bị đổi chỗ.'
-    default:
-      return 'Trạng thái không hợp lệ.'
-  }
-}
+import GuideView, { type OptimalStatus } from './GuideView'
+import { STANDARD_COLOR, type ColorName } from './palette'
+import ScanView from './ScanView'
 
 export interface SmartSolverPanelProps {
   onClose: () => void
+  /** Must be stable across renders: effects subscribe through it. */
   getController: () => CubeController | null
 }
 
-type Analysis = { status: 'idle' } | { status: 'running' } | { status: 'done'; result: ReconstructResult }
-
 export default function SmartSolverPanel({ onClose, getController }: SmartSolverPanelProps) {
-  const sessionRef = useRef<ScanSession>(new ScanSession())
-  const [feedback, setFeedback] = useState<ScanFeedback>({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
-  const [faces, setFaces] = useState<Partial<Record<Face, FaceScan>>>({})
-  const [analysis, setAnalysis] = useState<Analysis>({ status: 'idle' })
-  const [edits, setEdits] = useState<Record<number, Face>>({})
-  const [applied, setApplied] = useState<string | null>(null)
+  const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
+  const [colors, setColors] = useState<Record<Face, ColorName>>(STANDARD_COLOR)
+  const [notice, setNotice] = useState<string | null>(null)
+  const frameHandlerRef = useRef<((r: ScheduledResult) => void) | null>(null)
+  const solverRef = useRef<SolverClient | null>(null)
+  /** Last proven-shortest search: which step it was for, and how it went. */
+  const [optimalJob, setOptimalJob] = useState<{ key: string; status: 'running' | 'done' | 'failed' } | null>(null)
 
-  const onResult = useCallback((r: ScheduledResult) => {
-    const session = sessionRef.current
-    const fb = session.push(r.result.face, r.result.sharpness)
-    setFeedback(fb)
-    if (fb.captured) setFaces({ ...session.faces })
+  useEffect(() => {
+    const solver = new SolverClient()
+    solverRef.current = solver
+    return () => {
+      solver.dispose()
+      solverRef.current = null
+    }
   }, [])
 
-  // Re-analyse whenever the set of scanned faces changes and all six are present.
+  // One solver job per epoch; results for older epochs are dropped by the reducer.
   useEffect(() => {
-    setEdits({})
-    setApplied(null)
-    if (!SCAN_ORDER.every((f) => faces[f])) {
-      setAnalysis({ status: 'idle' })
-      return
-    }
-    setAnalysis({ status: 'running' })
-    // Let React paint the "analysing" state before the ~0.2 s search blocks the thread.
-    const timer = window.setTimeout(() => {
-      const labs = (f: Face) => (faces[f] as FaceScan).labs
-      const input: ScanInput = { U: labs('U'), R: labs('R'), F: labs('F'), D: labs('D'), L: labs('L'), B: labs('B') }
-      setAnalysis({ status: 'done', result: reconstruct(input) })
-    }, 30)
-    return () => window.clearTimeout(timer)
-  }, [faces])
-
-  const result = analysis.status === 'done' && analysis.result.ok ? analysis.result.result : null
-
-  const centers = useMemo(() => {
-    const out: Partial<Record<Face, Lab>> = {}
-    FACES.forEach((f) => {
-      const lab = faces[f]?.labs[4]
-      if (lab) out[f] = lab
-    })
-    return out
-  }, [faces])
-  const names = useMemo(() => nameCenters(centers), [centers])
-  const colorOf = useCallback((f: Face): ColorName => names[f] ?? STANDARD_COLOR[f], [names])
-  const standardScheme = SCAN_ORDER.every((f) => names[f] === STANDARD_COLOR[f])
-
-  const finalFacelets = useMemo(() => {
-    if (!result) return null
-    const chars = result.facelets.split('')
-    Object.entries(edits).forEach(([i, face]) => (chars[Number(i)] = face))
-    return chars.join('')
-  }, [result, edits])
-
-  const validation = useMemo(() => (finalFacelets ? fromFacelets(finalFacelets) : null), [finalFacelets])
-
-  const cells: NetCell[] = useMemo(() => {
-    if (result && finalFacelets) {
-      const suspicious = new Set([...result.lowConfidence, ...(result.alternative?.differing ?? [])])
-      const changed = new Set(result.changed)
-      return [...finalFacelets].map((label, i) => ({
-        color: PALETTE[colorOf(label as Face)].css,
-        mark: edits[i] !== undefined ? null : changed.has(i) ? 'changed' : suspicious.has(i) ? 'uncertain' : null
-      }))
-    }
-    // Before analysis: each scanned sticker shown in the standard color it most likely is.
-    return FACES.flatMap((face) =>
-      Array.from({ length: 9 }, (_, k) => {
-        const lab = faces[face]?.labs[k]
-        const name = k === 4 ? names[face] : lab ? previewColor(lab, centers, names) : undefined
-        return { color: name ? PALETTE[name].css : null, mark: null }
+    if (!needsSolve(guide) || !guide.cube || !solverRef.current) return
+    const epoch = guide.epoch
+    solverRef.current
+      .solve(guide.cube)
+      .then((r) => dispatch({ type: 'SOLVED', epoch, moves: r.moves, ms: r.ms }))
+      .catch((e: unknown) => {
+        if (e instanceof Error && e.message === 'solver disposed') return
+        dispatch({ type: 'SOLVE_FAILED', epoch, message: e instanceof Error ? e.message : String(e) })
       })
-    )
-  }, [result, finalFacelets, faces, edits, centers, names, colorOf])
+  }, [guide.epoch, guide.phase])
 
-  const cycleCell = (index: number) => {
-    if (!finalFacelets) return
-    const current = finalFacelets[index] as Face
-    const next = FACES[(FACES.indexOf(current) + 1) % FACES.length] as Face
-    setApplied(null)
-    setEdits((prev) => ({ ...prev, [index]: next }))
-  }
+  // Proven-shortest search for the current step, one job at a time; stale results are dropped by the reducer.
+  const stepKey = `${guide.epoch}:${guide.index}`
+  useEffect(() => {
+    const solver = solverRef.current
+    if (!solver || !guide.cube || !wantsOptimal(guide)) return
+    if (optimalJob?.status === 'running' || optimalJob?.key === stepKey) return
+    const { epoch, index } = guide
+    setOptimalJob({ key: stepKey, status: 'running' })
+    solver
+      .solveOptimal(guide.cube, { timeoutMs: 3000 })
+      .then((r) => {
+        setOptimalJob({ key: stepKey, status: r.moves ? 'done' : 'failed' })
+        if (r.moves) dispatch({ type: 'OPTIMAL_FOUND', epoch, index, moves: r.moves })
+      })
+      .catch(() => setOptimalJob({ key: stepKey, status: 'failed' }))
+  }, [guide, optimalJob, stepKey])
 
-  const rescan = (face: Face) => {
-    sessionRef.current.setTarget(face)
-    setFeedback((fb) => ({ ...fb, target: face, phase: 'searching', progress: 0 }))
-  }
+  const optimalStatus: OptimalStatus = guide.optimal
+    ? 'proven'
+    : optimalJob?.status === 'running'
+      ? 'searching'
+      : 'unproven'
 
-  const restart = () => {
-    sessionRef.current.reset()
-    setFaces({})
-    setFeedback({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
-  }
+  const expected = expectedMove(guide)
+  useEffect(() => {
+    getController()?.highlight(expected)
+  }, [expected, getController])
+  useEffect(() => () => getController()?.highlight(null), [getController])
 
-  const apply = () => {
+  // Turns dragged on the 3D cube count as turns on the real cube.
+  useEffect(() => {
     const controller = getController()
-    if (!finalFacelets || !controller) {
-      setApplied('Khối 3D phải ở kích thước 3x3.')
+    if (!controller) return
+    return controller.onUserMove((event) => dispatch({ type: 'MOVES_DONE', moves: event.moves }))
+  }, [getController])
+
+  const onResult = useCallback((r: ScheduledResult) => frameHandlerRef.current?.(r), [])
+
+  const onScanned = (facelets: Facelets, scannedColors: Record<Face, ColorName>) => {
+    const parsed = fromFacelets(facelets)
+    const controller = getController()
+    if (!parsed.ok) return
+    if (!controller) {
+      setNotice('Hãy chuyển khối 3D về kích thước 3x3.')
       return
     }
-    const r = controller.setFacelets(finalFacelets)
-    setApplied(r.ok ? 'Đã đồng bộ lên khối 3D.' : r.reason === 'busy' ? 'Khối 3D đang xoay, thử lại sau giây lát.' : 'Trạng thái không hợp lệ.')
+    const r = controller.setFacelets(facelets)
+    if (!r.ok) {
+      setNotice(r.reason === 'busy' ? 'Khối 3D đang xoay, thử lại sau giây lát.' : 'Trạng thái không hợp lệ.')
+      return
+    }
+    setNotice(null)
+    setColors(scannedColors)
+    dispatch({ type: 'SCANNED', cube: parsed.state })
   }
 
-  const target = feedback.target
-  const scanning = target !== null
-  let status = ''
-  if (scanning) {
-    if (feedback.phase === 'holding') status = `Giữ yên... ${Math.round(feedback.progress * 100)}%`
-    else if (feedback.phase === 'blurry') status = 'Ảnh bị mờ, giữ yên khối.'
-    else if (feedback.phase === 'duplicate' && feedback.seenFace)
-      status = `Mặt ${PALETTE[colorOf(feedback.seenFace)].label} đã quét rồi.`
-    else status = 'Đưa mặt rubik vào khung.'
+  const report = (move: Move) => {
+    dispatch({ type: 'MOVES_DONE', moves: [move] })
+    getController()?.playMove(move).catch(() => {})
   }
 
+  const scanning = guide.phase === 'SCANNING'
   return (
-    <CameraPanel title="Quét rubik" onClose={onClose} onResult={onResult}>
-      <div className="scan">
-        {scanning ? (
-          <div className="scan-step">
-            <div className="scan-step-title">
-              <span className="scan-swatch" style={{ background: PALETTE[colorOf(target)].css }} />
-              Mặt {PALETTE[colorOf(target)].label} ({POSITION_NAME[target]}) · {SCAN_ORDER.filter((f) => faces[f]).length}/6
-            </div>
-            <div className="scan-step-text">{INSTRUCTION[target]}</div>
-            <div className="scan-progress">
-              <div className="scan-progress-bar" style={{ width: `${feedback.progress * 100}%` }} />
-            </div>
-            <div className="scan-status">{status}</div>
-          </div>
-        ) : (
-          <div className="scan-step">
-            <div className="scan-step-title">Đã quét đủ 6 mặt</div>
-            {analysis.status === 'running' && <div className="scan-status">Đang phân tích...</div>}
-            {analysis.status === 'done' && !analysis.result.ok && (
-              <div className="scan-error">
-                Mặt {POSITION_NAME[analysis.result.faces[0]]} và mặt {POSITION_NAME[analysis.result.faces[1]]} có màu tâm giống
-                nhau. Hãy quét lại một trong hai mặt.
-              </div>
-            )}
-            {result && validation && !validation.ok && (
-              <div className="scan-error">
-                {validation.errors
-                  .map((e) => describeError(e, colorOf))
-                  .filter((v, i, a) => a.indexOf(v) === i)
-                  .join(' ')}
-              </div>
-            )}
-            {result && validation?.ok && (
-              <div className="scan-status">
-                {result.alternative
-                  ? 'Có hai cách đọc gần giống nhau — kiểm tra các ô viền vàng và bấm để sửa nếu sai.'
-                  : result.changed.length
-                    ? `Đã tự sửa ${result.changed.length} ô theo luật của khối (viền cam). Kiểm tra lại trước khi áp dụng.`
-                    : 'Trạng thái hợp lệ.'}
-              </div>
-            )}
-            {result && !standardScheme && (
-              <div className="scan-status">Bố cục màu của khối khác chuẩn; khối 3D sẽ hiển thị theo màu chuẩn.</div>
-            )}
-          </div>
-        )}
+    <CameraPanel title="Smart Solver" onClose={onClose} onResult={onResult}>
+      {notice && <div className="scan-error">{notice}</div>}
 
-        <FaceletNet cells={cells} activeFace={target} onCellClick={cycleCell} onFaceClick={rescan} />
-        <div className="scan-legend">Bấm ô tâm để quét lại mặt đó{result ? ', bấm ô khác để đổi màu' : ''}.</div>
+      {scanning && (
+        <ScanView
+          key={guide.epoch}
+          frameHandlerRef={frameHandlerRef}
+          confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Giải'}
+          onConfirm={onScanned}
+        />
+      )}
 
-        <div className="scan-actions">
-          <button className="reset" onClick={restart}>
-            Quét lại từ đầu
-          </button>
-          <button className="scramble" onClick={apply} disabled={!validation?.ok}>
-            Áp dụng lên khối 3D
+      {guide.phase === 'SOLVING' && <div className="scan-status">Đang tính lời giải...</div>}
+
+      {(guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
+        <GuideView
+          guide={guide}
+          colors={colors}
+          optimalStatus={optimalStatus}
+          onDone={() => expected && report(expected)}
+          onWrong={report}
+          onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
+        />
+      )}
+
+      {guide.phase === 'VERIFYING' && (
+        <div className="scan">
+          <div className="scan-step-title">Theo tính toán, khối đã được giải</div>
+          <div className="scan-step-text">Quét lại 6 mặt để xác nhận khối thật đúng như vậy.</div>
+          <div className="scan-actions">
+            <button className="reset" onClick={() => dispatch({ type: 'SKIP_VERIFY' })}>
+              Bỏ qua
+            </button>
+            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'verify' })}>
+              Quét xác nhận
+            </button>
+          </div>
+        </div>
+      )}
+
+      {guide.phase === 'COMPLETED' && (
+        <div className="scan">
+          <div className="scan-step-title">Hoàn thành!</div>
+          <div className="scan-step-text">
+            {guide.history.length ? `Khối đã được giải sau ${guide.history.length} bước.` : 'Khối đã ở trạng thái đã giải.'}
+          </div>
+          <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+            Quét khối mới
           </button>
         </div>
-        {applied && <div className="scan-status">{applied}</div>}
-      </div>
+      )}
+
+      {guide.phase === 'ERROR' && (
+        <div className="scan">
+          <div className="scan-error">Không tìm được lời giải: {guide.error}</div>
+          <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+            Quét lại
+          </button>
+        </div>
+      )}
     </CameraPanel>
   )
 }

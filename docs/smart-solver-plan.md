@@ -143,11 +143,59 @@ public/
 
 **Công việc**
 
-- [ ] `solver/solver.worker.ts`: two-phase solver tự viết bằng TS (Kociemba: phase 1 → nhóm G1, phase 2 → solved; move table + pruning table sinh trong worker, cache IndexedDB), sau `SolverProvider` interface, trả về `moves`, thời gian, nhãn `near-optimal`.
-- [ ] `guidance/fsm`: `IDLE → SCANNING → VALIDATING → SOLVING → GUIDING → VERIFYING → RECOVERING → COMPLETED`, có `epoch`, mọi chuyển trạng thái đi qua một reducer.
-- [ ] `ui/StepHint`: hiển thị bước hiện tại/tổng số bước, ký hiệu move, `highlight` tầng trên UI 3D, animation `playMove` khi xác nhận.
-- [ ] Nút "Đã xoay" / "Xoay sai" / "Quét lại"; khi xoay sai → nhập lại hoặc quét lại → tính lại lời giải.
-- [ ] Kiểm tra hoàn thành: yêu cầu quét lại 6 mặt để xác nhận đã giải.
+- [x] `solver/coords.ts` + `solver/twophase.ts`: two-phase Kociemba tự viết (không symmetry reduction). Phase 1: twist, flip, UD-slice (C(12,4)); phase 2: hoán vị góc, hoán vị 8 cạnh U/D, hoán vị 4 cạnh slice. Bảng move + 4 bảng cắt tỉa (Int8, BFS), dựng lúc chạy trong worker ~0.5 s, không cần cache. Tìm tiếp lời giải ngắn hơn đến hết ngân sách thời gian (mặc định 1 s).
+- [x] `solver/solver.worker.ts` + `SolverClient` (chunk 6 KB).
+- [x] `guidance/fsm.ts`: reducer thuần `IDLE → SCANNING → SOLVING → GUIDING ⇄ RECOVERING → VERIFYING → COMPLETED` (+ `ERROR`), `epoch` loại kết quả solver cũ. Xoay sai → hiện ngay lời giải dự phòng `[nghịch đảo] + phần còn lại`, đồng thời tính lời giải mới; chỉ thay nếu không dài hơn.
+- [x] `CubeController.highlight(move)`: tô sáng (emissive) tầng cần xoay, bám theo tầng sau mỗi lần xoay.
+- [x] UI: `ScanView` (tách từ panel quét), `GuideView` (ô màu + ký hiệu, mô tả tiếng Việt, chuỗi bước, "Đã xoay", "Xoay sai" → chọn phép đã xoay, "Không rõ — quét lại"), kéo xoay trên khối 3D cũng được tính là báo bước. Kết thúc: "Quét xác nhận" hoặc "Bỏ qua".
+- [x] Panel neo dưới khung controls (không che nút Bật/Tắt), controls xếp ngang trên mobile.
+
+**Kết quả đo (Node, MacBook; chưa đo trên điện thoại)**
+
+| Chỉ số | Kết quả |
+|---|---|
+| Dựng bảng | ~0.49 s |
+| 40 trạng thái ngẫu nhiên, dừng khi ≤ 20 bước | TB 19.9 bước (max 21), trung vị 124 ms, max 634 ms |
+| 10 trạng thái ngẫu nhiên, ngân sách 1 s | TB 20.2 bước, max 21 |
+| Superflip | 21 bước (tối ưu là 20) |
+| Scramble ngắn (3–6 bước) | Lời giải ≤ độ dài scramble |
+
+Lời giải là **gần tối ưu**, không chứng minh tối ưu (tối ưu trung bình ~17–18 bước HTM).
+
+**End-to-end (Chrome headless, camera giả)**: quét 6 mặt → giải 13 bước (đúng nghịch đảo scramble 13 bước) → bấm "Đã xoay" từng bước, cố ý xoay sai một lần (U thay vì D2) → hệ thống chuyển sang `U'` + phần còn lại → khối 3D về trạng thái giải → "Hoàn thành".
+
+### Phase 3B — Đường đi ngắn nhất trên đồ thị trạng thái
+
+**Nguồn:** `docs/root-cube.png` (54 ô dán, mỗi vòng là quỹ đạo của một phép xoay) và `docs/rubik_3x3_node_graph.xlsx` (mô hình cubie Kociemba, 18 bảng phép xoay, đồ thị BFS độ sâu 2 từ trạng thái đã giải). Đã đối chiếu tự động: 18/18 bảng phép xoay, 262/262 node, 342/342 cạnh **khớp hoàn toàn** với `core/`.
+
+**Mô hình:** node = trạng thái khối (cp, co, ep, eo), cạnh = 18 phép xoay HTM (chi phí 1). Đường đi ngắn nhất từ trạng thái hiện tại đến node gốc (đã giải) = lời giải tối ưu. Đồ thị có 4.3×10¹⁹ node nên không thể dựng toàn bộ; duyệt **đồ thị ẩn** (sinh hàng xóm bằng bảng phép xoay khi cần).
+
+**Thuật toán (`solver/optimal.ts`):**
+
+1. **Bảng đích (mở rộng sheet `Nodes_BFS_2`)**: DFS từ trạng thái đã giải đến độ sâu 5, lưu khoảng cách chính xác của 621.649 trạng thái (khớp số trạng thái theo lớp 1/18/243/3240/43239/574908) trong bảng băm mở ~27 MB. Node trong bảng → khoảng cách chính xác; ngoài bảng → khoảng cách ≥ 6.
+2. **Đồ thị chiếu theo cụm (pattern database)**: chỉ theo dõi vị trí + hướng của một nhóm 4 mảnh (3 nhóm góc, 5 nhóm cạnh, mỗi nhóm 331.776 trạng thái), BFS toàn bộ đồ thị chiếu. Khoảng cách trong đồ thị chiếu ≤ khoảng cách thật → cận dưới chấp nhận được.
+3. **IDA\***: h(s) = max(các bảng chiếu, bảng đích hoặc 6); tăng dần ngưỡng; khi gặp node trong bảng đích thì đi xuống theo khoảng cách giảm dần. Đường đầu tiên tìm được **là ngắn nhất (đã chứng minh)**. Hết giờ → trả `null` kèm cận dưới đã chứng minh.
+
+**Benchmark (Node, MacBook; 5 trạng thái mỗi mức, giới hạn 15 s; dựng bảng 1.1 s):**
+
+| Scramble | Chứng minh được | Trung vị / max |
+|---|---|---|
+| 8 | 5/5 | 0 / 2 ms |
+| 10 | 5/5 | 2 / 345 ms |
+| 12 | 4/5 | 10 / 23 ms |
+| 13 | 4/5 | 234 ms / 10.1 s |
+| 14 | 4/5 | 3.0 / 3.2 s |
+| 15 | 2/5 | — |
+| 16 | 1/5 | — |
+
+→ Trong trình duyệt chứng minh được đường ngắn nhất khi khoảng cách ≲ 11–12 (đôi khi tới 14). Trạng thái ngẫu nhiên (~18 bước) **không khả thi realtime**; cần bảng lớn hơn nhiều (Korf/Kociemba: hàng trăm MB, phút–giờ) → để dành cho server (Phase 5).
+
+**Hướng dẫn lai (đã tích hợp):**
+
+- Hiện ngay lời giải two-phase; song song chạy IDA\* tối ưu (3 s) từ bước đầu.
+- Khi còn ≤ 14 bước và chưa có chứng minh, thử lại ở mỗi bước (khóa `epoch:index`, kết quả cũ bị bỏ).
+- Đã chứng minh → nhãn "Đường đi ngắn nhất (đã chứng minh)"; làm đúng từng bước thì giữ nhãn mà không tính lại (đoạn cuối của đường ngắn nhất cũng ngắn nhất). Xoay sai → mất nhãn, hiện lời giải dự phòng, tìm lại.
+- E2E (Chrome): scramble 8 bước → lời giải 8 bước có nhãn ngay từ đầu; xoay sai → chứng minh lại 7 bước; scramble 13 bước → chưa chứng minh trong 3 s, giữ two-phase và thử lại ở các bước sau.
 
 **Nghiệm thu**
 

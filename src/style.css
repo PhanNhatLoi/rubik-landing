@@ -317,7 +317,8 @@ p {
 .camera-panel {
   position: absolute;
   right: clamp(16px, 4vw, 40px);
-  bottom: clamp(16px, 4vw, 32px);
+  /* Below the top-right controls, so their buttons stay reachable. */
+  top: 210px;
   width: min(420px, calc(100vw - 32px));
   display: grid;
   gap: 10px;
@@ -328,7 +329,7 @@ p {
   backdrop-filter: blur(12px);
   z-index: 4;
   pointer-events: auto;
-  max-height: calc(100vh - 2 * clamp(16px, 4vw, 32px));
+  max-height: calc(100vh - 226px);
   overflow-y: auto;
 }
 
@@ -544,6 +545,106 @@ p {
   cursor: default;
 }
 
+.guide {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-move {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  flex: none;
+}
+
+.guide-swatch.small {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.guide-notation {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.guide-count {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: rgba(174, 196, 255, 0.75);
+}
+
+.guide-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.guide-token {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(122, 166, 255, 0.08);
+  color: rgba(220, 230, 255, 0.85);
+}
+
+.guide-token.done {
+  opacity: 0.35;
+}
+
+.guide-token.current {
+  background: linear-gradient(120deg, #6b9bff, #5ee7ff);
+  color: #061021;
+  font-weight: 700;
+}
+
+.guide-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.guide-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(122, 166, 255, 0.3);
+  background: rgba(12, 18, 30, 0.9);
+  color: #e8efff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.guide-optimal {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(122, 166, 255, 0.08);
+  color: rgba(220, 230, 255, 0.8);
+}
+
+.guide-optimal.proven {
+  background: rgba(22, 193, 114, 0.15);
+  color: #8ff0c0;
+}
+
 @media (max-width: 720px) {
   .overlay {
     margin: 20px;
@@ -569,15 +670,14 @@ p {
     right: 16px;
     top: 16px;
     padding: 10px 12px;
+    grid-auto-flow: column;
   }
 
   .camera-panel {
     left: 16px;
     right: 16px;
-    top: 84px;
-    bottom: auto;
+    top: 108px;
     width: auto;
-    max-height: calc(100vh - 100px);
-    overflow-y: auto;
+    max-height: calc(100vh - 124px);
   }
 }
