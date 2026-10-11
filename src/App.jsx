@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { normalizeSteps, rotateGridIndex, rotateStickers } from './rubikLogic'
+import { fromFacelets } from './smart-solver/core'
+import {
+  faceletsToStickerMap,
+  gridKey,
+  layerTurnToEvent,
+  moveToLayerTurn,
+  readOrientation,
+  stickerModelToFacelets
+} from './smart-solver/adapter/stickerModel'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -15,6 +25,10 @@ function getVariantFaceColors() {
   return [COLORS.red, COLORS.orange, COLORS.white, COLORS.yellow, COLORS.green, COLORS.blue]
 }
 
+const STICKER_KEYS = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
+const FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
+const COLOR_FACE = new Map(Object.entries(FACE_COLOR).map(([face, color]) => [color, face]))
+
 export default function App() {
   const mountRef = useRef(null)
   const [size, setSize] = useState(3)
@@ -29,6 +43,7 @@ export default function App() {
   const scrambleRef = useRef(null)
   const zoomInRef = useRef(null)
   const zoomOutRef = useRef(null)
+  const cubeControllerRef = useRef(null)
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
   const scrambledRef = useRef(scrambled)
@@ -126,6 +141,7 @@ export default function App() {
     let moveQueue = []
     let isAuto = false
     let lastMove = null
+    const userMoveListeners = new Set()
 
     function setPointerNdc(event) {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -173,112 +189,10 @@ export default function App() {
     }
 
     const expectedFaceColors = getVariantFaceColors()
+    const colorToFace = (color) => COLOR_FACE.get(color) ?? null
 
-    function normalizeSteps(steps) {
-      let s = ((steps % 4) + 4) % 4
-      if (s === 3) s = -1
-      return s
-    }
-
-    function rotateGridIndex(grid, axis, dir) {
-      const c = (size - 1) / 2
-      const x = grid.x - c
-      const y = grid.y - c
-      const z = grid.z - c
-      let nx = x
-      let ny = y
-      let nz = z
-
-      if (axis === 'x') {
-        if (dir === 1) {
-          ny = -z
-          nz = y
-        } else {
-          ny = z
-          nz = -y
-        }
-      }
-
-      if (axis === 'y') {
-        if (dir === 1) {
-          nx = z
-          nz = -x
-        } else {
-          nx = -z
-          nz = x
-        }
-      }
-
-      if (axis === 'z') {
-        if (dir === 1) {
-          nx = -y
-          ny = x
-        } else {
-          nx = y
-          ny = -x
-        }
-      }
-
-      return {
-        x: Math.round(nx + c),
-        y: Math.round(ny + c),
-        z: Math.round(nz + c)
-      }
-    }
-
-    function rotateStickers(stickers, axis, dir) {
-      const s = { ...stickers }
-      const n = { ...stickers }
-
-      if (axis === 'x') {
-        if (dir === 1) {
-          n.pz = s.py
-          n.ny = s.pz
-          n.nz = s.ny
-          n.py = s.nz
-        } else {
-          n.nz = s.py
-          n.py = s.pz
-          n.pz = s.ny
-          n.ny = s.nz
-        }
-        n.px = s.px
-        n.nx = s.nx
-      }
-
-      if (axis === 'y') {
-        if (dir === 1) {
-          n.nz = s.px
-          n.px = s.pz
-          n.pz = s.nx
-          n.nx = s.nz
-        } else {
-          n.pz = s.px
-          n.px = s.nz
-          n.nz = s.nx
-          n.nx = s.pz
-        }
-        n.py = s.py
-        n.ny = s.ny
-      }
-
-      if (axis === 'z') {
-        if (dir === 1) {
-          n.py = s.px
-          n.nx = s.py
-          n.ny = s.nx
-          n.px = s.ny
-        } else {
-          n.ny = s.px
-          n.px = s.py
-          n.py = s.nx
-          n.nx = s.ny
-        }
-        n.pz = s.pz
-        n.nz = s.nz
-      }
-
-      return n
+    function readSceneOrientation() {
+      return readOrientation(cubies.map((c) => c.userData), colorToFace)
     }
 
     function isCubeSolved() {
@@ -319,7 +233,7 @@ export default function App() {
       const times = Math.abs(steps)
       for (let i = 0; i < times; i += 1) {
         activeCubies.forEach((cubie) => {
-          cubie.userData.grid = rotateGridIndex(cubie.userData.grid, axisName, dir)
+          cubie.userData.grid = rotateGridIndex(cubie.userData.grid, axisName, dir, size)
           cubie.userData.stickers = rotateStickers(cubie.userData.stickers, axisName, dir)
         })
       }
@@ -328,6 +242,8 @@ export default function App() {
     function finalizeLayer(steps = 0, source = 'user') {
       if (!pivot) return
       pivot.updateMatrixWorld(true)
+      const turn = { axis: axisName, layer: layerValue, steps }
+      const orientation = size === 3 ? readSceneOrientation() : null
 
       applyRotationToState(steps)
 
@@ -361,16 +277,22 @@ export default function App() {
           setRunning(false)
         }
       }
+
+      if (source === 'user' && steps !== 0 && orientation) {
+        const event = layerTurnToEvent(turn, orientation)
+        if (event) userMoveListeners.forEach((listener) => listener(event))
+      }
     }
 
-    function startTweenToSteps(steps, source) {
+    function startTweenToSteps(steps, source, callbacks = {}) {
       const step = Math.PI / 2
       const normalized = normalizeSteps(steps)
       if (!normalized) {
         finalizeLayer(0, source)
+        callbacks.onDone?.()
         return
       }
-      lastMove = { steps: normalized, source }
+      lastMove = { steps: normalized, source, ...callbacks }
       const start = pivot.rotation[axisName]
       tween = {
         axis: axisName,
@@ -384,9 +306,10 @@ export default function App() {
     function startAutoMove(move) {
       if (!move) return
       if (pivot || tween) return
-      attachLayerByIndex(move.axis, move.layer)
-      pivot.rotation[move.axis] = 0
-      startTweenToSteps(move.steps, 'scramble')
+      const turn = move.move ? moveToLayerTurn(move.move, readSceneOrientation() ?? undefined) : move
+      attachLayerByIndex(turn.axis, turn.layer)
+      pivot.rotation[turn.axis] = 0
+      startTweenToSteps(turn.steps, move.source ?? 'scramble', move)
     }
 
     function generateScrambleSequence() {
@@ -565,8 +488,10 @@ export default function App() {
         pivot.rotation[tween.axis] = THREE.MathUtils.lerp(tween.start, tween.end, eased)
         if (t >= 1) {
           tween = null
-          finalizeLayer(lastMove?.steps ?? 0, lastMove?.source ?? 'user')
+          const finished = lastMove
+          finalizeLayer(finished?.steps ?? 0, finished?.source ?? 'user')
           lastMove = null
+          finished?.onDone?.()
         }
       }
 
@@ -598,7 +523,55 @@ export default function App() {
 
     const raf = requestAnimationFrame(animate)
 
+    /** @type {import('./smart-solver/adapter/types').CubeController | null} */
+    const controller = size !== 3 ? null : {
+      getFacelets() {
+        return stickerModelToFacelets(cubies.map((c) => c.userData), colorToFace)
+      },
+      setFacelets(facelets) {
+        if (tween || pivot || moveQueue.length > 0) return { ok: false, reason: 'busy' }
+        const result = fromFacelets(facelets)
+        if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
+        const stickerMap = faceletsToStickerMap(facelets)
+        cubies.forEach((cubie) => {
+          const faces = stickerMap.get(gridKey(cubie.userData.grid))
+          const stickers = {}
+          STICKER_KEYS.forEach((key, i) => {
+            const face = faces?.[key]
+            stickers[key] = face ? FACE_COLOR[face] : null
+            cubie.material[i].color.setHex(stickers[key] ?? COLORS.core)
+          })
+          cubie.userData.stickers = stickers
+          cubie.rotation.set(0, 0, 0)
+          cubie.updateMatrixWorld(true)
+        })
+        return { ok: true }
+      },
+      playMove(move) {
+        return new Promise((resolve, reject) => {
+          moveQueue.push({
+            move,
+            source: 'controller',
+            onDone: resolve,
+            onCancel: () => reject(new Error('cube scene disposed'))
+          })
+        })
+      },
+      onUserMove(listener) {
+        userMoveListeners.add(listener)
+        return () => userMoveListeners.delete(listener)
+      }
+    }
+    cubeControllerRef.current = controller
+    if (import.meta.env.DEV) window.__cube = controller
+
     return () => {
+      lastMove?.onCancel?.()
+      moveQueue.forEach((move) => move.onCancel?.())
+      moveQueue = []
+      userMoveListeners.clear()
+      cubeControllerRef.current = null
+      if (import.meta.env.DEV && window.__cube === controller) delete window.__cube
       scrambleRef.current = null
       zoomInRef.current = null
       zoomOutRef.current = null
