@@ -164,6 +164,14 @@ Lời giải là **gần tối ưu**, không chứng minh tối ưu (tối ưu t
 
 **End-to-end (Chrome headless, camera giả)**: quét 6 mặt → giải 13 bước (đúng nghịch đảo scramble 13 bước) → bấm "Đã xoay" từng bước, cố ý xoay sai một lần (U thay vì D2) → hệ thống chuyển sang `U'` + phần còn lại → khối 3D về trạng thái giải → "Hoàn thành".
 
+### Phase 2B — Chụp ảnh, kiểm tra trên khối 3D, test trên điện thoại
+
+- [x] **Hai cách lấy ảnh**: "Webcam" (realtime như trước) và "Chụp ảnh" (`<input type="file" accept="image/*">`: trên điện thoại mở app camera gốc — nét hơn, chống rung — hoặc chọn từ thư viện). Lựa chọn được nhớ trong `localStorage`; ở chế độ chụp ảnh webcam không bật.
+- [x] `camera/photo.ts`: giải mã ảnh qua `<img>` (áp hướng EXIF), thử 3 khung cắt vuông giữa ảnh (90/70/50%) thu về 480 px, gửi cùng vision worker, giữ kết quả nhiều ô nhất. `ScanSession.pushStill()` chụp ngay một mặt (cùng các kiểm tra: đủ ô, độ nét, chống trùng mặt). Ảnh thu nhỏ hiển thị lưới phát hiện được.
+- [x] **Kiểm tra trước khi giải**: quét xong → "Áp lên khối 3D" → pha `REVIEWING` (xoay khối 3D để so với khối thật) → "Đúng rồi — Giải" hoặc "Sửa lại" (quay về lưới, giữ nguyên các mặt và chỗ đã sửa nhờ `scanId`). Khi xác nhận, trạng thái quét được áp lại lên khối 3D phòng trường hợp lỡ kéo xoay tầng lúc xem.
+- [x] **Dev HTTPS cho điện thoại**: `yarn cert:dev` (chứng chỉ tự ký bằng openssl, thư mục `.cert/` đã gitignore) rồi `yarn dev:https` → mở `https://<IP-LAN>:5173` trên điện thoại. Chế độ "Chụp ảnh" chạy được cả qua HTTP thường.
+- E2E (Chrome headless): 6 ảnh 2000×1500 (mặt khối ~45% khung, nghiêng ±10°, độ sáng 0.7–1.05) → nhận đủ 6 mặt → khối 3D khớp đáp án → "Sửa lại" giữ đủ 54 ô → giải. **Chưa thử trên điện thoại thật.**
+
 ### Phase 3B — Đường đi ngắn nhất trên đồ thị trạng thái
 
 **Nguồn:** `docs/root-cube.png` (54 ô dán, mỗi vòng là quỹ đạo của một phép xoay) và `docs/rubik_3x3_node_graph.xlsx` (mô hình cubie Kociemba, 18 bảng phép xoay, đồ thị BFS độ sâu 2 từ trạng thái đã giải). Đã đối chiếu tự động: 18/18 bảng phép xoay, 262/262 node, 342/342 cạnh **khớp hoàn toàn** với `core/`.

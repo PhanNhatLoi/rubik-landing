@@ -100,35 +100,54 @@ export class ScanSession {
     this.buffer = []
   }
 
-  push(face: FaceDetection | null, sharpness: number): ScanFeedback {
-    const feedback = (phase: ScanPhase, extra: Partial<ScanFeedback> = {}): ScanFeedback => ({
+  private feedback(phase: ScanPhase, extra: Partial<ScanFeedback> = {}): ScanFeedback {
+    return {
       phase,
       target: this.target,
       progress: phase === 'holding' ? this.buffer.length / this.opts.stableFrames : 0,
       captured: null,
       seenFace: null,
       ...extra
-    })
-
-    if (!this.target) return feedback('done')
-    if (!face || face.inliers < this.opts.minInliers) {
-      this.buffer = []
-      return feedback('searching')
     }
-    if (sharpness < this.opts.minSharpness) {
-      this.buffer = []
-      return feedback('blurry')
-    }
+  }
 
+  /** Checks shared by video frames and still photos; returns feedback when the face is rejected. */
+  private reject(face: FaceDetection | null, sharpness: number): ScanFeedback | null {
+    if (!this.target) return this.feedback('done')
+    if (!face || face.inliers < this.opts.minInliers) return this.feedback('searching')
+    if (sharpness < this.opts.minSharpness) return this.feedback('blurry')
     const labs = face.cells.map((c) => rgbToLab(c.rgb))
     const seen = SCAN_ORDER.find((f) => {
       const scan = this.faces[f]
       return f !== this.target && scan && faceDistance(labs, scan.labs) < this.opts.sameFaceDeltaE
     })
-    if (seen) {
-      this.buffer = []
-      return feedback('duplicate', { seenFace: seen })
+    return seen ? this.feedback('duplicate', { seenFace: seen }) : null
+  }
+
+  private capture(frames: FaceDetection[]): ScanFeedback {
+    const captured = this.target as Face
+    this.faces[captured] = {
+      labs: Array.from({ length: 9 }, (_, k) => medianLab(frames.map((f) => rgbToLab(f.cells[k]!.rgb)))),
+      rgbs: Array.from({ length: 9 }, (_, k) => [0, 1, 2].map((ch) => median(frames.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
     }
+    this.buffer = []
+    this.target = SCAN_ORDER.find((f) => !this.faces[f]) ?? null
+    return this.feedback(this.target ? 'holding' : 'done', { captured, progress: 0 })
+  }
+
+  /** A still photo: captured immediately (no stability wait) if it passes the same checks. */
+  pushStill(face: FaceDetection | null, sharpness: number): ScanFeedback {
+    this.buffer = []
+    return this.reject(face, sharpness) ?? this.capture([face as FaceDetection])
+  }
+
+  push(face: FaceDetection | null, sharpness: number): ScanFeedback {
+    const rejected = this.reject(face, sharpness)
+    if (rejected) {
+      this.buffer = []
+      return rejected
+    }
+    if (!face) return this.feedback('searching')
 
     const prev = this.buffer[this.buffer.length - 1]
     if (prev) {
@@ -136,15 +155,7 @@ export class ScanSession {
       if (motion / face.pitch > this.opts.maxMotion) this.buffer = []
     }
     this.buffer.push(face)
-    if (this.buffer.length < this.opts.stableFrames) return feedback('holding')
-
-    const captured = this.target
-    this.faces[captured] = {
-      labs: Array.from({ length: 9 }, (_, k) => medianLab(this.buffer.map((f) => rgbToLab(f.cells[k]!.rgb)))),
-      rgbs: Array.from({ length: 9 }, (_, k) => [0, 1, 2].map((ch) => median(this.buffer.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
-    }
-    this.buffer = []
-    this.target = SCAN_ORDER.find((f) => !this.faces[f]) ?? null
-    return feedback(this.target ? 'holding' : 'done', { captured, progress: 0 })
+    if (this.buffer.length < this.opts.stableFrames) return this.feedback('holding')
+    return this.capture(this.buffer)
   }
 }

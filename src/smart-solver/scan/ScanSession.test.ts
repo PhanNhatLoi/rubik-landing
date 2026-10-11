@@ -106,4 +106,12 @@ describe('ScanSession', () => {
     const rotated = [6, 3, 0, 7, 4, 1, 8, 5, 2].map((i) => pattern[i]!)
     expect(faceDistance(pattern, rotated)).toBeLessThan(0.001)
   })
+
+  it('captures a still photo immediately, with the same checks as video', () => {
+    const s = new ScanSession()
+    expect(s.pushStill(detection(CENTER.F!, 0, 5), 100).phase).toBe('searching')
+    expect(s.pushStill(detection(CENTER.F!), 100).captured).toBe('F')
+    expect(s.currentTarget).toBe('R')
+    expect(s.pushStill(detection(CENTER.F!), 100).phase).toBe('duplicate')
+  })
 })

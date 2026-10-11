@@ -4,6 +4,7 @@ import type { CubieState, Move } from '../core/types'
 export type GuidePhase =
   | 'IDLE'
   | 'SCANNING' // reading the cube with the camera
+  | 'REVIEWING' // scan shown on the 3D cube; the user compares it with the real cube before solving
   | 'SOLVING' // waiting for the first solution
   | 'GUIDING' // showing the next move
   | 'RECOVERING' // user deviated: a fallback solution is shown while a better one is computed
@@ -18,6 +19,8 @@ export interface GuideState {
   /** Bumped whenever the believed cube changes; solver results from older epochs are ignored. */
   epoch: number
   scanPurpose: ScanPurpose
+  /** Identifies one scan; going back from review keeps it so the scanned faces survive. */
+  scanId: number
   /** The state we believe the physical cube is in. */
   cube: CubieState | null
   solution: Move[]
@@ -37,6 +40,8 @@ export interface GuideState {
 export type GuideEvent =
   | { type: 'START_SCAN'; purpose: ScanPurpose }
   | { type: 'SCANNED'; cube: CubieState }
+  | { type: 'CONFIRM_REVIEW' }
+  | { type: 'BACK_TO_SCAN' }
   | { type: 'SOLVED'; epoch: number; moves: Move[]; ms: number }
   | { type: 'SOLVE_FAILED'; epoch: number; message: string }
   /** Proven shortest path from the cube as it was at (epoch, index). */
@@ -50,6 +55,7 @@ export const INITIAL_GUIDE_STATE: GuideState = {
   phase: 'IDLE',
   epoch: 0,
   scanPurpose: 'initial',
+  scanId: 0,
   cube: null,
   solution: [],
   index: 0,
@@ -83,16 +89,24 @@ export function guideReducer(s: GuideState, e: GuideEvent): GuideState {
       return { ...INITIAL_GUIDE_STATE, epoch: s.epoch + 1 }
 
     case 'START_SCAN':
-      return { ...s, phase: 'SCANNING', scanPurpose: e.purpose, error: null, epoch: s.epoch + 1 }
+      return { ...s, phase: 'SCANNING', scanPurpose: e.purpose, scanId: s.scanId + 1, error: null, epoch: s.epoch + 1 }
 
     case 'SCANNED': {
       if (s.phase !== 'SCANNING') return s
       const base = { ...s, cube: e.cube, epoch: s.epoch + 1, index: 0, solution: [], optimal: false, error: null }
-      if (isSolved(e.cube)) return { ...base, phase: s.scanPurpose === 'verify' ? 'COMPLETED' : 'VERIFYING' }
-      if (s.scanPurpose === 'initial') return { ...base, phase: 'SOLVING', history: [] }
+      if (s.scanPurpose === 'initial') return { ...base, phase: 'REVIEWING', history: [] }
+      if (isSolved(e.cube)) return { ...base, phase: 'COMPLETED' }
       // Verification scan found an unsolved cube: recover from what was actually seen.
       return { ...base, phase: 'RECOVERING' }
     }
+
+    case 'BACK_TO_SCAN':
+      return s.phase === 'REVIEWING' ? { ...s, phase: 'SCANNING', epoch: s.epoch + 1 } : s
+
+    case 'CONFIRM_REVIEW':
+      if (s.phase !== 'REVIEWING' || !s.cube) return s
+      if (isSolved(s.cube)) return { ...s, phase: 'COMPLETED' }
+      return { ...s, phase: 'SOLVING', epoch: s.epoch + 1 }
 
     case 'SOLVED': {
       if (e.epoch !== s.epoch || !(s.phase === 'SOLVING' || s.phase === 'RECOVERING')) return s

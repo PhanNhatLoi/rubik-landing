@@ -40,9 +40,13 @@ export function drawOverlay(
   ctx.strokeRect(roi.x * scale, roi.y * scale, roi.side * scale, roi.side * scale)
   ctx.setLineDash([])
 
-  if (!face) return
-  const map = mapper(roi, size, scale)
+  if (face) drawLattice(ctx, face, mapper(roi, size, scale))
+}
 
+/** Draws the detected lattice and sticker quads; `map` converts detector pixels to canvas pixels. */
+export function drawLattice(ctx: CanvasRenderingContext2D, face: FaceDetection, map: (p: Point) => Point = (p) => p) {
+  ctx.lineWidth = 2 * (window.devicePixelRatio || 1)
+  ctx.setLineDash([])
   polygon(ctx, face.corners.map(map))
   ctx.strokeStyle = 'rgba(94, 231, 255, 0.95)'
   ctx.stroke()

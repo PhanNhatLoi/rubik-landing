@@ -8,14 +8,23 @@ const scramble = parseAlgorithm("R U F'")
 const scrambled = applyMoves(SOLVED, scramble)
 const solution = parseAlgorithm("F U' R'")
 
+const SCAN_AND_CONFIRM: GuideEvent[] = [
+  { type: 'START_SCAN', purpose: 'initial' },
+  { type: 'SCANNED', cube: scrambled },
+  { type: 'CONFIRM_REVIEW' }
+]
+
 function guiding(): GuideState {
-  const s = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+  const s = run(SCAN_AND_CONFIRM)
   return guideReducer(s, { type: 'SOLVED', epoch: s.epoch, moves: solution, ms: 5 })
 }
 
 describe('guideReducer', () => {
-  it('goes from scan to solving to guiding', () => {
-    const scanned = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+  it('goes from scan to review to solving to guiding', () => {
+    const reviewing = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    expect(reviewing.phase).toBe('REVIEWING')
+    expect(needsSolve(reviewing)).toBe(false)
+    const scanned = guideReducer(reviewing, { type: 'CONFIRM_REVIEW' })
     expect(scanned.phase).toBe('SOLVING')
     expect(needsSolve(scanned)).toBe(true)
     const g = guideReducer(scanned, { type: 'SOLVED', epoch: scanned.epoch, moves: solution, ms: 5 })
@@ -24,7 +33,7 @@ describe('guideReducer', () => {
   })
 
   it('ignores solutions from an older epoch', () => {
-    const scanned = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    const scanned = run(SCAN_AND_CONFIRM)
     const stale = guideReducer(scanned, { type: 'SOLVED', epoch: scanned.epoch - 1, moves: solution, ms: 5 })
     expect(stale).toBe(scanned)
   })
@@ -78,7 +87,7 @@ describe('guideReducer', () => {
   })
 
   it('reports a solver failure only for the current epoch', () => {
-    const scanned = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    const scanned = run(SCAN_AND_CONFIRM)
     expect(guideReducer(scanned, { type: 'SOLVE_FAILED', epoch: scanned.epoch, message: 'x' }).phase).toBe('ERROR')
     expect(guideReducer(scanned, { type: 'SOLVE_FAILED', epoch: 0, message: 'x' })).toBe(scanned)
   })
@@ -89,7 +98,7 @@ describe('guideReducer', () => {
 
   it('replaces the remaining path with a proven shortest one and keeps it while followed', () => {
     // Two-phase gave a detour: R R' F U' R' (5) for a 3-move distance.
-    const scanned = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    const scanned = run(SCAN_AND_CONFIRM)
     let s = guideReducer(scanned, { type: 'SOLVED', epoch: scanned.epoch, moves: parseAlgorithm("D D' F U' R'"), ms: 5 })
     expect(wantsOptimal(s)).toBe(true)
     s = guideReducer(s, { type: 'OPTIMAL_FOUND', epoch: s.epoch, index: 0, moves: solution })
@@ -111,7 +120,7 @@ describe('guideReducer', () => {
   })
 
   it('only searches when the remaining path is short enough, or at the start', () => {
-    const scanned = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    const scanned = run(SCAN_AND_CONFIRM)
     const long = parseAlgorithm("R U F' L2 D B' R2 U' F L D2 B R' U2 F2 L' D")
     let s = guideReducer(scanned, { type: 'SOLVED', epoch: scanned.epoch, moves: long, ms: 5 })
     expect(wantsOptimal(s)).toBe(true)
@@ -120,5 +129,18 @@ describe('guideReducer', () => {
     expect(wantsOptimal(s)).toBe(false)
     s = run([{ type: 'MOVES_DONE', moves: ['U'] }, { type: 'MOVES_DONE', moves: ["F'"] }], s)
     expect(wantsOptimal(s)).toBe(true)
+  })
+
+  it('going back from review keeps the same scan; a new scan gets a new id', () => {
+    const reviewing = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: scrambled }])
+    const back = guideReducer(reviewing, { type: 'BACK_TO_SCAN' })
+    expect(back.phase).toBe('SCANNING')
+    expect(back.scanId).toBe(reviewing.scanId)
+    expect(guideReducer(back, { type: 'START_SCAN', purpose: 'initial' }).scanId).toBe(reviewing.scanId + 1)
+  })
+
+  it('confirming a solved scan completes right away', () => {
+    const s = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: SOLVED }, { type: 'CONFIRM_REVIEW' }])
+    expect(s.phase).toBe('COMPLETED')
   })
 })

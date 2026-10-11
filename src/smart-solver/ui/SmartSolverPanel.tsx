@@ -1,29 +1,73 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import type { CubeController } from '../adapter/types'
 import type { ScheduledResult } from '../camera/FrameScheduler'
-import { fromFacelets } from '../core/facelets'
+import { fromFacelets, toFacelets } from '../core/facelets'
 import type { Face, Facelets, Move } from '../core/types'
-import { INITIAL_GUIDE_STATE, expectedMove, guideReducer, needsSolve, wantsOptimal } from '../guidance/fsm'
+import { INITIAL_GUIDE_STATE, expectedMove, guideReducer, needsSolve, wantsOptimal, type GuidePhase } from '../guidance/fsm'
 import { SolverClient } from '../solver/SolverClient'
+import { VisionClient } from '../vision/VisionClient'
 import CameraPanel from './CameraPanel'
 import GuideView, { type OptimalStatus } from './GuideView'
 import { STANDARD_COLOR, type ColorName } from './palette'
-import ScanView from './ScanView'
+import ScanView, { type ScanMode } from './ScanView'
+
+const PHASE_SUMMARY: Record<GuidePhase, string> = {
+  IDLE: 'Sẵn sàng',
+  SCANNING: 'Đang quét các mặt',
+  REVIEWING: 'Kiểm tra trạng thái trên khối 3D',
+  SOLVING: 'Đang tính lời giải...',
+  GUIDING: 'Đang hướng dẫn',
+  RECOVERING: 'Đang hướng dẫn',
+  VERIFYING: 'Chờ quét xác nhận',
+  COMPLETED: 'Hoàn thành!',
+  ERROR: 'Có lỗi — mở rộng để xem'
+}
+
+const SCAN_MODE_KEY = 'smart-solver.scanMode'
+
+function loadScanMode(): ScanMode {
+  try {
+    return localStorage.getItem(SCAN_MODE_KEY) === 'photo' ? 'photo' : 'webcam'
+  } catch {
+    return 'webcam'
+  }
+}
+
+function saveScanMode(mode: ScanMode) {
+  try {
+    localStorage.setItem(SCAN_MODE_KEY, mode)
+  } catch {
+    // Storage can be unavailable (private mode); the choice just isn't remembered.
+  }
+}
 
 export interface SmartSolverPanelProps {
-  onClose: () => void
+  /** Closed panels stay mounted (camera off) so the scan and guidance survive reopening. */
+  open: boolean
+  /** Where the panel header goes (the controls row next to Size and Quét). */
+  headerSlot: HTMLElement | null
   /** Must be stable across renders: effects subscribe through it. */
   getController: () => CubeController | null
 }
 
-export default function SmartSolverPanel({ onClose, getController }: SmartSolverPanelProps) {
+export default function SmartSolverPanel({ open, headerSlot, getController }: SmartSolverPanelProps) {
   const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
   const [colors, setColors] = useState<Record<Face, ColorName>>(STANDARD_COLOR)
   const [notice, setNotice] = useState<string | null>(null)
   const frameHandlerRef = useRef<((r: ScheduledResult) => void) | null>(null)
   const solverRef = useRef<SolverClient | null>(null)
+  const [vision, setVision] = useState<VisionClient | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  const [scanMode, setScanMode] = useState<ScanMode>(loadScanMode)
+  useEffect(() => saveScanMode(scanMode), [scanMode])
   /** Last proven-shortest search: which step it was for, and how it went. */
   const [optimalJob, setOptimalJob] = useState<{ key: string; status: 'running' | 'done' | 'failed' } | null>(null)
+
+  useEffect(() => {
+    const client = new VisionClient()
+    setVision(client)
+    return () => client.dispose()
+  }, [])
 
   useEffect(() => {
     const solver = new SolverClient()
@@ -103,23 +147,78 @@ export default function SmartSolverPanel({ onClose, getController }: SmartSolver
     dispatch({ type: 'SCANNED', cube: parsed.state })
   }
 
+  const confirmReview = () => {
+    // Drags while reviewing may have turned layers on the 3D cube: restore the scanned state.
+    if (guide.cube) getController()?.setFacelets(toFacelets(guide.cube))
+    dispatch({ type: 'CONFIRM_REVIEW' })
+  }
+
   const report = (move: Move) => {
     dispatch({ type: 'MOVES_DONE', moves: [move] })
     getController()?.playMove(move).catch(() => {})
   }
 
   const scanning = guide.phase === 'SCANNING'
+  const guiding = guide.phase === 'GUIDING' || guide.phase === 'RECOVERING'
+  const summary = guiding && expected ? (
+    <>
+      <span className="panel-summary-text">
+        Bước {guide.index + 1}/{guide.solution.length}: <strong>{expected}</strong>
+      </span>
+      {collapsed && (
+        <button className="scramble" onClick={() => report(expected)}>
+          Đã xoay
+        </button>
+      )}
+    </>
+  ) : (
+    <span className="panel-summary-text">{PHASE_SUMMARY[guide.phase]}</span>
+  )
+
   return (
-    <CameraPanel title="Smart Solver" onClose={onClose} onResult={onResult}>
+    <CameraPanel
+      title="Smart Solver"
+      headerSlot={headerSlot}
+      vision={vision}
+      cameraEnabled={open && !collapsed && scanning && scanMode === 'webcam'}
+      hidden={!open}
+      collapsed={collapsed}
+      onToggleCollapsed={() => setCollapsed((v) => !v)}
+      summary={summary}
+      onResult={onResult}
+    >
       {notice && <div className="scan-error">{notice}</div>}
 
-      {scanning && (
-        <ScanView
-          key={guide.epoch}
-          frameHandlerRef={frameHandlerRef}
-          confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Giải'}
-          onConfirm={onScanned}
-        />
+      {/* Kept mounted while reviewing so "Sửa lại" returns to the same faces and edits. */}
+      {(scanning || guide.phase === 'REVIEWING') && (
+        <div hidden={!scanning}>
+          <ScanView
+            key={guide.scanId}
+            mode={scanMode}
+            onModeChange={setScanMode}
+            vision={vision}
+            frameHandlerRef={frameHandlerRef}
+            confirmLabel={guide.scanPurpose === 'verify' ? 'Xác nhận' : 'Áp lên khối 3D'}
+            onConfirm={onScanned}
+          />
+        </div>
+      )}
+
+      {guide.phase === 'REVIEWING' && (
+        <div className="scan">
+          <div className="scan-step-title">Kiểm tra trên khối 3D</div>
+          <div className="scan-step-text">
+            Khối 3D đang hiển thị trạng thái vừa quét. Kéo vào vùng nền để xoay khối 3D và so sánh từng mặt với khối thật.
+          </div>
+          <div className="scan-actions">
+            <button className="reset" onClick={() => dispatch({ type: 'BACK_TO_SCAN' })}>
+              Sửa lại
+            </button>
+            <button className="scramble" onClick={confirmReview}>
+              Đúng rồi — Giải
+            </button>
+          </div>
+        </div>
       )}
 
       {guide.phase === 'SOLVING' && <div className="scan-status">Đang tính lời giải...</div>}

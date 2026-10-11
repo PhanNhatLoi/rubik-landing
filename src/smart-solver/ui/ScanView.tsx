@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { fromFacelets } from '../core/facelets'
 import { FACES, type Face, type Facelets, type ValidationError } from '../core/types'
 import type { ScheduledResult } from '../camera/FrameScheduler'
+import { detectFaceInPhoto } from '../camera/photo'
 import { reconstruct, type ReconstructResult, type ScanInput } from '../scan/reconstruct'
 import { SCAN_ORDER, ScanSession, type FaceScan, type ScanFeedback } from '../scan/ScanSession'
 import type { Lab } from '../vision/color'
+import type { VisionClient } from '../vision/VisionClient'
+import { drawLattice } from './overlay'
 import FaceletNet, { type NetCell } from './FaceletNet'
 import { PALETTE, STANDARD_COLOR, nameCenters, previewColor, type ColorName } from './palette'
 
@@ -42,7 +45,14 @@ function describeError(e: ValidationError, colorOf: (f: Face) => ColorName): str
   }
 }
 
+export type ScanMode = 'webcam' | 'photo'
+
+type PhotoState = { status: 'idle' } | { status: 'working' } | { status: 'done'; thumb: string; message: string | null }
+
 export interface ScanViewProps {
+  mode: ScanMode
+  onModeChange: (mode: ScanMode) => void
+  vision: VisionClient | null
   /** The panel forwards camera results here while this view is mounted. */
   frameHandlerRef: MutableRefObject<((r: ScheduledResult) => void) | null>
   confirmLabel: string
@@ -52,12 +62,13 @@ export interface ScanViewProps {
 
 type Analysis = { status: 'idle' } | { status: 'running' } | { status: 'done'; result: ReconstructResult }
 
-export default function ScanView({ frameHandlerRef, confirmLabel, onConfirm }: ScanViewProps) {
+export default function ScanView({ mode, onModeChange, vision, frameHandlerRef, confirmLabel, onConfirm }: ScanViewProps) {
   const sessionRef = useRef<ScanSession>(new ScanSession())
   const [feedback, setFeedback] = useState<ScanFeedback>({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   const [faces, setFaces] = useState<Partial<Record<Face, FaceScan>>>({})
   const [analysis, setAnalysis] = useState<Analysis>({ status: 'idle' })
   const [edits, setEdits] = useState<Record<number, Face>>({})
+  const [photo, setPhoto] = useState<PhotoState>({ status: 'idle' })
 
   useEffect(() => {
     frameHandlerRef.current = (r: ScheduledResult) => {
@@ -148,6 +159,35 @@ export default function ScanView({ frameHandlerRef, confirmLabel, onConfirm }: S
     setFeedback({ phase: 'searching', target: 'F', progress: 0, captured: null, seenFace: null })
   }
 
+  const onPhoto = async (file: File | undefined) => {
+    if (!file || !vision) return
+    setPhoto({ status: 'working' })
+    try {
+      const det = await detectFaceInPhoto(file, vision)
+      const face = det?.result.face ?? null
+      let thumb = ''
+      if (det) {
+        const ctx = det.crop.getContext('2d')
+        if (ctx && face) drawLattice(ctx, face)
+        thumb = det.crop.toDataURL('image/jpeg', 0.8)
+      }
+      const session = sessionRef.current
+      const fb = session.pushStill(face, det?.result.sharpness ?? 0)
+      setFeedback(fb)
+      if (fb.captured) setFaces({ ...session.faces })
+      const message = fb.captured
+        ? null
+        : fb.phase === 'duplicate' && fb.seenFace
+          ? `Ảnh này là mặt ${PALETTE[colorOf(fb.seenFace)].label} đã quét rồi.`
+          : fb.phase === 'blurry'
+            ? 'Ảnh bị mờ, hãy chụp lại.'
+            : 'Không tìm thấy đủ lưới 3×3. Chụp thẳng vào mặt khối, gần hơn và đủ sáng.'
+      setPhoto({ status: 'done', thumb, message })
+    } catch (e) {
+      setPhoto({ status: 'done', thumb: '', message: `Không đọc được ảnh: ${e instanceof Error ? e.message : String(e)}` })
+    }
+  }
+
   const confirm = () => {
     if (!finalFacelets || !validation?.ok) return
     const colors: Record<Face, ColorName> = { U: colorOf('U'), R: colorOf('R'), F: colorOf('F'), D: colorOf('D'), L: colorOf('L'), B: colorOf('B') }
@@ -167,6 +207,16 @@ export default function ScanView({ frameHandlerRef, confirmLabel, onConfirm }: S
 
   return (
     <div className="scan">
+      <div className="scan-mode" role="tablist">
+        {(['webcam', 'photo'] as const).map((m) => (
+          <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'active' : ''} onClick={() => onModeChange(m)}>
+            {m === 'webcam' ? 'Webcam' : 'Chụp ảnh'}
+          </button>
+        ))}
+      </div>
+      {mode === 'photo' && photo.status === 'done' && photo.thumb && (
+        <img className="scan-photo" src={photo.thumb} alt="Ảnh vừa chụp và lưới phát hiện được" />
+      )}
       {scanning ? (
         <div className="scan-step">
           <div className="scan-step-title">
@@ -174,10 +224,31 @@ export default function ScanView({ frameHandlerRef, confirmLabel, onConfirm }: S
             Mặt {PALETTE[colorOf(target)].label} ({POSITION_NAME[target]}) · {SCAN_ORDER.filter((f) => faces[f]).length}/6
           </div>
           <div className="scan-step-text">{INSTRUCTION[target]}</div>
-          <div className="scan-progress">
-            <div className="scan-progress-bar" style={{ width: `${feedback.progress * 100}%` }} />
-          </div>
-          <div className="scan-status">{status}</div>
+          {mode === 'webcam' ? (
+            <>
+              <div className="scan-progress">
+                <div className="scan-progress-bar" style={{ width: `${feedback.progress * 100}%` }} />
+              </div>
+              <div className="scan-status">{status}</div>
+            </>
+          ) : (
+            <>
+              <label className={`scramble scan-photo-button${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
+                {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp / chọn ảnh mặt ${PALETTE[colorOf(target)].label}`}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={!vision || photo.status === 'working'}
+                  onChange={(e) => {
+                    void onPhoto(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {photo.status === 'done' && photo.message && <div className="scan-error">{photo.message}</div>}
+            </>
+          )}
         </div>
       ) : (
         <div className="scan-step">

@@ -314,23 +314,69 @@ p {
   border-color: transparent;
 }
 
+/* Lives inside the .controls card, under the Size/Quét buttons. */
 .camera-panel {
-  position: absolute;
-  right: clamp(16px, 4vw, 40px);
-  /* Below the top-right controls, so their buttons stay reachable. */
-  top: 210px;
-  width: min(420px, calc(100vw - 32px));
   display: grid;
   gap: 10px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(8, 12, 20, 0.8);
-  border: 1px solid rgba(122, 166, 255, 0.2);
-  backdrop-filter: blur(12px);
-  z-index: 4;
-  pointer-events: auto;
-  max-height: calc(100vh - 226px);
+  padding-top: 12px;
+  border-top: 1px solid rgba(122, 166, 255, 0.2);
+}
+
+.controls-row {
+  display: grid;
+  gap: 12px;
+}
+
+/* Scanning on: the card widens and the solver content is inserted below the buttons. */
+.controls.expanded {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 2 * clamp(16px, 4vw, 32px));
   overflow-y: auto;
+}
+
+.controls.expanded .controls-row {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-auto-flow: column;
+  align-items: end;
+  gap: 14px;
+}
+
+.solver-head {
+  min-width: 0;
+}
+
+.solver-head .camera-header {
+  gap: 8px;
+}
+
+.camera-heading {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.camera-heading .camera-title,
+.camera-heading .panel-summary-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.camera-heading .panel-summary {
+  gap: 8px;
+}
+
+.camera-heading .panel-summary .scramble {
+  margin-left: 0;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.camera-save {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
 }
 
 .camera-header {
@@ -339,30 +385,17 @@ p {
   justify-content: space-between;
 }
 
+.camera-header .camera-heading {
+  flex: 1;
+}
+
 .camera-title {
   font-weight: 600;
 }
 
-.camera-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
-.camera-actions .reset {
-  width: auto;
-  padding: 6px 10px;
-  font-size: 0.8rem;
-}
 
-.camera-actions .reset:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 
-.camera-panel .close {
-  position: static;
-}
 
 .camera-view {
   position: relative;
@@ -645,6 +678,107 @@ p {
   color: #8ff0c0;
 }
 
+.scan-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(122, 166, 255, 0.08);
+}
+
+.scan-mode button {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 0;
+  background: transparent;
+  color: rgba(220, 230, 255, 0.75);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scan-mode button.active {
+  background: rgba(12, 18, 30, 0.95);
+  color: #e8efff;
+  box-shadow: inset 0 0 0 1px rgba(122, 166, 255, 0.35);
+}
+
+.scan-photo {
+  display: block;
+  width: min(240px, 100%);
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+.scan-photo-button {
+  display: block;
+  text-align: center;
+  cursor: pointer;
+}
+
+.scan-photo-button.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-header .intro-title {
+  margin-bottom: 0;
+}
+
+.intro:not(.collapsed) .panel-header {
+  margin-bottom: 6px;
+}
+
+.panel-toggle {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(122, 166, 255, 0.3);
+  background: rgba(10, 16, 28, 0.7);
+  color: #e8efff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-summary .scramble {
+  width: auto;
+  padding: 6px 12px;
+  margin-left: auto;
+}
+
+.panel-summary-text {
+  font-size: 0.85rem;
+  color: rgba(220, 230, 255, 0.8);
+}
+
+.intro.collapsed .panel-summary-text {
+  display: block;
+  margin-top: 4px;
+}
+
+.camera-panel.collapsed {
+  gap: 8px;
+}
+
 @media (max-width: 720px) {
   .overlay {
     margin: 20px;
@@ -670,14 +804,16 @@ p {
     right: 16px;
     top: 16px;
     padding: 10px 12px;
+  }
+
+  .controls-row {
     grid-auto-flow: column;
   }
 
-  .camera-panel {
+  .controls.expanded {
     left: 16px;
-    right: 16px;
-    top: 108px;
     width: auto;
-    max-height: calc(100vh - 124px);
+    /* Leave room for the collapsed playground card at the bottom. */
+    max-height: calc(100vh - 132px);
   }
 }

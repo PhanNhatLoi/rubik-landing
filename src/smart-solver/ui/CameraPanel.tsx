@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { CameraController, CameraError, type CameraInfo } from '../camera/CameraController'
 import { FrameScheduler, computeRoi, type ScheduledResult } from '../camera/FrameScheduler'
-import { VisionClient } from '../vision/VisionClient'
+import type { VisionClient } from '../vision/VisionClient'
 import { drawOverlay } from './overlay'
 
 const SCHEDULER_OPTIONS = { roiFraction: 0.62, size: 320, maxFps: 15 }
@@ -23,14 +24,36 @@ const EMPTY_STATS: Stats = { uiFps: 0, visionFps: 0, captureMs: 0, detectMs: 0, 
 
 export interface CameraPanelProps {
   title: string
-  onClose: () => void
+  /** Element in the controls row where the title, status and collapse button are rendered. */
+  headerSlot: HTMLElement | null
+  /** Shared detector worker, owned by the parent (photo scanning uses it too). */
+  vision: VisionClient | null
+  /** Live webcam on/off; the panel and its children stay visible either way. */
+  cameraEnabled: boolean
+  /** Hidden panels stay mounted so their state survives closing. */
+  hidden: boolean
+  collapsed: boolean
+  onToggleCollapsed: () => void
+  /** One-line status shown next to the title. */
+  summary?: ReactNode
   /** Called for every vision result (up to maxFps times per second). */
   onResult?: (r: ScheduledResult) => void
   /** Shown under the video instead of the default detection hint. */
   children?: ReactNode
 }
 
-export default function CameraPanel({ title, onClose, onResult, children }: CameraPanelProps) {
+export default function CameraPanel({
+  title,
+  headerSlot,
+  vision,
+  cameraEnabled,
+  hidden,
+  collapsed,
+  onToggleCollapsed,
+  summary,
+  onResult,
+  children
+}: CameraPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const [status, setStatus] = useState<Status>('starting')
@@ -44,10 +67,12 @@ export default function CameraPanel({ title, onClose, onResult, children }: Came
   useEffect(() => {
     const video = videoRef.current
     const overlay = overlayRef.current
-    if (!video || !overlay) return
+    if (!video || !overlay || !cameraEnabled || !vision) return
+    setStatus('starting')
+    setError(null)
     let cancelled = false
     const controller = new CameraController()
-    const client = new VisionClient()
+    const client = vision
     let scheduler: FrameScheduler | null = null
 
     // Rolling counters, flushed to React state twice a second.
@@ -141,10 +166,9 @@ export default function CameraPanel({ title, onClose, onResult, children }: Came
       window.clearInterval(flush)
       cancelAnimationFrame(raf)
       scheduler?.stop()
-      client.dispose()
       controller.stop()
     }
-  }, [])
+  }, [cameraEnabled, vision])
 
   /** Downloads the exact square the detector sees, for debugging detection failures. */
   const saveFrame = () => {
@@ -165,53 +189,70 @@ export default function CameraPanel({ title, onClose, onResult, children }: Came
 
   const face = stats.inliers > 0
   return (
-    <div className="camera-panel">
-      <div className="camera-header">
-        <span className="camera-title">{title}</span>
-        <div className="camera-actions">
-          <button className="reset" onClick={saveFrame} disabled={status !== 'running'}>
-            Chụp khung
-          </button>
-          <button className="close" onClick={onClose} aria-label="Đóng camera">
-            ×
-          </button>
-        </div>
-      </div>
-      <div className="camera-view">
-        <video ref={videoRef} className="camera-video" muted playsInline />
-        <canvas ref={overlayRef} className="camera-overlay" />
-        {status !== 'running' && (
-          <div className="camera-message">
-            {status === 'starting' && 'Đang mở camera...'}
-            {status === 'loading' && 'Đang tải bộ xử lý ảnh...'}
-            {status === 'error' && error}
-          </div>
+    <>
+      {headerSlot &&
+        !hidden &&
+        createPortal(
+          <div className="camera-header">
+            <div className="camera-heading">
+              <span className="camera-title">{title}</span>
+              {summary && <div className="panel-summary">{summary}</div>}
+            </div>
+            <button
+              className="panel-toggle"
+              onClick={onToggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
+            >
+              {collapsed ? '+' : '−'}
+            </button>
+          </div>,
+          headerSlot
         )}
+      <div className="camera-panel" hidden={hidden || collapsed}>
+        <div className="camera-view" hidden={!cameraEnabled}>
+          <video ref={videoRef} className="camera-video" muted playsInline />
+          <canvas ref={overlayRef} className="camera-overlay" />
+          {status !== 'running' && (
+            <div className="camera-message">
+              {status === 'starting' && 'Đang mở camera...'}
+              {status === 'loading' && 'Đang tải bộ xử lý ảnh...'}
+              {status === 'error' && error}
+            </div>
+          )}
+        </div>
+        <div className="camera-body">
+          {children ?? (
+            <div className="camera-hint">
+              {status === 'running'
+                ? face
+                  ? `Đã thấy lưới 3×3 (${stats.inliers}/9 ô)`
+                  : 'Đưa một mặt rubik vào khung'
+                : ' '}
+            </div>
+          )}
+        </div>
+        <details className="camera-details">
+          <summary>Số liệu</summary>
+          {cameraEnabled && (
+            <button className="reset camera-save" onClick={saveFrame} disabled={status !== 'running'}>
+              Lưu khung hình (debug)
+            </button>
+          )}
+          <div className="camera-stats">
+            <Stat label="Camera" value={camera ? `${camera.width}×${camera.height}` : '–'} />
+            <Stat label="UI fps" value={stats.uiFps.toFixed(0)} />
+            <Stat label="Vision fps" value={stats.visionFps.toFixed(1)} />
+            <Stat label="Capture" value={`${stats.captureMs.toFixed(1)} ms`} />
+            <Stat label="Detect" value={`${stats.detectMs.toFixed(1)} ms`} />
+            <Stat label="Blobs" value={String(stats.candidates)} />
+            <Stat label="Sharpness" value={stats.sharpness.toFixed(0)} />
+            <Stat label="Heap" value={stats.heapMb != null ? `${stats.heapMb.toFixed(0)} MB` : '–'} />
+            <Stat label="OpenCV load" value={loadMs != null ? `${(loadMs / 1000).toFixed(1)} s` : '–'} />
+          </div>
+        </details>
       </div>
-      {children ?? (
-        <div className="camera-hint">
-          {status === 'running'
-            ? face
-              ? `Đã thấy lưới 3×3 (${stats.inliers}/9 ô)`
-              : 'Đưa một mặt rubik vào khung'
-            : ' '}
-        </div>
-      )}
-      <details className="camera-details">
-        <summary>Số liệu</summary>
-        <div className="camera-stats">
-          <Stat label="Camera" value={camera ? `${camera.width}×${camera.height}` : '–'} />
-          <Stat label="UI fps" value={stats.uiFps.toFixed(0)} />
-          <Stat label="Vision fps" value={stats.visionFps.toFixed(1)} />
-          <Stat label="Capture" value={`${stats.captureMs.toFixed(1)} ms`} />
-          <Stat label="Detect" value={`${stats.detectMs.toFixed(1)} ms`} />
-          <Stat label="Blobs" value={String(stats.candidates)} />
-          <Stat label="Sharpness" value={stats.sharpness.toFixed(0)} />
-          <Stat label="Heap" value={stats.heapMb != null ? `${stats.heapMb.toFixed(0)} MB` : '–'} />
-          <Stat label="OpenCV load" value={loadMs != null ? `${(loadMs / 1000).toFixed(1)} s` : '–'} />
-        </div>
-      </details>
-    </div>
+    </>
   )
 }
 

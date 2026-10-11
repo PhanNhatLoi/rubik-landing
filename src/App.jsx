@@ -37,6 +37,10 @@ export default function App() {
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
+  // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
+  const [cameraMounted, setCameraMounted] = useState(false)
+  const [solverHeadSlot, setSolverHeadSlot] = useState(null)
+  const [introCollapsed, setIntroCollapsed] = useState(() => window.matchMedia?.('(max-width: 720px)').matches ?? false)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
@@ -616,54 +620,80 @@ export default function App() {
   return (
     <div className="app">
       <div className="canvas-wrap" ref={mountRef} />
-      <div className="intro">
-        <div className="intro-title">Rubik 3D Playground</div>
-        <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
+      <div className={`intro${introCollapsed ? ' collapsed' : ''}`}>
+        <div className="panel-header">
+          <div className="intro-title">Rubik 3D Playground</div>
+          <button
+            className="panel-toggle"
+            onClick={() => setIntroCollapsed((v) => !v)}
+            aria-expanded={!introCollapsed}
+            aria-label={introCollapsed ? 'Mở rộng' : 'Thu gọn'}
+          >
+            {introCollapsed ? '+' : '−'}
+          </button>
+        </div>
+        {introCollapsed ? (
+          <div className="panel-summary-text">
+            {formatTime(timeMs)} · {moves} moves
+          </div>
+        ) : (
+          <>
+            <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
             <span className="label">Zoom-Out</span>
-           <div className="zoom-row">
-            <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
-            <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
-        </div>  
-        <div className="stats">
-        
-          <div className="stat">
-            <span className="label">Time</span>
-            <span className="value">{formatTime(timeMs)}</span>
-          </div>
-          <div className="stat">
-            <span className="label">Moves</span>
-            <span className="value">{moves}</span>
-          </div>
-        </div>
-        <div className="actions">
-          <button className="scramble" onClick={() => scrambleRef.current?.()}>
-            Xáo trộn
-          </button>
-          <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
-            Reset
-          </button>
-        </div>
-        <div className="status">
-          {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
-        </div>
+            <div className="zoom-row">
+              <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
+              <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
+            </div>
+            <div className="stats">
+              <div className="stat">
+                <span className="label">Time</span>
+                <span className="value">{formatTime(timeMs)}</span>
+              </div>
+              <div className="stat">
+                <span className="label">Moves</span>
+                <span className="value">{moves}</span>
+              </div>
+            </div>
+            <div className="actions">
+              <button className="scramble" onClick={() => scrambleRef.current?.()}>
+                Xáo trộn
+              </button>
+              <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
+                Reset
+              </button>
+            </div>
+            <div className="status">
+              {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
+            </div>
+          </>
+        )}
       </div>
-      <div className="controls">
-        <div className="control">
-          <label>Size</label>
-          <button className="size-btn" onClick={() => setShowSizeModal(true)}>
-            {size}x{size}
-          </button>
+      <div className={`controls${showCamera ? ' expanded' : ''}`}>
+        <div className="controls-row">
+          <div className="control">
+            <label>Size</label>
+            <button className="size-btn" onClick={() => setShowSizeModal(true)}>
+              {size}x{size}
+            </button>
+          </div>
+          <div className="control">
+            <label>Quét</label>
+            <button
+              className="size-btn"
+              onClick={() => {
+                setCameraMounted(true)
+                setShowCamera((v) => !v)
+              }}
+            >
+              {showCamera ? 'Tắt' : 'Bật'}
+            </button>
+          </div>
+          {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
         </div>
-        <div className="control">
-          <label>Quét</label>
-          <button className="size-btn" onClick={() => setShowCamera((v) => !v)}>
-            {showCamera ? 'Tắt' : 'Bật'}
-          </button>
-        </div>
+        {cameraMounted && (
+          <SmartSolverPanel open={showCamera} headerSlot={solverHeadSlot} getController={getCubeController} />
+        )}
       </div>
-      {showCamera && (
-        <SmartSolverPanel onClose={() => setShowCamera(false)} getController={getCubeController} />
-      )}
       {showSizeModal && (
         <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
