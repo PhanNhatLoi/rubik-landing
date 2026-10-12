@@ -262,8 +262,8 @@ export function alignedOutside(fit: LatticeFit, candidates: readonly SquareCandi
 export interface GridMatch {
   /** Stickers per side of the face in view (2..5), or null when no lattice was found. */
   size: number | null
-  /** The 3x3 lattice, only when the face is a 3x3 one. */
-  fit3: LatticeFit | null
+  /** The fitted lattice of that size; null when the size was only inferred (a 3x3 block of a bigger face). */
+  fit: LatticeFit | null
 }
 
 /**
@@ -273,11 +273,12 @@ export interface GridMatch {
  */
 export function findGrid(candidates: readonly SquareCandidate[]): GridMatch {
   for (const n of [5, 4]) {
-    if (fitLattice(candidates, { n, minInliers: Math.ceil(0.7 * n * n) })) return { size: n, fit3: null }
+    const fit = fitLattice(candidates, { n, minInliers: Math.ceil(0.7 * n * n) })
+    if (fit) return { size: n, fit }
   }
   const fit3 = fitLattice(candidates, { n: 3, minInliers: 5 })
-  if (fit3) return alignedOutside(fit3, candidates) >= 2 ? { size: 4, fit3: null } : { size: 3, fit3 }
+  if (fit3) return alignedOutside(fit3, candidates) >= 2 ? { size: 4, fit: null } : { size: 3, fit: fit3 }
   const fit2 = fitLattice(candidates, { n: 2, minInliers: 3 })
-  if (fit2 && alignedOutside(fit2, candidates) < 2) return { size: 2, fit3: null }
-  return { size: null, fit3: null }
+  if (fit2 && alignedOutside(fit2, candidates) < 2) return { size: 2, fit: fit2 }
+  return { size: null, fit: null }
 }

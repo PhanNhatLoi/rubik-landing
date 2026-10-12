@@ -556,6 +556,26 @@ p {
   gap: 10px;
 }
 
+.scan-faces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.scan-faces button {
+  padding: 5px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(122, 166, 255, 0.3);
+  background: rgba(12, 18, 30, 0.9);
+  color: #e8efff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.scan-faces button.active {
+  border-color: rgba(94, 231, 255, 0.95);
+}
+
 .scan-actions .scramble:disabled {
   opacity: 0.45;
   cursor: default;
@@ -766,7 +786,7 @@ p {
   --cell: 20px;
   --gap: 2px;
   --pad: 3px;
-  --face-box: calc(3 * var(--cell) + 2 * var(--gap) + 2 * var(--pad) + 2px);
+  --face-box: calc(var(--n, 3) * var(--cell) + (var(--n, 3) - 1) * var(--gap) + 2 * var(--pad) + 2px);
   --face: calc(var(--face-box) + 6px);
   position: relative;
   width: calc(4 * var(--face));
@@ -781,7 +801,7 @@ p {
   width: var(--face-box);
   height: var(--face-box);
   display: grid;
-  grid-template-columns: repeat(3, var(--cell));
+  grid-template-columns: repeat(var(--n, 3), var(--cell));
   grid-auto-rows: var(--cell);
   gap: var(--gap);
   padding: var(--pad);

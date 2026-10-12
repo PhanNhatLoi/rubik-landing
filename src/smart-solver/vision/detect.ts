@@ -13,7 +13,7 @@ export interface CellObservation {
 }
 
 export interface FaceDetection {
-  /** Outer corners of the 3x3 lattice, clockwise from top-left (in image pixels). */
+  /** Outer corners of the n×n lattice, clockwise from top-left (in image pixels). */
   corners: [Point, Point, Point, Point]
   cells: CellObservation[]
   inliers: number
@@ -22,7 +22,7 @@ export interface FaceDetection {
 }
 
 export interface DetectResult {
-  /** The 3x3 face in view; null when none is found or the face belongs to another cube size. */
+  /** The face in view, n×n cells row-major; null when none is found or it belongs to another cube size. */
   face: FaceDetection | null
   /** Stickers per side of the face in view (2..5), or null when no grid is visible. */
   gridSize: number | null
@@ -31,7 +31,8 @@ export interface DetectResult {
 }
 
 export interface FaceDetector {
-  detect(rgba: Uint8ClampedArray, width: number, height: number): DetectResult
+  /** `n`: stickers per side of the cube being scanned; faces of other sizes are only reported in gridSize. */
+  detect(rgba: Uint8ClampedArray, width: number, height: number, n?: number): DetectResult
   dispose(): void
 }
 
@@ -185,7 +186,7 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
   }
 
   return {
-    detect(rgba, w, h) {
+    detect(rgba, w, h, n = 3) {
       ensure(w, h)
       const s = src as InstanceType<OpenCv['Mat']>
       const g = gray as InstanceType<OpenCv['Mat']>
@@ -222,15 +223,15 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
 
       const candidates = dedupe(raw)
       const grid = findGrid(candidates)
-      const fit = grid.fit3
+      const fit = grid.size === n ? grid.fit : null
       if (!fit) return { face: null, gridSize: grid.size, candidates: candidates.length, sharpness }
 
       const H = fit.homography
       const at = (col: number, row: number) => project(H, col, row)
       const cells: CellObservation[] = []
-      for (let cell = 0; cell < 9; cell += 1) {
-        const col = cell % 3
-        const row = Math.floor(cell / 3)
+      for (let cell = 0; cell < n * n; cell += 1) {
+        const col = cell % n
+        const row = Math.floor(cell / n)
         const k = 0.32
         cells.push({
           center: at(col, row),
@@ -241,13 +242,13 @@ export function createFaceDetector(cv: OpenCv): FaceDetector {
       }
       return {
         face: {
-          corners: [at(-0.5, -0.5), at(2.5, -0.5), at(2.5, 2.5), at(-0.5, 2.5)],
+          corners: [at(-0.5, -0.5), at(n - 0.5, -0.5), at(n - 0.5, n - 0.5), at(-0.5, n - 0.5)],
           cells,
           inliers: fit.inliers,
           error: fit.error,
           pitch: fit.pitch
         },
-        gridSize: 3,
+        gridSize: n,
         candidates: candidates.length,
         sharpness
       }

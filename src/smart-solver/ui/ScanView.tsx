@@ -218,7 +218,7 @@ export default function ScanView({
     }
     const size = det?.result.gridSize ?? null
     if (!face && size !== null && size !== 3) {
-      setPhoto({ status: 'done', thumb, message: `Ảnh này là khối ${size}x${size} — Smart Solver chỉ quét được khối 3x3.` })
+      setPhoto({ status: 'done', thumb, message: `Ảnh này là khối ${size}x${size}, bạn đang chọn khối 3x3. Đổi Size cho đúng.` })
       return
     }
     const session = sessionRef.current
@@ -345,7 +345,7 @@ export default function ScanView({
             <>
               {wrongSize !== null ? (
                 <div className="scan-error">
-                  Camera thấy khối {wrongSize}x{wrongSize} — Smart Solver chỉ quét được khối 3x3.
+                  Camera thấy khối {wrongSize}x{wrongSize}, bạn đang chọn khối 3x3. Đổi Size cho đúng.
                 </div>
               ) : (
                 <div className="scan-status">{status}</div>

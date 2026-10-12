@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import { FACES, type Face } from '../core/types'
 import { displayRotation, slotsFor, type Hold, type Slot } from '../scan/scanGuide'
 
@@ -11,7 +11,9 @@ export interface NetCell {
 }
 
 export interface ScanNetProps {
-  /** 54 cells in URFDLB order, each face in its standard layout. */
+  /** Stickers per side (default 3). */
+  n?: number
+  /** 6·n² cells in URFDLB order, each face in its standard layout. */
   cells: NetCell[]
   /** How the user holds the cube right now; the net mirrors it. */
   hold: Hold
@@ -43,12 +45,18 @@ interface Placement {
  * The six faces laid out as the cube is held: front in the middle, its real neighbours around it,
  * the far side at the right end. Moving to the next face slides and turns the faces into place.
  */
-export default function ScanNet({ cells, hold, activeFace, onCellClick, onFaceClick }: ScanNetProps) {
+// Sticker size per cube size, so every net is about as wide as the 3x3 one.
+const CELL_PX: Record<number, number> = { 2: 29, 3: 20, 4: 15, 5: 12 }
+
+export default function ScanNet({ n = 3, cells, hold, activeFace, onCellClick, onFaceClick }: ScanNetProps) {
   const placements = useRef<Partial<Record<Face, Placement>>>({})
   const slots = slotsFor(hold)
+  const per = n * n
+  // Odd cubes: the fixed center picks the face; even cubes have none (faces are picked elsewhere).
+  const center = n % 2 ? (per - 1) / 2 : -1
 
   return (
-    <div className="scan-net">
+    <div className="scan-net" style={{ '--n': n, '--cell': `${CELL_PX[n] ?? 20}px` } as CSSProperties}>
       {FACES.map((face, fi) => {
         const slot = slots[face]
         const pos = SLOT_POS[slot]
@@ -71,10 +79,10 @@ export default function ScanNet({ cells, hold, activeFace, onCellClick, onFaceCl
               transform: `translate(calc(${pos.col} * var(--face)), calc(${pos.row} * var(--face))) rotate(${placement.turns * 90}deg)`
             }}
           >
-            {Array.from({ length: 9 }, (_, k) => {
-              const index = fi * 9 + k
+            {Array.from({ length: per }, (_, k) => {
+              const index = fi * per + k
               const cell = cells[index]
-              const isCenter = k === 4
+              const isCenter = k === center
               return (
                 <button
                   key={k}

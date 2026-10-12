@@ -27,7 +27,7 @@ self.onmessage = async (event: MessageEvent<ToVisionWorker>) => {
     if (msg.type === 'frame') {
       if (!detector) throw new Error('vision worker not initialized')
       const t0 = performance.now()
-      const result = detector.detect(new Uint8ClampedArray(msg.buffer), msg.width, msg.height)
+      const result = detector.detect(new Uint8ClampedArray(msg.buffer), msg.width, msg.height, msg.n)
       post({
         type: 'result',
         frameId: msg.frameId,

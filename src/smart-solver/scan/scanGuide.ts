@@ -117,6 +117,19 @@ export const SCAN_STEPS: readonly ScanStep[] = [
 
 export const SCAN_ORDER: readonly Face[] = SCAN_STEPS.map((s) => s.face)
 
+/**
+ * The same holds for even cubes, which have no center colors to name the faces by:
+ * faces are numbered in scan order.
+ */
+export const EVEN_INSTRUCTIONS: Record<Face, string> = {
+  F: 'Cầm khối theo cách bất kỳ: mặt hướng vào camera là mặt 1. Giữ nguyên mặt đang ở trên (mặt 5) ở trên trong các bước 1–4.',
+  R: 'Xoay cả khối sang phải 90°: mặt bên trái (mặt 2) ra trước, mặt 5 vẫn ở trên.',
+  B: 'Tiếp tục xoay sang phải: mặt 3 ra trước.',
+  L: 'Tiếp tục xoay sang phải: mặt 4 ra trước.',
+  D: 'Lật mặt trên (mặt 5) về phía camera: mặt 4 ở dưới, mặt 1 bên trái.',
+  U: 'Lật khối 180° (giữ mặt 1 bên trái): mặt còn lại (mặt 6) đối diện camera, mặt 4 ở trên.'
+}
+
 export function stepFor(face: Face): ScanStep {
   return SCAN_STEPS.find((s) => s.face === face) as ScanStep
 }
@@ -139,10 +152,20 @@ export const ROTATION: readonly (readonly number[])[] = [0, 1, 2, 3].map((t) =>
   })
 )
 
-/** Turns `cells` (row-major 3x3) clockwise by t quarter turns. */
+/** Image cell that becomes cell k of an n×n face after one clockwise quarter turn. */
+export function clockwiseMap(n: number): number[] {
+  return Array.from({ length: n * n }, (_, k) => (n - 1 - (k % n)) * n + Math.floor(k / n))
+}
+
+/** Turns `cells` (row-major n×n, n from the length) clockwise by t quarter turns. */
 export function rotateCells<T>(cells: readonly T[], t: number): T[] {
-  const map = ROTATION[((t % 4) + 4) % 4] as readonly number[]
-  return map.map((i) => cells[i] as T)
+  const cw = clockwiseMap(Math.round(Math.sqrt(cells.length)))
+  let out = [...cells]
+  for (let i = 0; i < ((t % 4) + 4) % 4; i += 1) {
+    const prev = out
+    out = cw.map((j) => prev[j] as T)
+  }
+  return out
 }
 
 /** Converts a camera image of `face` (taken during its step) to the face's standard layout. */

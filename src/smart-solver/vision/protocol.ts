@@ -2,7 +2,8 @@ import type { DetectResult } from './detect'
 
 export type ToVisionWorker =
   | { type: 'init' }
-  | { type: 'frame'; frameId: number; width: number; height: number; buffer: ArrayBuffer }
+  /** `n`: stickers per side of the cube being scanned. */
+  | { type: 'frame'; frameId: number; width: number; height: number; n: number; buffer: ArrayBuffer }
   | { type: 'dispose' }
 
 export type FromVisionWorker =

@@ -173,6 +173,9 @@ describe('createFaceDetector', () => {
       const r = detector.detect(render(scene, n), SIZE, SIZE)
       expect(r.gridSize, `${n}x${n}`).toBe(n)
       expect(r.face).toBeNull()
+      const own = detector.detect(render(scene, n), SIZE, SIZE, n)
+      expect(own.face?.cells.length, `${n}x${n} face`).toBe(n * n)
+      expect(own.face?.inliers, `${n}x${n} inliers`).toBe(n * n)
     }
     const r3 = detector.detect(render({ h: lattice(10, 72), colors: colorsA }), SIZE, SIZE)
     expect(r3.gridSize).toBe(3)

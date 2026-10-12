@@ -67,7 +67,7 @@ async function detectFaceInImage(
     const data = ctx.getImageData(0, 0, size, size)
     const { result } = await vision.process(data.data.buffer as ArrayBuffer, size, size)
     if (better(result, best?.result ?? null)) best = { result, crop, size }
-    if (result.face?.inliers === 9 && result.face.error < 0.05) break
+    if (result.face && result.face.inliers === result.face.cells.length && result.face.error < 0.05) break
   }
   return best
 }

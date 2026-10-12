@@ -6,18 +6,35 @@ export type SetFaceletsResult =
   | { ok: false; reason: 'busy' }
   | { ok: false; reason: 'invalid'; errors: ValidationError[] }
 
-/** Control surface of the 3D cube in App.jsx. Only available for the 3x3 size. */
-export interface CubeController {
+/**
+ * Control surface of the 3D cube in App.jsx for every size, in the scene frame (U = +y,
+ * R = +x, F = +z). Stickers are labels 0..5 in URFDLB order of the current face colors;
+ * turns are n×n engine tokens (R, 2R, Rw, 3Rw...).
+ */
+export interface NxnController {
+  size: number
+  getStickers(): Uint8Array
+  /** Replaces the whole cube state without animation. Returns false while a turn is animating. */
+  setStickers(stickers: Uint8Array): boolean
+  playTurn(token: string): Promise<void>
+  /** Lights up the layers that `token` turns, with direction arrows (null clears). */
+  highlightTurn(token: string | null): void
+  /** Fires after each turn made by dragging, as a single-layer token. Returns an unsubscribe function. */
+  onUserTurn(listener: (token: string) => void): () => void
+  /**
+   * Repaints the cube with these face colors (0xRRGGBB per face), keeping its state.
+   * Returns false while a turn is animating.
+   */
+  setFaceColors(colors: Record<Face, number>): boolean
+}
+
+/** The 3x3 extras, relative to the centers (the cube may be held any way round). */
+export interface CubeController extends NxnController {
   getFacelets(): Facelets
   /** Replaces the whole cube state without animation. Refused while a turn is animating. */
   setFacelets(facelets: Facelets): SetFaceletsResult
   /** Animates one face turn (relative to the centers); rejects if the scene is torn down before it finishes. */
   playMove(move: Move): Promise<void>
-  /**
-   * Repaints the cube with these center colors (0xRRGGBB per face), keeping its state.
-   * Returns false while a turn is animating.
-   */
-  setFaceColors(colors: Record<Face, number>): boolean
   /**
    * Lights up the layer that `move` turns and shows direction arrows around it (null clears both);
    * follows the layer as the cube changes.

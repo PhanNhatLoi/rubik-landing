@@ -61,6 +61,9 @@ export class VisionClient {
     this.send({ type: 'init' })
   }
 
+  /** Stickers per side of the cube being scanned; sent with every frame. */
+  gridSize = 3
+
   get inFlight(): number {
     return this.pending.size
   }
@@ -71,7 +74,7 @@ export class VisionClient {
     const frameId = this.nextFrameId++
     return new Promise((resolve, reject) => {
       this.pending.set(frameId, { resolve, reject })
-      this.send({ type: 'frame', frameId, width, height, buffer }, [buffer])
+      this.send({ type: 'frame', frameId, width, height, n: this.gridSize, buffer }, [buffer])
     })
   }
 

@@ -18,16 +18,29 @@ export function describeMove(move: Move, colors: Scheme): string {
 
 export type OptimalStatus = 'proven' | 'searching' | 'unproven'
 
+/** A stage of the beginner method: solution indices [start, end). */
+export interface BeginnerStage {
+  title: string
+  algorithms: string[]
+  start: number
+  end: number
+  index: number
+  count: number
+}
+
 export interface GuideViewProps {
   guide: GuideState
   colors: Scheme
   optimalStatus: OptimalStatus
+  /** Beginner mode: the stage of the current step (null once off the plan after a wrong turn). */
+  beginnerStage?: BeginnerStage | null
   onDone: () => void
   onWrong: (move: Move) => void
   onRescan: () => void
 }
 
-export default function GuideView({ guide, colors, optimalStatus, onDone, onWrong, onRescan }: GuideViewProps) {
+export default function GuideView({ guide, colors, optimalStatus, beginnerStage, onDone, onWrong, onRescan }: GuideViewProps) {
+  const beginner = beginnerStage !== undefined
   const [picking, setPicking] = useState(false)
   const move = guide.solution[guide.index]
   const total = guide.solution.length
@@ -40,6 +53,16 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
         Cầm khối: mặt {colors.F.label} hướng về bạn, mặt {colors.U.label} ở trên.
       </div>
 
+      {beginnerStage && (
+        <>
+          <div className="scan-step-title">
+            Giai đoạn {beginnerStage.index + 1}/{beginnerStage.count}: {beginnerStage.title}
+          </div>
+          {beginnerStage.algorithms.length > 0 && <div className="scan-legend">Công thức: {[...new Set(beginnerStage.algorithms)].join(' · ')}</div>}
+        </>
+      )}
+      {beginner && !beginnerStage && <div className="scan-status">Hoàn tác bước xoay nhầm rồi tiếp tục.</div>}
+
       <div className="guide-move">
         <span className="guide-swatch" style={{ background: colors[face].css }} />
         <span className="guide-notation">{move}</span>
@@ -48,14 +71,21 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
         </span>
       </div>
       <div className="scan-step-text">{describeMove(move, colors)}</div>
+      {guide.partial && (
+        <div className="scan-status">
+          Đã xoay {guide.partial} một lần — xoay thêm {guide.partial} lần nữa là xong bước {move}.
+        </div>
+      )}
       {guide.phase === 'RECOVERING' && <div className="scan-status">Đang tìm lời giải ngắn hơn từ trạng thái mới...</div>}
 
       <div className="guide-sequence">
-        {guide.solution.map((m, i) => (
-          <span key={i} className={`guide-token${i < guide.index ? ' done' : i === guide.index ? ' current' : ''}`}>
-            {m}
-          </span>
-        ))}
+        {guide.solution.map((m, i) =>
+          beginnerStage && (i < beginnerStage.start || i >= beginnerStage.end) ? null : (
+            <span key={i} className={`guide-token${i < guide.index ? ' done' : i === guide.index ? ' current' : ''}`}>
+              {m}
+            </span>
+          )
+        )}
       </div>
 
       {picking ? (
@@ -100,6 +130,7 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
           </button>
         </div>
       )}
+      {!beginner && (
       <div className={`guide-optimal ${optimalStatus}`}>
         {optimalStatus === 'proven'
           ? `Đường đi ngắn nhất (đã chứng minh): còn ${total - guide.index} bước.`
@@ -109,6 +140,7 @@ export default function GuideView({ guide, colors, optimalStatus, onDone, onWron
               ? 'Gần tối ưu — chưa chứng minh được đường ngắn nhất trong 3 giây, sẽ thử lại ở bước sau.'
               : `Gần tối ưu (two-phase). Đường ngắn nhất sẽ được tìm khi còn ≤ ${OPTIMAL_SEARCH_MAX_REMAINING} bước.`}
       </div>
+      )}
       <div className="scan-legend">Có thể kéo xoay trực tiếp trên khối 3D thay cho nút.</div>
     </div>
   )

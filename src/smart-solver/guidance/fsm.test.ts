@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SOLVED, applyMoves, isSolved, parseAlgorithm } from '../core'
-import { INITIAL_GUIDE_STATE, expectedMove, guideReducer, needsSolve, wantsOptimal, type GuideEvent, type GuideState } from './fsm'
+import { INITIAL_GUIDE_STATE, expectedMove, guideReducer, needsSolve, nextTurn, wantsOptimal, type GuideEvent, type GuideState } from './fsm'
 
 const run = (events: GuideEvent[], from: GuideState = INITIAL_GUIDE_STATE) => events.reduce(guideReducer, from)
 
@@ -142,5 +142,64 @@ describe('guideReducer', () => {
   it('confirming a solved scan completes right away', () => {
     const s = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: SOLVED }, { type: 'CONFIRM_REVIEW' }])
     expect(s.phase).toBe('COMPLETED')
+  })
+})
+
+describe('half turns', () => {
+  // Scramble R2 U, solution U' R2.
+  function halfGuide(): GuideState {
+    const s = run([{ type: 'START_SCAN', purpose: 'initial' }, { type: 'SCANNED', cube: applyMoves(SOLVED, parseAlgorithm('R2 U')) }, { type: 'CONFIRM_REVIEW' }])
+    const g = guideReducer(s, { type: 'SOLVED', epoch: s.epoch, moves: parseAlgorithm("U' R2"), ms: 1 })
+    return guideReducer(g, { type: 'MOVES_DONE', moves: ["U'"] })
+  }
+
+  for (const quarter of ['R', "R'"] as const) {
+    it(`accepts R2 as ${quarter} ${quarter}`, () => {
+      let s = guideReducer(halfGuide(), { type: 'MOVES_DONE', moves: [quarter] })
+      expect(s.phase).toBe('GUIDING')
+      expect(s.partial).toBe(quarter)
+      expect(nextTurn(s)).toBe(quarter)
+      s = guideReducer(s, { type: 'MOVES_DONE', moves: [quarter] })
+      expect(s.phase).toBe('VERIFYING')
+      expect(isSolved(s.cube!)).toBe(true)
+    })
+  }
+
+  it('a quarter turned back starts the half turn over', () => {
+    let s = guideReducer(halfGuide(), { type: 'MOVES_DONE', moves: ['R'] })
+    s = guideReducer(s, { type: 'MOVES_DONE', moves: ["R'"] })
+    expect(s.phase).toBe('GUIDING')
+    expect(s.partial).toBeNull()
+    expect(expectedMove(s)).toBe('R2')
+  })
+
+  it('another face after a quarter undoes both, then the half turn', () => {
+    let s = guideReducer(halfGuide(), { type: 'MOVES_DONE', moves: ['R'] })
+    s = guideReducer(s, { type: 'MOVES_DONE', moves: ['U'] })
+    expect(s.phase).toBe('RECOVERING')
+    expect(s.solution).toEqual(["U'", "R'", 'R2'])
+    s = run(["U'", "R'", 'R2'].map((m) => ({ type: 'MOVES_DONE', moves: [m] }) as GuideEvent), s)
+    expect(isSolved(s.cube!)).toBe(true)
+  })
+})
+
+describe('reset and re-solve', () => {
+  it('reset ends the guidance with a solved cube', () => {
+    const s = guideReducer(guiding(), { type: 'RESET_SOLVED' })
+    expect(s.phase).toBe('COMPLETED')
+    expect(isSolved(s.cube!)).toBe(true)
+    expect(s.history).toEqual([])
+    expect(expectedMove(s)).toBeNull()
+  })
+
+  it('a new method solves the current cube again, dropping the old solution', () => {
+    let s = guideReducer(guiding(), { type: 'MOVES_DONE', moves: ['F'] })
+    const before = s.epoch
+    s = guideReducer(s, { type: 'RESOLVE' })
+    expect(s.phase).toBe('SOLVING')
+    expect(needsSolve(s)).toBe(true)
+    expect(s.epoch).toBeGreaterThan(before)
+    expect(s.solution).toEqual([])
+    expect(s.history).toEqual(['F'])
   })
 })

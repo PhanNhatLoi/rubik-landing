@@ -1,7 +1,7 @@
 import type { Face } from '../core/types'
 import { deltaE2000, medianLab, rgbToLab, type Lab } from '../vision/color'
 import type { FaceDetection, Rgb } from '../vision/detect'
-import { SCAN_ORDER, toStandard } from './scanGuide'
+import { SCAN_ORDER, clockwiseMap, toStandard } from './scanGuide'
 
 export { SCAN_ORDER }
 
@@ -12,6 +12,8 @@ export interface FaceScan {
 }
 
 export interface ScanSessionOptions {
+  /** Stickers per side of the cube. */
+  n: number
   /** Consecutive stable frames required to capture a face. */
   stableFrames: number
   /** Max lattice corner movement between frames, as a fraction of the pitch. */
@@ -31,19 +33,17 @@ export interface ScanSessionOptions {
   identify?: (center: Lab, target: Face, scanned: readonly Face[]) => Face | null
 }
 
-const DEFAULTS: ScanSessionOptions = { stableFrames: 6, maxMotion: 0.08, minInliers: 7, minSharpness: 15, sameFaceDeltaE: 6 }
-
-// Cell k of a face image after one clockwise quarter turn comes from ROTATE_CW[k].
-const ROTATE_CW = [6, 3, 0, 7, 4, 1, 8, 5, 2]
+const DEFAULTS: ScanSessionOptions = { n: 3, stableFrames: 6, maxMotion: 0.08, minInliers: 7, minSharpness: 15, sameFaceDeltaE: 6 }
 
 /** Smallest mean ΔE2000 between two faces over the four in-plane rotations. */
 export function faceDistance(a: readonly Lab[], b: readonly Lab[]): number {
+  const cw = clockwiseMap(Math.round(Math.sqrt(a.length)))
   let best = Infinity
-  let map = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  let map = a.map((_, k) => k)
   for (let r = 0; r < 4; r += 1) {
-    const d = map.reduce((sum, src, k) => sum + deltaE2000(a[k] as Lab, b[src] as Lab), 0) / 9
+    const d = map.reduce((sum, src, k) => sum + deltaE2000(a[k] as Lab, b[src] as Lab), 0) / a.length
     best = Math.min(best, d)
-    map = ROTATE_CW.map((i) => map[i] as number)
+    map = cw.map((i) => map[i] as number)
   }
   return best
 }
@@ -84,7 +84,9 @@ export class ScanSession {
   private buffer: FaceDetection[] = []
 
   constructor(options: Partial<ScanSessionOptions> = {}) {
-    this.opts = { ...DEFAULTS, ...options }
+    const n = options.n ?? 3
+    // Most stickers of the face must be seen, not just predicted by the lattice.
+    this.opts = { ...DEFAULTS, minInliers: n === 3 ? 7 : Math.max(3, Math.ceil(0.75 * n * n)), ...options }
   }
 
   get currentTarget(): Face | null {
@@ -132,7 +134,7 @@ export class ScanSession {
   /** Checks shared by video frames and still photos; returns feedback when the face is rejected. */
   private reject(face: FaceDetection | null, sharpness: number, minInliers = this.opts.minInliers): ScanFeedback | null {
     if (!this.target) return this.feedback('done')
-    if (!face || face.inliers < minInliers) return this.feedback('searching')
+    if (!face || face.cells.length !== this.opts.n ** 2 || face.inliers < minInliers) return this.feedback('searching')
     if (sharpness < this.opts.minSharpness) return this.feedback('blurry')
     const labs = face.cells.map((c) => rgbToLab(c.rgb))
     const seen = SCAN_ORDER.find((f) => {
@@ -141,17 +143,19 @@ export class ScanSession {
     })
     if (seen) return this.feedback('duplicate', { seenFace: seen })
     const scanned = SCAN_ORDER.filter((f) => this.faces[f] && f !== this.target)
-    const other = this.opts.identify?.(labs[4] as Lab, this.target, scanned) ?? null
+    const center = this.opts.n % 2 ? labs[(labs.length - 1) / 2] : undefined
+    const other = center ? (this.opts.identify?.(center, this.target, scanned) ?? null) : null
     return other ? this.feedback('wrongFace', { seenFace: other }) : null
   }
 
   private capture(frames: FaceDetection[]): ScanFeedback {
     const captured = this.target as Face
+    const cells = this.opts.n ** 2
     this.faces[captured] = {
-      labs: toStandard(captured, Array.from({ length: 9 }, (_, k) => medianLab(frames.map((f) => rgbToLab(f.cells[k]!.rgb))))),
+      labs: toStandard(captured, Array.from({ length: cells }, (_, k) => medianLab(frames.map((f) => rgbToLab(f.cells[k]!.rgb))))),
       rgbs: toStandard(
         captured,
-        Array.from({ length: 9 }, (_, k) => [0, 1, 2].map((ch) => median(frames.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
+        Array.from({ length: cells }, (_, k) => [0, 1, 2].map((ch) => median(frames.map((f) => f.cells[k]!.rgb[ch]!))) as Rgb)
       )
     }
     this.buffer = []
