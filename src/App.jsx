@@ -1,5 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { normalizeSteps, rotateGridIndex, rotateStickers } from './rubikLogic'
+import { fromFacelets } from './smart-solver/core'
+import {
+  faceletsToStickerMap,
+  gridKey,
+  layerTurnToEvent,
+  moveToLayerTurn,
+  readOrientation,
+  stickerModelToFacelets
+} from './smart-solver/adapter/stickerModel'
+import { layerTurnToToken, sceneToStickers, stickersToScene, tokenToLayerTurn } from './smart-solver/adapter/nxnModel'
+import SmartSolverPanel from './smart-solver/ui/SmartSolverPanel'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -11,15 +23,31 @@ const COLORS = {
   core: 0x0f1116
 }
 
-function getVariantFaceColors() {
-  return [COLORS.red, COLORS.orange, COLORS.white, COLORS.yellow, COLORS.green, COLORS.blue]
+/** Sticker colors in createCubie order: +x, -x, +y, -y, +z, -z. */
+function getVariantFaceColors(faceColor) {
+  return [faceColor.R, faceColor.L, faceColor.U, faceColor.D, faceColor.F, faceColor.B]
 }
+
+const STICKER_KEYS = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
+const FACE_ORDER = ['U', 'R', 'F', 'D', 'L', 'B']
+const DEFAULT_FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
+const HIGHLIGHT_EMISSIVE = 0x2a3f66
+const ARROW_COLOR = 0x5ee7ff
 
 export default function App() {
   const mountRef = useRef(null)
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
+  const [cameraMounted, setCameraMounted] = useState(false)
+  const [solverHeadSlot, setSolverHeadSlot] = useState(null)
+  // Tells the smart solver a new scene/controller exists (child effects run before this one's).
+  const [sceneVersion, setSceneVersion] = useState(0)
+  // Bumped when a scramble animation has finished, so the smart solver can take the new state.
+  const [scrambleVersion, setScrambleVersion] = useState(0)
+  const [introCollapsed, setIntroCollapsed] = useState(() => window.matchMedia?.('(max-width: 720px)').matches ?? false)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
@@ -29,6 +57,10 @@ export default function App() {
   const scrambleRef = useRef(null)
   const zoomInRef = useRef(null)
   const zoomOutRef = useRef(null)
+  const cubeControllerRef = useRef(null)
+  // Center colors survive size changes and resets (the smart solver may set the user's scheme).
+  const faceColorRef = useRef({ ...DEFAULT_FACE_COLOR })
+  const getCubeController = useCallback(() => cubeControllerRef.current, [])
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
   const scrambledRef = useRef(scrambled)
@@ -96,7 +128,9 @@ export default function App() {
     scene.add(stars)
 
     const spacing = 1.06
-    const { cubeGroup, cubies } = createRubikGroup(size, spacing)
+    const faceColor = faceColorRef.current
+    let colorFace = new Map(Object.entries(faceColor).map(([face, color]) => [color, face]))
+    const { cubeGroup, cubies } = createRubikGroup(size, spacing, faceColor)
     scene.add(cubeGroup)
 
     const raycaster = new THREE.Raycaster()
@@ -125,7 +159,12 @@ export default function App() {
     let tween = null
     let moveQueue = []
     let isAuto = false
+    let scrambling = false
     let lastMove = null
+    const userMoveListeners = new Set()
+    const userTurnListeners = new Set()
+    /** { move } relative to the centers (3x3) or { token } in the scene frame (any size). */
+    let highlighted = null
 
     function setPointerNdc(event) {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -172,141 +211,105 @@ export default function App() {
       return best
     }
 
-    const expectedFaceColors = getVariantFaceColors()
+    const colorToFace = (color) => colorFace.get(color) ?? null
 
-    function normalizeSteps(steps) {
-      let s = ((steps % 4) + 4) % 4
-      if (s === 3) s = -1
-      return s
+    function readSceneOrientation() {
+      return readOrientation(cubies.map((c) => c.userData), colorToFace)
     }
 
-    function rotateGridIndex(grid, axis, dir) {
-      const c = (size - 1) / 2
-      const x = grid.x - c
-      const y = grid.y - c
-      const z = grid.z - c
-      let nx = x
-      let ny = y
-      let nz = z
+    // Curved arrow around the layer to turn: an arc in the layer's plane plus a cone head.
+    const arrowGroup = new THREE.Group()
+    const arrowMaterial = new THREE.MeshBasicMaterial({ color: ARROW_COLOR, transparent: true, opacity: 0.85 })
+    const arrowAxis = new THREE.Vector3()
+    let arrowOffset = 0
+    arrowGroup.visible = false
+    cubeGroup.add(arrowGroup)
 
-      if (axis === 'x') {
-        if (dir === 1) {
-          ny = -z
-          nz = y
-        } else {
-          ny = z
-          nz = -y
-        }
+    function buildArrow(turn) {
+      arrowGroup.children.forEach((child) => child.geometry.dispose())
+      arrowGroup.clear()
+      if (!turn) return
+      // Built around +Z, centred on +X; positive steps turn +X towards +Y (right-hand rule).
+      const span = Math.abs(turn.steps) === 2 ? Math.PI : Math.PI / 2
+      const sign = turn.steps > 0 ? 1 : -1
+      const radius = 1.5 * spacing * Math.SQRT2 + 0.35
+      const points = []
+      for (let i = 0; i <= 32; i += 1) {
+        const a = -span / 2 + (span * i) / 32
+        points.push(new THREE.Vector3(radius * Math.cos(a), radius * Math.sin(a), 0))
       }
-
-      if (axis === 'y') {
-        if (dir === 1) {
-          nx = z
-          nz = -x
-        } else {
-          nx = -z
-          nz = x
-        }
-      }
-
-      if (axis === 'z') {
-        if (dir === 1) {
-          nx = -y
-          ny = x
-        } else {
-          nx = y
-          ny = -x
-        }
-      }
-
-      return {
-        x: Math.round(nx + c),
-        y: Math.round(ny + c),
-        z: Math.round(nz + c)
-      }
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.07, 8, false), arrowMaterial)
+      const end = (sign * span) / 2
+      const tangent = new THREE.Vector3(-Math.sin(end) * sign, Math.cos(end) * sign, 0)
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 20), arrowMaterial)
+      head.position.set(radius * Math.cos(end), radius * Math.sin(end), 0).addScaledVector(tangent, 0.18)
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent)
+      arrowGroup.add(tube, head)
+      arrowAxis.set(turn.axis === 'x' ? 1 : 0, turn.axis === 'y' ? 1 : 0, turn.axis === 'z' ? 1 : 0)
+      arrowOffset = getCoordFromIndex(turn.layers.reduce((a, b) => a + b, 0) / turn.layers.length, spacing, size)
     }
 
-    function rotateStickers(stickers, axis, dir) {
-      const s = { ...stickers }
-      const n = { ...stickers }
-
-      if (axis === 'x') {
-        if (dir === 1) {
-          n.pz = s.py
-          n.ny = s.pz
-          n.nz = s.ny
-          n.py = s.nz
-        } else {
-          n.nz = s.py
-          n.py = s.pz
-          n.pz = s.ny
-          n.ny = s.nz
-        }
-        n.px = s.px
-        n.nx = s.nx
-      }
-
-      if (axis === 'y') {
-        if (dir === 1) {
-          n.nz = s.px
-          n.px = s.pz
-          n.pz = s.nx
-          n.nx = s.nz
-        } else {
-          n.pz = s.px
-          n.px = s.nz
-          n.nz = s.nx
-          n.nx = s.pz
-        }
-        n.py = s.py
-        n.ny = s.ny
-      }
-
-      if (axis === 'z') {
-        if (dir === 1) {
-          n.py = s.px
-          n.nx = s.py
-          n.ny = s.nx
-          n.px = s.ny
-        } else {
-          n.ny = s.px
-          n.px = s.py
-          n.py = s.nx
-          n.nx = s.ny
-        }
-        n.pz = s.pz
-        n.nz = s.nz
-      }
-
-      return n
+    const arrowBasis = new THREE.Matrix4()
+    const arrowX = new THREE.Vector3()
+    const arrowY = new THREE.Vector3()
+    /** Keeps the arc on the side of the layer facing the camera. */
+    function orientArrow(time) {
+      const toCamera = cubeGroup.worldToLocal(camera.position.clone())
+      arrowX.copy(toCamera).addScaledVector(arrowAxis, -toCamera.dot(arrowAxis))
+      if (arrowX.lengthSq() < 1e-6) arrowX.set(arrowAxis.y, arrowAxis.z, arrowAxis.x)
+      arrowX.normalize()
+      arrowY.crossVectors(arrowAxis, arrowX)
+      arrowBasis.makeBasis(arrowX, arrowY, arrowAxis)
+      arrowGroup.quaternion.setFromRotationMatrix(arrowBasis)
+      arrowGroup.position.copy(arrowAxis).multiplyScalar(arrowOffset)
+      arrowMaterial.opacity = 0.6 + 0.3 * Math.sin(time * 0.006)
     }
 
+    function toMultiLayer(turn) {
+      return { axis: turn.axis, layers: [turn.layer], steps: turn.steps }
+    }
+
+    function applyHighlight() {
+      const turn = highlighted?.move
+        ? toMultiLayer(moveToLayerTurn(highlighted.move, readSceneOrientation() ?? undefined))
+        : highlighted?.token
+          ? tokenToLayerTurn(highlighted.token, size)
+          : null
+      cubies.forEach((cubie) => {
+        const lit = turn && turn.layers.includes(cubie.userData.grid[turn.axis])
+        cubie.material.forEach((m) => m.emissive.setHex(lit ? HIGHLIGHT_EMISSIVE : 0x000000))
+      })
+      buildArrow(turn)
+    }
+
+    /** Every face one color, whichever way round the cube is (a slice turn moves the centers). */
     function isCubeSolved() {
+      const faceColorSeen = {}
       for (const cubie of cubies) {
         const { x, y, z } = cubie.userData.grid
-        const stickers = cubie.userData.stickers
-        if (x === size - 1 && stickers.px !== expectedFaceColors[0]) return false
-        if (x === 0 && stickers.nx !== expectedFaceColors[1]) return false
-        if (y === size - 1 && stickers.py !== expectedFaceColors[2]) return false
-        if (y === 0 && stickers.ny !== expectedFaceColors[3]) return false
-        if (z === size - 1 && stickers.pz !== expectedFaceColors[4]) return false
-        if (z === 0 && stickers.nz !== expectedFaceColors[5]) return false
+        const onFace = { px: x === size - 1, nx: x === 0, py: y === size - 1, ny: y === 0, pz: z === size - 1, nz: z === 0 }
+        for (const key of STICKER_KEYS) {
+          if (!onFace[key]) continue
+          const color = cubie.userData.stickers[key]
+          if (!(key in faceColorSeen)) faceColorSeen[key] = color
+          else if (faceColorSeen[key] !== color) return false
+        }
       }
       return true
     }
 
-    function attachLayerByIndex(axis, layerIndex) {
+    function attachLayers(axis, layers) {
       axisName = axis
       axisVector.set(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
       axisWorld = axisVector.clone().applyQuaternion(cubeGroup.quaternion).normalize()
-      layerValue = layerIndex
+      layerValue = layers.length === 1 ? layers[0] : null
 
       pivot = new THREE.Group()
       cubeGroup.add(pivot)
 
       activeCubies = []
       cubies.forEach((cubie) => {
-        if (cubie.userData.grid[axis] === layerIndex) {
+        if (layers.includes(cubie.userData.grid[axis])) {
           activeCubies.push(cubie)
           pivot.attach(cubie)
         }
@@ -319,7 +322,7 @@ export default function App() {
       const times = Math.abs(steps)
       for (let i = 0; i < times; i += 1) {
         activeCubies.forEach((cubie) => {
-          cubie.userData.grid = rotateGridIndex(cubie.userData.grid, axisName, dir)
+          cubie.userData.grid = rotateGridIndex(cubie.userData.grid, axisName, dir, size)
           cubie.userData.stickers = rotateStickers(cubie.userData.stickers, axisName, dir)
         })
       }
@@ -328,6 +331,8 @@ export default function App() {
     function finalizeLayer(steps = 0, source = 'user') {
       if (!pivot) return
       pivot.updateMatrixWorld(true)
+      const turn = { axis: axisName, layer: layerValue, steps }
+      const orientation = size === 3 ? readSceneOrientation() : null
 
       applyRotationToState(steps)
 
@@ -348,29 +353,41 @@ export default function App() {
       activeCubies = []
       axisName = null
 
-      if (source === 'user' && steps !== 0 && scrambledRef.current) {
+      // Turns made from the smart solver's guidance ("Đã xoay") count like dragged ones.
+      const byPlayer = source === 'user' || source === 'controller'
+      if (byPlayer && steps !== 0 && scrambledRef.current) {
         if (solvedRef.current) setSolved(false)
         if (!runningRef.current) setRunning(true)
         setMoves((prev) => prev + 1)
       }
 
-      if (source === 'user' && scrambledRef.current) {
+      if (byPlayer && scrambledRef.current) {
         const solvedNow = isCubeSolved()
         if (solvedNow) {
           setSolved(true)
           setRunning(false)
         }
       }
+
+      applyHighlight()
+
+      if (source === 'user' && steps !== 0 && orientation) {
+        const event = layerTurnToEvent(turn, orientation)
+        if (event) userMoveListeners.forEach((listener) => listener(event))
+      }
+      const token = source === 'user' && turn.layer !== null ? layerTurnToToken(turn, size) : null
+      if (token) userTurnListeners.forEach((listener) => listener(token))
     }
 
-    function startTweenToSteps(steps, source) {
+    function startTweenToSteps(steps, source, callbacks = {}) {
       const step = Math.PI / 2
       const normalized = normalizeSteps(steps)
       if (!normalized) {
         finalizeLayer(0, source)
+        callbacks.onDone?.()
         return
       }
-      lastMove = { steps: normalized, source }
+      lastMove = { steps: normalized, source, ...callbacks }
       const start = pivot.rotation[axisName]
       tween = {
         axis: axisName,
@@ -384,9 +401,14 @@ export default function App() {
     function startAutoMove(move) {
       if (!move) return
       if (pivot || tween) return
-      attachLayerByIndex(move.axis, move.layer)
-      pivot.rotation[move.axis] = 0
-      startTweenToSteps(move.steps, 'scramble')
+      const turn = move.move
+        ? toMultiLayer(moveToLayerTurn(move.move, readSceneOrientation() ?? undefined))
+        : move.token
+          ? tokenToLayerTurn(move.token, size)
+          : toMultiLayer(move)
+      attachLayers(turn.axis, turn.layers)
+      pivot.rotation[turn.axis] = 0
+      startTweenToSteps(turn.steps, move.source ?? 'scramble', move)
     }
 
     function generateScrambleSequence() {
@@ -565,8 +587,10 @@ export default function App() {
         pivot.rotation[tween.axis] = THREE.MathUtils.lerp(tween.start, tween.end, eased)
         if (t >= 1) {
           tween = null
-          finalizeLayer(lastMove?.steps ?? 0, lastMove?.source ?? 'user')
+          const finished = lastMove
+          finalizeLayer(finished?.steps ?? 0, finished?.source ?? 'user')
           lastMove = null
+          finished?.onDone?.()
         }
       }
 
@@ -577,7 +601,14 @@ export default function App() {
 
       if (!tween && moveQueue.length === 0 && isAuto) {
         isAuto = false
+        if (scrambling) {
+          scrambling = false
+          setScrambleVersion((v) => v + 1)
+        }
       }
+
+      arrowGroup.visible = highlighted !== null && !tween && !pivot && arrowGroup.children.length > 0
+      if (arrowGroup.visible) orientArrow(time)
 
       renderer.render(scene, camera)
       requestAnimationFrame(animate)
@@ -587,6 +618,7 @@ export default function App() {
       if (tween || pivot || moveQueue.length > 0) return
       moveQueue = generateScrambleSequence()
       isAuto = true
+      scrambling = true
       setScrambled(true)
       setSolved(false)
       setMoves(0)
@@ -598,7 +630,101 @@ export default function App() {
 
     const raf = requestAnimationFrame(animate)
 
+    const isBusy = () => Boolean(tween || pivot || moveQueue.length > 0)
+    const labelOf = (color) => FACE_ORDER.indexOf(colorFace.get(color) ?? '')
+
+    function paintStickers(stickerMap, toColor) {
+      cubies.forEach((cubie) => {
+        const faces = stickerMap.get(gridKey(cubie.userData.grid))
+        const stickers = {}
+        STICKER_KEYS.forEach((key, i) => {
+          const face = faces?.[key]
+          stickers[key] = face == null ? null : toColor(face)
+          cubie.material[i].color.setHex(stickers[key] ?? COLORS.core)
+        })
+        cubie.userData.stickers = stickers
+        cubie.rotation.set(0, 0, 0)
+        cubie.updateMatrixWorld(true)
+      })
+      applyHighlight()
+    }
+
+    function queueMove(entry) {
+      return new Promise((resolve, reject) => {
+        moveQueue.push({ ...entry, source: 'controller', onDone: resolve, onCancel: () => reject(new Error('cube scene disposed')) })
+      })
+    }
+
+    /** @type {import('./smart-solver/adapter/types').NxnController} */
+    const nxnController = {
+      size,
+      getStickers() {
+        return sceneToStickers(cubies.map((c) => c.userData), size, labelOf)
+      },
+      setStickers(stickers) {
+        if (isBusy()) return false
+        paintStickers(stickersToScene(stickers, size), (label) => faceColor[FACE_ORDER[label]] ?? COLORS.core)
+        return true
+      },
+      playTurn(token) {
+        return queueMove({ token })
+      },
+      highlightTurn(token) {
+        highlighted = token ? { token } : null
+        applyHighlight()
+      },
+      onUserTurn(listener) {
+        userTurnListeners.add(listener)
+        return () => userTurnListeners.delete(listener)
+      },
+      setFaceColors(colors) {
+        if (isBusy()) return false
+        // Read the state with the old colors, then repaint it with the new ones.
+        const stickers = nxnController.getStickers()
+        Object.assign(faceColor, colors)
+        colorFace = new Map(Object.entries(faceColor).map(([face, color]) => [color, face]))
+        nxnController.setStickers(stickers)
+        return true
+      }
+    }
+
+    /** @type {import('./smart-solver/adapter/types').NxnController} */
+    const controller = size !== 3 ? nxnController : {
+      ...nxnController,
+      getFacelets() {
+        return stickerModelToFacelets(cubies.map((c) => c.userData), colorToFace)
+      },
+      setFacelets(facelets) {
+        if (isBusy()) return { ok: false, reason: 'busy' }
+        const result = fromFacelets(facelets)
+        if (!result.ok) return { ok: false, reason: 'invalid', errors: result.errors }
+        paintStickers(faceletsToStickerMap(facelets), (face) => faceColor[face])
+        return { ok: true }
+      },
+      playMove(move) {
+        return queueMove({ move })
+      },
+      highlight(move) {
+        highlighted = move ? { move } : null
+        applyHighlight()
+      },
+      onUserMove(listener) {
+        userMoveListeners.add(listener)
+        return () => userMoveListeners.delete(listener)
+      }
+    }
+    cubeControllerRef.current = controller
+    setSceneVersion((v) => v + 1)
+    if (import.meta.env.DEV) window.__cube = controller
+
     return () => {
+      lastMove?.onCancel?.()
+      moveQueue.forEach((move) => move.onCancel?.())
+      moveQueue = []
+      userMoveListeners.clear()
+      userTurnListeners.clear()
+      cubeControllerRef.current = null
+      if (import.meta.env.DEV && window.__cube === controller) delete window.__cube
       scrambleRef.current = null
       zoomInRef.current = null
       zoomOutRef.current = null
@@ -623,51 +749,95 @@ export default function App() {
   return (
     <div className="app">
       <div className="canvas-wrap" ref={mountRef} />
-      <div className="intro">
-        <div className="intro-title">Rubik 3D Playground</div>
-        <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
+      <div className={`intro${introCollapsed ? ' collapsed' : ''}`}>
+        <div className="panel-header">
+          <div className="intro-title">Rubik 3D Playground</div>
+          <button
+            className="panel-toggle"
+            onClick={() => setIntroCollapsed((v) => !v)}
+            aria-expanded={!introCollapsed}
+            aria-label={introCollapsed ? 'Mở rộng' : 'Thu gọn'}
+          >
+            {introCollapsed ? '+' : '−'}
+          </button>
+        </div>
+        {introCollapsed ? (
+          <div className="panel-summary-text">
+            {formatTime(timeMs)} · {moves} moves
+          </div>
+        ) : (
+          <>
+            <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
             <span className="label">Zoom-Out</span>
-           <div className="zoom-row">
-            <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
-            <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
-        </div>  
-        <div className="stats">
-        
-          <div className="stat">
-            <span className="label">Time</span>
-            <span className="value">{formatTime(timeMs)}</span>
-          </div>
-          <div className="stat">
-            <span className="label">Moves</span>
-            <span className="value">{moves}</span>
-          </div>
-        </div>
-        <div className="actions">
-          <button className="scramble" onClick={() => scrambleRef.current?.()}>
-            Xáo trộn
-          </button>
-          <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
-            Reset
-          </button>
-        </div>
-        <div className="status">
-          {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
-        </div>
+            <div className="zoom-row">
+              <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
+              <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
+            </div>
+            <div className="stats">
+              <div className="stat">
+                <span className="label">Time</span>
+                <span className="value">{formatTime(timeMs)}</span>
+              </div>
+              <div className="stat">
+                <span className="label">Moves</span>
+                <span className="value">{moves}</span>
+              </div>
+            </div>
+            <div className="actions">
+              <button className="scramble" onClick={() => scrambleRef.current?.()}>
+                Xáo trộn
+              </button>
+              <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
+                Reset
+              </button>
+            </div>
+            <div className="status">
+              {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
+            </div>
+          </>
+        )}
       </div>
-      <div className="controls">
-        <div className="control">
-          <label>Size</label>
-          <button className="size-btn" onClick={() => setShowSizeModal(true)}>
-            {size}x{size}
-          </button>
+      <div className={`controls${showCamera ? ' expanded' : ''}`}>
+        <div className="controls-row">
+          <div className="control">
+            <label>Size</label>
+            <button className="size-btn" onClick={() => setShowSizeModal(true)}>
+              {size}x{size}
+            </button>
+          </div>
+          <div className="control">
+            <label>Quét</label>
+            <button
+              className="size-btn"
+              onClick={() => {
+                setCameraMounted(true)
+                setShowCamera((v) => !v)
+              }}
+            >
+              {showCamera ? 'Tắt' : 'Bật'}
+            </button>
+          </div>
+          {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
         </div>
+        {cameraMounted && (
+          <SmartSolverPanel
+            open={showCamera}
+            headerSlot={solverHeadSlot}
+            getController={getCubeController}
+            cubeSize={size}
+            sceneVersion={sceneVersion}
+            scrambleVersion={scrambleVersion}
+            resetVersion={resetKey}
+            onRequestSize={setSize}
+          />
+        )}
       </div>
       {showSizeModal && (
         <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Chọn kích thước</div>
             <div className="modal-grid">
-              {[3, 4, 5, 6, 7].map((n) => (
+              {[2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   className={`modal-option${size === n ? ' active' : ''}`}
@@ -697,7 +867,7 @@ function getCoordFromIndex(index, spacing, size) {
   return (index - half) * spacing
 }
 
-function createRubikGroup(size, spacing) {
+function createRubikGroup(size, spacing, faceColor) {
   const cubeGroup = new THREE.Group()
   const cubies = []
   const half = (size - 1) / 2
@@ -705,7 +875,7 @@ function createRubikGroup(size, spacing) {
   for (let i = 0; i < size; i += 1) {
     for (let j = 0; j < size; j += 1) {
       for (let k = 0; k < size; k += 1) {
-        const cubie = createCubie(i, j, k, size)
+        const cubie = createCubie(i, j, k, size, faceColor)
         cubie.position.set((i - half) * spacing, (j - half) * spacing, (k - half) * spacing)
         const stickers = cubie.userData.stickers
         cubie.userData = {
@@ -726,7 +896,7 @@ function createRubikGroup(size, spacing) {
   return { cubeGroup, cubies }
 }
 
-function createCubie(i, j, k, size) {
+function createCubie(i, j, k, size, faceColor) {
   const geometry = new THREE.BoxGeometry(0.98, 0.98, 0.98)
   const isOuterPosX = i === size - 1
   const isOuterNegX = i === 0
@@ -735,7 +905,7 @@ function createCubie(i, j, k, size) {
   const isOuterPosZ = k === size - 1
   const isOuterNegZ = k === 0
 
-  const baseColors = getVariantFaceColors()
+  const baseColors = getVariantFaceColors(faceColor)
   let faceColors = [
     isOuterPosX ? baseColors[0] : COLORS.core,
     isOuterNegX ? baseColors[1] : COLORS.core,
