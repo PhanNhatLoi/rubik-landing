@@ -84,7 +84,7 @@ export function displayRotation(face: Face, hold: Hold): number {
 
 export interface ScanStep {
   face: Face
-  /** Hold the net shows (and the user keeps) while this face is scanned. */
+  /** How the cube is held while this face is scanned (`face` towards the camera); the net mirrors it. */
   hold: Hold
   /** What to do, given the color name of each face in the user's scheme. */
   instruction: (name: (f: Face) => string) => string
@@ -105,12 +105,14 @@ export const SCAN_STEPS: readonly ScanStep[] = [
   { face: 'L', hold: { front: 'L', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('L')} ra trước.` },
   {
     face: 'D',
-    hold: { front: 'L', top: TOP },
+    // As the camera sees it: D facing, L at the bottom, F on the left.
+    hold: { front: 'D', top: 'R' },
     instruction: (n) => `Lật mặt trên về phía camera: mặt ${n('D')} đối diện, ${n('L')} ở dưới, ${n('F')} bên trái.`
   },
   {
     face: 'U',
-    hold: { front: 'L', top: TOP },
+    // As the camera sees it: U facing, L on top, F on the left.
+    hold: { front: 'U', top: 'L' },
     instruction: (n) => `Lật khối 180° (giữ ${n('F')} bên trái): mặt ${n('U')} đối diện, ${n('L')} ở trên.`
   }
 ]
