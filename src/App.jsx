@@ -557,14 +557,17 @@ export default function App() {
     window.addEventListener('pointerup', onPointerUp)
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false })
 
-    function getDefaultScale(rect) {
-      const isMobile = rect.width < 960
-      return isMobile ? 0.78 : 0.9
+    function isDesktopViewport() {
+      if (typeof window === 'undefined') return false
+      return window.matchMedia ? window.matchMedia(DESKTOP_QUERY).matches : window.innerWidth >= 960
     }
 
-    function getDefaultZoom(rect) {
-      const isMobile = rect.width < 960
-      return isMobile ? 11.2 : 9.6
+    function getDefaultScale() {
+      return isDesktopViewport() ? 0.9 : 0.78
+    }
+
+    function getDefaultZoom() {
+      return isDesktopViewport() ? 9.6 : 11.2
     }
 
     function resize() {
@@ -575,9 +578,9 @@ export default function App() {
       camera.lookAt(0, 0, 0)
       renderer.setSize(rect.width, rect.height)
 
-      cubeGroup.scale.setScalar(getDefaultScale(rect))
       if (!hasUserZoomed) {
-        zoomRadius = getDefaultZoom(rect)
+        cubeGroup.scale.setScalar(getDefaultScale())
+        zoomRadius = getDefaultZoom()
         camera.position.copy(cameraDir.clone().multiplyScalar(zoomRadius))
         camera.lookAt(0, 0, 0)
       }
