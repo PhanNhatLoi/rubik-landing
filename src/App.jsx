@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import { normalizeSteps, rotateGridIndex, rotateStickers } from './rubikLogic'
 import { fromFacelets } from './smart-solver/core'
@@ -13,6 +14,7 @@ import {
 import { layerTurnToToken, sceneToStickers, stickersToScene, tokenToLayerTurn } from './smart-solver/adapter/nxnModel'
 import SmartSolverPanel from './smart-solver/ui/SmartSolverPanel'
 import { useMediaQuery, DESKTOP_QUERY } from './ui/useMediaQuery'
+import { usePersistentHost } from './ui/usePersistentHost'
 import PlayShell from './ui/PlayShell'
 import SizeSheet from './ui/SizeSheet'
 
@@ -38,7 +40,9 @@ const HIGHLIGHT_EMISSIVE = 0x2a3f66
 const ARROW_COLOR = 0x5ee7ff
 
 export default function App() {
-  const mountRef = useRef(null)
+  const stage = usePersistentHost('canvas-wrap')
+  const solver = usePersistentHost('solver-host')
+  const [solverPhase, setSolverPhase] = useState('SCANNING')
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
@@ -121,7 +125,7 @@ export default function App() {
   }, [running])
 
   useEffect(() => {
-    const mount = mountRef.current
+    const mount = stage.host
     if (!mount) return
 
     const scene = new THREE.Scene()
@@ -784,26 +788,12 @@ export default function App() {
         : 'Sẵn sàng'
     : 'Nhấn xáo trộn để bắt đầu'
 
-  const solverElement = cameraMounted ? (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
-      <SmartSolverPanel
-        open={showCamera}
-        headerSlot={solverHeadSlot}
-        getController={getCubeController}
-        cubeSize={size}
-        sceneVersion={sceneVersion}
-        scrambleVersion={scrambleVersion}
-        resetVersion={resetKey}
-        onRequestSize={setSize}
-      />
-    </div>
-  ) : null
-
   return (
     <>
       <PlayShell
-        mountRef={mountRef}
+        stageSlotRef={stage.slotRef}
+        solverSlotRef={solver.slotRef}
+        solverPhase={solverPhase}
         timeMs={timeMs}
         moves={moves}
         running={running}
@@ -821,8 +811,25 @@ export default function App() {
         showSolver={showCamera}
         onOpenSolver={handleOpenSolver}
         onCloseSolver={handleCloseSolver}
-        solverElement={solverElement}
       />
+
+      {cameraMounted && solver.host && createPortal(
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
+          <SmartSolverPanel
+            open={showCamera}
+            headerSlot={solverHeadSlot}
+            getController={getCubeController}
+            cubeSize={size}
+            sceneVersion={sceneVersion}
+            scrambleVersion={scrambleVersion}
+            resetVersion={resetKey}
+            onRequestSize={setSize}
+            onPhaseChange={setSolverPhase}
+          />
+        </div>,
+        solver.host
+      )}
 
       <SizeSheet
         isOpen={showSizeModal}

@@ -4,7 +4,9 @@ import ZoomControl from './ZoomControl'
 import TabBar from './TabBar'
 
 export default function PlayShell({
-  mountRef,
+  stageSlotRef,
+  solverSlotRef,
+  solverPhase,
   timeMs,
   moves,
   running,
@@ -22,7 +24,6 @@ export default function PlayShell({
   showSolver,
   onOpenSolver,
   onCloseSolver,
-  solverElement,
 }) {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -90,7 +91,7 @@ export default function PlayShell({
                 position: 'relative',
               }}
             >
-              <div className="canvas-wrap" ref={mountRef} />
+              <div className="rb-stage-slot" ref={stageSlotRef} />
             </div>
           </main>
 
@@ -111,7 +112,7 @@ export default function PlayShell({
                   </button>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                  {solverElement}
+                  <div className="rb-solver-slot" ref={solverSlotRef} />
                 </div>
               </div>
             </aside>
@@ -170,6 +171,9 @@ export default function PlayShell({
                   </button>
                 </div>
               </div>
+              <div hidden style={{ display: 'none' }}>
+                <div className="rb-solver-slot" ref={solverSlotRef} />
+              </div>
             </aside>
           )}
         </div>
@@ -223,8 +227,31 @@ export default function PlayShell({
         {/* Tab "Giải khối" trên mobile */}
         {activeTab === 'solver' ? (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <header className="rb-header" style={{ flex: 'none' }}>
+              <div>
+                <div className="rb-header__title">Smart Solver</div>
+                <div className="rb-header__subtitle">Giải khối Rubik</div>
+              </div>
+            </header>
+
+            {/* Sân khấu 3D cho solver: ẩn khi quét để nhường chỗ cho camera, hiện khi review và guide */}
+            <div
+              style={{
+                display: solverPhase === 'SCANNING' ? 'none' : 'flex',
+                flex: '0 0 38%',
+                minHeight: '180px',
+                maxHeight: '280px',
+                width: '100%',
+                position: 'relative',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div className="rb-stage-slot" ref={stageSlotRef} />
+            </div>
+
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-              {solverElement}
+              <div className="rb-solver-slot" ref={solverSlotRef} />
             </div>
             <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />
           </div>
@@ -268,7 +295,7 @@ export default function PlayShell({
                 width: '100%',
               }}
             >
-              <div className="canvas-wrap" ref={mountRef} />
+              <div className="rb-stage-slot" ref={stageSlotRef} />
               <ZoomControl onZoomIn={onZoomIn} onZoomOut={onZoomOut} layout="vertical" />
             </div>
 
@@ -328,6 +355,11 @@ export default function PlayShell({
 
             {/* Thanh Tab bar */}
             <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />
+
+            {/* Giữ slot solver ẩn để không mất state */}
+            <div hidden style={{ display: 'none' }}>
+              <div className="rb-solver-slot" ref={solverSlotRef} />
+            </div>
           </>
         )}
       </div>

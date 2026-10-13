@@ -92,6 +92,7 @@ export interface SmartSolverPanelProps {
   /** Bumped by the playground's Reset: the 3D cube is back to solved. */
   resetVersion: number
   onRequestSize: (size: number) => void
+  onPhaseChange?: (phase: string) => void
 }
 
 export default function SmartSolverPanel({
@@ -102,7 +103,8 @@ export default function SmartSolverPanel({
   sceneVersion,
   scrambleVersion,
   resetVersion,
-  onRequestSize
+  onRequestSize,
+  onPhaseChange
 }: SmartSolverPanelProps) {
   const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
   const sizeOk = cubeSize === 3
@@ -352,6 +354,12 @@ export default function SmartSolverPanel({
 
   const scanning = guide.phase === 'SCANNING'
   const guiding = guide.phase === 'GUIDING' || guide.phase === 'RECOVERING'
+
+  const currentPhase = sizeOk ? guide.phase : nxn.guide.phase
+  useEffect(() => {
+    onPhaseChange?.(currentPhase)
+  }, [currentPhase, onPhaseChange])
+
   const summary = nxnGuiding ? (
     <>
       <span className="panel-summary-text">
