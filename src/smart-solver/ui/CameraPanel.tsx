@@ -116,16 +116,26 @@ export default function CameraPanel({
 
     const draw = (r: ScheduledResult | null) => {
       const ctx = overlay.getContext('2d')
-      if (!ctx || !video.videoWidth) return
+      if (!ctx || !video.videoWidth || !video.videoHeight) return
       const dpr = window.devicePixelRatio || 1
-      const w = Math.round(video.clientWidth * dpr)
-      const h = Math.round(video.clientHeight * dpr)
+      const containerWidth = video.clientWidth || overlay.clientWidth
+      const containerHeight = video.clientHeight || overlay.clientHeight
+      const w = Math.round(containerWidth * dpr)
+      const h = Math.round(containerHeight * dpr)
       if (overlay.width !== w || overlay.height !== h) {
         overlay.width = w
         overlay.height = h
       }
+
+      const scaleCss = Math.max(containerWidth / video.videoWidth, containerHeight / video.videoHeight)
+      const offsetXCss = (containerWidth - video.videoWidth * scaleCss) / 2
+      const offsetYCss = (containerHeight - video.videoHeight * scaleCss) / 2
+
+      const scale = scaleCss * dpr
+      const offset = { x: offsetXCss * dpr, y: offsetYCss * dpr }
+
       const roi = r?.roi ?? computeRoi(video.videoWidth, video.videoHeight, SCHEDULER_OPTIONS.roiFraction)
-      drawOverlay(ctx, roi, SCHEDULER_OPTIONS.size, w / video.videoWidth, r?.result.face ?? null)
+      drawOverlay(ctx, roi, SCHEDULER_OPTIONS.size, scale, r?.result.face ?? null, offset)
     }
 
     const fail = (message: string) => {
@@ -243,8 +253,11 @@ export default function CameraPanel({
           {badge && <div className="rb-camera__badge">{badge}</div>}
           {status === 'running' && overlay != null && <div className="rb-camera__countdown">{overlay}</div>}
           {status === 'running' && (
-            <div className="rb-camera__feedback" role="status">
-              {face ? `Đã thấy lưới (${stats.inliers} ô)` : 'Đưa mặt rubik vào khung'}
+            <div className="rb-camera__feedback">
+              <span role="status" aria-live="polite">
+                {face ? 'Đã thấy lưới' : 'Đưa mặt rubik vào khung'}
+              </span>
+              {face && <span aria-hidden="true"> ({stats.inliers} ô)</span>}
             </div>
           )}
           {status !== 'running' && (
