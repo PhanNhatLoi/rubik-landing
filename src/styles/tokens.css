@@ -217,7 +217,7 @@
 /* ---------- Move token (solution sequence) ---------- */
 .rb-move {
   min-width: 40px; height: 34px; padding: 0 var(--rb-s-2); border-radius: var(--rb-r-sm);
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
   font: 600 15px var(--rb-font); background: var(--rb-surface-2); border: 1px solid var(--rb-border-strong); color: var(--rb-text);
 }
 .rb-move--done { background: transparent; border-color: var(--rb-border); color: #6f80a6; text-decoration: line-through; }
@@ -240,6 +240,7 @@
 .rb-tabbar {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
   padding: 6px var(--rb-s-3) max(22px, env(safe-area-inset-bottom));
+  margin: 0 calc(-1 * var(--rb-gutter));
   background: rgba(5, 8, 14, 0.92); border-top: 1px solid var(--rb-border);
 }
 .rb-tabbar__item {
@@ -433,4 +434,44 @@
   }
 }
 
+/* 7. Common utility classes */
+.rb-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background: var(--rb-surface-1);
+  border-radius: var(--rb-r-xl);
+  border: 1px solid var(--rb-border);
+}
 
+.rb-stats-block {
+  padding: 4px 0 8px;
+}
+
+.rb-section-title {
+  font-size: var(--rb-fs-title);
+  font-weight: 600;
+  color: var(--rb-text);
+}
+
+.rb-screen__stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.rb-mini-cube-cell {
+  background: var(--rb-accent-tint);
+  border: 1px solid var(--rb-accent-tint-border);
+  border-radius: 2px;
+}
+
+.rb-size-card[aria-pressed="true"] .rb-mini-cube-cell {
+  background: rgba(6, 16, 33, 0.45);
+  border-color: var(--rb-border-selected);
+}

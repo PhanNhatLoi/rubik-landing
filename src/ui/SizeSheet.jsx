@@ -7,7 +7,7 @@ const SIZE_CONFIGS = [
   { size: 5, label: '5x5', caption: 'Chuyên gia' },
 ]
 
-function MiniCubeGrid({ size, isSelected }) {
+function MiniCubeGrid({ size }) {
   const cellSize = size === 2 ? 14 : size === 3 ? 10 : size === 4 ? 7.5 : 6
   const gap = size === 2 ? 2.5 : size === 3 ? 2 : size === 4 ? 1.5 : 1
 
@@ -25,12 +25,10 @@ function MiniCubeGrid({ size, isSelected }) {
       {Array.from({ length: size * size }).map((_, i) => (
         <div
           key={i}
+          className="rb-mini-cube-cell"
           style={{
             width: `${cellSize}px`,
             height: `${cellSize}px`,
-            borderRadius: '2px',
-            background: isSelected ? 'rgba(6, 16, 33, 0.45)' : 'rgba(107, 155, 255, 0.35)',
-            border: isSelected ? '1px solid rgba(6, 16, 33, 0.6)' : '1px solid rgba(94, 231, 255, 0.5)',
           }}
         />
       ))}
@@ -41,6 +39,8 @@ function MiniCubeGrid({ size, isSelected }) {
 export default function SizeSheet({ isOpen, currentSize, onSelect, onClose, triggerRef }) {
   const [pickedSize, setPickedSize] = useState(currentSize)
   const sheetRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   // Sync pickedSize whenever currentSize or isOpen changes
   useEffect(() => {
@@ -49,14 +49,36 @@ export default function SizeSheet({ isOpen, currentSize, onSelect, onClose, trig
     }
   }, [isOpen, currentSize])
 
-  // Trap Escape key & manage focus
+  // Trap Escape key & manage focus with basic trap
   useEffect(() => {
     if (!isOpen) return
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current?.()
+        return
+      }
+
+      if (e.key === 'Tab' && sheetRef.current) {
+        const focusable = sheetRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || document.activeElement === sheetRef.current) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
       }
     }
 
@@ -73,7 +95,7 @@ export default function SizeSheet({ isOpen, currentSize, onSelect, onClose, trig
       // Return focus to trigger button
       triggerRef?.current?.focus()
     }
-  }, [isOpen, onClose, triggerRef])
+  }, [isOpen, triggerRef])
 
   if (!isOpen) return null
 
@@ -113,9 +135,11 @@ export default function SizeSheet({ isOpen, currentSize, onSelect, onClose, trig
             className="rb-icon-btn"
             onClick={onClose}
             aria-label="Đóng"
-            style={{ width: '36px', height: '36px' }}
           >
-            ×
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -132,7 +156,7 @@ export default function SizeSheet({ isOpen, currentSize, onSelect, onClose, trig
                 onClick={() => setPickedSize(size)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <MiniCubeGrid size={size} isSelected={isSelected} />
+                  <MiniCubeGrid size={size} />
                   <span style={{ fontSize: '18px', fontWeight: 700 }}>{label}</span>
                 </div>
                 <div

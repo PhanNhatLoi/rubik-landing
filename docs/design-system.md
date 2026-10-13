@@ -77,6 +77,8 @@ Bản chạy trong repo: [`src/styles/tokens.css`](../src/styles/tokens.css) —
 3. Header màn hình: `.rb-header`, `.rb-header__title`, `.rb-header__subtitle` (lặp lại ở Scan/Review/Guide).
 4. Thanh tiến độ giải: `.rb-progress`, `.rb-progress__bar` (`4px`, gradient) ở Guide.
 5. Khung camera: `.rb-camera` (bo 24px, viền `--rb-border`), `.rb-camera__badge` nổi (`rgba(5,8,14,.78)`), `.rb-camera__countdown` (vòng đếm ngược), `.rb-camera__feedback` (chip phản hồi đáy).
+6. Đánh dấu ô đã sửa theo luật: `.rb-sticker--changed` (viền vàng `--rb-cube-yellow`).
+7. Utility & helper: `.rb-card` (hero move card), `.rb-stats-block`, `.rb-section-title`, `.rb-screen__stage`, `.rb-mini-cube-cell`.
 
 ## 5. Ánh xạ class hiện tại → mới
 

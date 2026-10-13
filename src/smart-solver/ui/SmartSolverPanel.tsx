@@ -369,7 +369,6 @@ export default function SmartSolverPanel({
         <button
           type="button"
           className="rb-btn rb-btn--primary"
-          style={{ height: '32px', padding: '0 12px', fontSize: '13px' }}
           onClick={nxn.done}
         >
           Đã xoay
@@ -387,7 +386,6 @@ export default function SmartSolverPanel({
         <button
           type="button"
           className="rb-btn rb-btn--primary"
-          style={{ height: '32px', padding: '0 12px', fontSize: '13px' }}
           onClick={() => report(turnNow ?? expected)}
         >
           Đã xoay

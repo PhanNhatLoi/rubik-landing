@@ -62,19 +62,11 @@ body {
   display: none !important;
 }
 
-/* Panel Header & Summary */
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .panel-toggle {
   flex: none;
   width: 32px;
   height: 32px;
-  border-radius: var(--rb-r-full);
+  border-radius: var(--rb-r-pill);
   border: 1px solid var(--rb-border);
   background: var(--rb-surface-2);
   color: var(--rb-text);
@@ -221,18 +213,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.camera-countdown {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 4.5rem;
-  font-weight: 700;
-  color: var(--rb-text);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
-  pointer-events: none;
-}
-
 /* Scan Views */
 .scan {
   display: grid;
@@ -284,17 +264,6 @@ body {
   width: min(240px, 100%);
   margin: 0 auto;
   border-radius: var(--rb-r-lg);
-}
-
-.scan-photo-button {
-  display: block;
-  text-align: center;
-  cursor: pointer;
-}
-
-.scan-photo-button.disabled {
-  opacity: 0.5;
-  pointer-events: none;
 }
 
 .scan-rescan {

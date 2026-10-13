@@ -46,6 +46,7 @@ export default function App() {
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
+  const sizeButtonRef = useRef(null)
   const [showCamera, setShowCamera] = useState(false)
   // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
   const [cameraMounted, setCameraMounted] = useState(false)
@@ -79,6 +80,18 @@ export default function App() {
 
   const handleCloseSolver = useCallback(() => {
     setShowCamera(false)
+  }, [])
+
+  const handleOpenSizeModal = useCallback(() => {
+    setShowSizeModal(true)
+  }, [])
+
+  const handleCloseSizeModal = useCallback(() => {
+    setShowSizeModal(false)
+  }, [])
+
+  const handleSelectSize = useCallback((newSize) => {
+    setSize(newSize)
   }, [])
 
   const scrambleRef = useRef(null)
@@ -806,7 +819,7 @@ export default function App() {
         onReset={() => setResetKey((v) => v + 1)}
         onZoomIn={() => zoomInRef.current?.()}
         onZoomOut={() => zoomOutRef.current?.()}
-        onOpenSize={() => setShowSizeModal(true)}
+        onOpenSize={handleOpenSizeModal}
         onChangeSize={(n) => setSize(n)}
         isDesktop={isDesktop}
         activeTab={activeTab}
@@ -814,6 +827,7 @@ export default function App() {
         showSolver={showCamera}
         onOpenSolver={handleOpenSolver}
         onCloseSolver={handleCloseSolver}
+        sizeTriggerRef={sizeButtonRef}
       />
 
       {cameraMounted && solver.host && createPortal(
@@ -837,13 +851,12 @@ export default function App() {
       <SizeSheet
         isOpen={showSizeModal}
         currentSize={size}
-        onSelect={(newSize) => setSize(newSize)}
-        onClose={() => setShowSizeModal(false)}
+        onSelect={handleSelectSize}
+        onClose={handleCloseSizeModal}
+        triggerRef={sizeButtonRef}
       />
     </>
   )
-
-
 }
 
 function getIndexFromPosition(value, spacing, size) {

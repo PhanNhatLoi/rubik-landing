@@ -45,7 +45,6 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
   const move = guide.solution[guide.index]
   const total = guide.solution.length
   if (!move) return null
-  const { face } = parseMove(move)
 
   const progressPercent = total > 0 ? Math.round(((guide.index) / total) * 100) : 0
 
@@ -72,18 +71,7 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
       {beginner && !beginnerStage && <div className="rb-alert" style={{ marginBottom: '12px' }}>Hoàn tác bước xoay nhầm rồi tiếp tục.</div>}
 
       {/* Hero move card */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '14px',
-          alignItems: 'center',
-          margin: '12px 0 16px',
-          padding: '14px',
-          background: 'var(--rb-surface-1)',
-          borderRadius: 'var(--rb-r-xl)',
-          border: '1px solid var(--rb-border)',
-        }}
-      >
+      <div className="rb-card" style={{ margin: '12px 0 16px' }}>
         <div className="rb-move-hero">
           {move}
         </div>
@@ -157,15 +145,17 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px' }}>
           <button
             type="button"
-            className="rb-icon-btn rb-icon-btn--square"
+            className="rb-btn rb-btn--secondary"
             onClick={() => setPicking(true)}
-            aria-label="Xoay sai / chọn lại"
-            style={{ width: '52px', height: '52px' }}
+            aria-label="Xoay sai"
+            title="Xoay sai / chọn lại"
+            style={{ height: '52px', padding: '0 14px' }}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="1 4 1 10 7 10" />
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
             </svg>
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>Xoay sai</span>
           </button>
           <button
             type="button"
@@ -195,5 +185,4 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
       </div>
     </div>
   )
-
 }

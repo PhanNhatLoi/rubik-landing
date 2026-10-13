@@ -24,6 +24,7 @@ export default function PlayShell({
   showSolver,
   onOpenSolver,
   onCloseSolver,
+  sizeTriggerRef,
 }) {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -106,9 +107,11 @@ export default function PlayShell({
                     className="rb-icon-btn"
                     onClick={onCloseSolver}
                     aria-label="Đóng Smart Solver"
-                    style={{ width: '36px', height: '36px' }}
                   >
-                    ×
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                   </button>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -209,9 +212,11 @@ export default function PlayShell({
                   className="rb-icon-btn"
                   onClick={() => setShowHelp(false)}
                   aria-label="Đóng hướng dẫn"
-                  style={{ width: '32px', height: '32px' }}
                 >
-                  ×
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </button>
               </div>
               <ul style={{ margin: 0, paddingLeft: '20px', color: 'var(--rb-text-soft)', fontSize: 'var(--rb-fs-body)', lineHeight: 1.6 }}>
@@ -279,22 +284,12 @@ export default function PlayShell({
             </header>
 
             {/* Khối thời gian */}
-            <div style={{ padding: '4px 0 8px' }}>
+            <div className="rb-stats-block">
               <StatsBlock timeMs={timeMs} moves={moves} running={running} statusText={statusText} />
             </div>
 
             {/* Sân khấu 3D với nút zoom bên phải */}
-            <div
-              style={{
-                flex: 1,
-                minHeight: 0,
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-              }}
-            >
+            <div className="rb-screen__stage">
               <div className="rb-stage-slot" ref={stageSlotRef} />
               <ZoomControl onZoomIn={onZoomIn} onZoomOut={onZoomOut} layout="vertical" />
             </div>
@@ -322,6 +317,7 @@ export default function PlayShell({
               }}
             >
               <button
+                ref={sizeTriggerRef}
                 type="button"
                 className="rb-btn rb-btn--secondary"
                 style={{ padding: '0 14px' }}
