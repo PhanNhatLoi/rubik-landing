@@ -365,6 +365,9 @@
   align-items: center;
   justify-content: center;
 }
+.rb-camera[hidden] {
+  display: none;
+}
 .rb-camera__badge {
   position: absolute;
   top: var(--rb-s-3);
@@ -380,20 +383,14 @@
 }
 .rb-camera__countdown {
   position: absolute;
-  top: var(--rb-s-3);
-  right: var(--rb-s-3);
-  background: rgba(5, 8, 14, 0.78);
-  border: 1px solid var(--rb-border);
-  border-radius: var(--rb-r-pill);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--rb-fs-caption);
-  font-weight: 600;
-  color: var(--rb-accent-2);
-  backdrop-filter: var(--rb-blur);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 4.5rem;
+  font-weight: 700;
+  color: var(--rb-text);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
   z-index: 2;
 }
 .rb-camera__feedback {
