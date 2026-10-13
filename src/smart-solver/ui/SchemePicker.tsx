@@ -101,7 +101,7 @@ export default function SchemePicker({ settings, onChange, scheme, learned }: Sc
           ) : (
             <div className="scan-legend">Bấm vào một ô tâm để chọn màu (bố cục như lúc bắt đầu quét).</div>
           )}
-          {dupes.length > 0 && <div className="scan-error">Hai mặt đang có màu giống nhau — hãy chọn màu khác.</div>}
+          {dupes.length > 0 && <div className="rb-alert">Hai mặt đang có màu giống nhau — hãy chọn màu khác.</div>}
         </div>
       )}
 

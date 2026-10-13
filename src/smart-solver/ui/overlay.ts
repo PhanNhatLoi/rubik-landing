@@ -3,9 +3,12 @@ import type { FaceDetection } from '../vision/detect'
 import type { Point } from '../vision/lattice'
 
 /** Maps points in the worker's square frame to overlay canvas pixels. */
-function mapper(roi: Roi, size: number, scale: number) {
+function mapper(roi: Roi, size: number, scale: number, offset: Point = { x: 0, y: 0 }) {
   const k = roi.side / size
-  return (p: Point): Point => ({ x: (roi.x + p.x * k) * scale, y: (roi.y + p.y * k) * scale })
+  return (p: Point): Point => ({
+    x: offset.x + (roi.x + p.x * k) * scale,
+    y: offset.y + (roi.y + p.y * k) * scale
+  })
 }
 
 function polygon(ctx: CanvasRenderingContext2D, pts: readonly Point[]) {
@@ -17,30 +20,37 @@ function polygon(ctx: CanvasRenderingContext2D, pts: readonly Point[]) {
 /**
  * Draws the guide square and, if present, the detected lattice.
  * `scale` converts video pixels to canvas pixels (display size × devicePixelRatio).
+ * `offset` accounts for object-fit: cover letterboxing/cropping.
  */
 export function drawOverlay(
   ctx: CanvasRenderingContext2D,
   roi: Roi,
   size: number,
   scale: number,
-  face: FaceDetection | null
+  face: FaceDetection | null,
+  offset: Point = { x: 0, y: 0 }
 ) {
   const { width, height } = ctx.canvas
   ctx.clearRect(0, 0, width, height)
   const dpr = window.devicePixelRatio || 1
 
+  const rx = offset.x + roi.x * scale
+  const ry = offset.y + roi.y * scale
+  const rw = roi.side * scale
+  const rh = roi.side * scale
+
   // Dim outside the guide square.
   ctx.fillStyle = 'rgba(3, 5, 10, 0.45)'
   ctx.fillRect(0, 0, width, height)
-  ctx.clearRect(roi.x * scale, roi.y * scale, roi.side * scale, roi.side * scale)
+  ctx.clearRect(rx, ry, rw, rh)
 
   ctx.lineWidth = 2 * dpr
   ctx.setLineDash([10, 8])
   ctx.strokeStyle = face ? 'rgba(94, 231, 255, 0.9)' : 'rgba(174, 196, 255, 0.7)'
-  ctx.strokeRect(roi.x * scale, roi.y * scale, roi.side * scale, roi.side * scale)
+  ctx.strokeRect(rx, ry, rw, rh)
   ctx.setLineDash([])
 
-  if (face) drawLattice(ctx, face, mapper(roi, size, scale))
+  if (face) drawLattice(ctx, face, mapper(roi, size, scale, offset))
 }
 
 /** Draws the detected lattice and sticker quads; `map` converts detector pixels to canvas pixels. */

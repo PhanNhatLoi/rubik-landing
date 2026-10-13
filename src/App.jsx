@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import { normalizeSteps, rotateGridIndex, rotateStickers } from './rubikLogic'
 import { fromFacelets } from './smart-solver/core'
@@ -12,6 +13,10 @@ import {
 } from './smart-solver/adapter/stickerModel'
 import { layerTurnToToken, sceneToStickers, stickersToScene, tokenToLayerTurn } from './smart-solver/adapter/nxnModel'
 import SmartSolverPanel from './smart-solver/ui/SmartSolverPanel'
+import { useMediaQuery, DESKTOP_QUERY } from './ui/useMediaQuery'
+import { usePersistentHost } from './ui/usePersistentHost'
+import PlayShell from './ui/PlayShell'
+import SizeSheet from './ui/SizeSheet'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -33,12 +38,19 @@ const FACE_ORDER = ['U', 'R', 'F', 'D', 'L', 'B']
 const DEFAULT_FACE_COLOR = { R: COLORS.red, L: COLORS.orange, U: COLORS.white, D: COLORS.yellow, F: COLORS.green, B: COLORS.blue }
 const HIGHLIGHT_EMISSIVE = 0x2a3f66
 const ARROW_COLOR = 0x5ee7ff
+const ARROW_CORE_COLOR = 0xd9fbff
 
 export default function App() {
-  const mountRef = useRef(null)
+  const stage = usePersistentHost('canvas-wrap')
+  const solver = usePersistentHost('solver-host')
+  const [solverPhase, setSolverPhase] = useState('SCANNING')
+  // Bumped by "Giải khối 3D đang hiển thị": the panel skips scanning and solves what the 3D cube shows.
+  const [solveRequest, setSolveRequest] = useState(0)
+  const [solverCollapsed, setSolverCollapsed] = useState(false)
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
+  const sizeButtonRef = useRef(null)
   const [showCamera, setShowCamera] = useState(false)
   // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
   const [cameraMounted, setCameraMounted] = useState(false)
@@ -47,12 +59,52 @@ export default function App() {
   const [sceneVersion, setSceneVersion] = useState(0)
   // Bumped when a scramble animation has finished, so the smart solver can take the new state.
   const [scrambleVersion, setScrambleVersion] = useState(0)
-  const [introCollapsed, setIntroCollapsed] = useState(() => window.matchMedia?.('(max-width: 720px)').matches ?? false)
+  const [activeTab, setActiveTab] = useState('play')
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
   const [scrambled, setScrambled] = useState(false)
   const [solved, setSolved] = useState(true)
+
+  const handleSelectTab = useCallback((tab) => {
+    setActiveTab(tab)
+    if (tab === 'solver') {
+      setCameraMounted(true)
+      setShowCamera(true)
+    } else {
+      setShowCamera(false)
+    }
+  }, [])
+
+  // activeTab === 'solver' exactly when the solver is open, so resizing between layouts never shows an empty tab.
+  const handleOpenSolver = useCallback(() => {
+    setCameraMounted(true)
+    setShowCamera(true)
+    setActiveTab('solver')
+  }, [])
+
+  const handleSolveDisplayed = useCallback(() => {
+    handleOpenSolver()
+    setSolveRequest((v) => v + 1)
+  }, [handleOpenSolver])
+
+  const handleCloseSolver = useCallback(() => {
+    setShowCamera(false)
+    setActiveTab('play')
+  }, [])
+
+  const handleOpenSizeModal = useCallback(() => {
+    setShowSizeModal(true)
+  }, [])
+
+  const handleCloseSizeModal = useCallback(() => {
+    setShowSizeModal(false)
+  }, [])
+
+  const handleSelectSize = useCallback((newSize) => {
+    setSize(newSize)
+  }, [])
 
   const scrambleRef = useRef(null)
   const zoomInRef = useRef(null)
@@ -98,7 +150,7 @@ export default function App() {
   }, [running])
 
   useEffect(() => {
-    const mount = mountRef.current
+    const mount = stage.host
     if (!mount) return
 
     const scene = new THREE.Scene()
@@ -217,52 +269,125 @@ export default function App() {
       return readOrientation(cubies.map((c) => c.userData), colorToFace)
     }
 
-    // Curved arrow around the layer to turn: an arc in the layer's plane plus a cone head.
+    // Flat arrows stuck on the cube around the layer to turn: along the layer on each side face,
+    // plus a pinwheel on the cap face when the layer is an outer one. A soft glow sits under each.
     const arrowGroup = new THREE.Group()
-    const arrowMaterial = new THREE.MeshBasicMaterial({ color: ARROW_COLOR, transparent: true, opacity: 0.85 })
-    const arrowAxis = new THREE.Vector3()
-    let arrowOffset = 0
+    const arrowCoreMaterial = new THREE.MeshBasicMaterial({
+      color: ARROW_CORE_COLOR,
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false
+    })
+    const arrowGlowMaterials = [0.3, 0.14].map(
+      (opacity) =>
+        new THREE.MeshBasicMaterial({
+          color: ARROW_COLOR,
+          transparent: true,
+          opacity,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+    )
+    /** Arrows currently shown: `normal` is the face they are stuck on, in the cube's frame. */
+    let arrowItems = []
     arrowGroup.visible = false
     cubeGroup.add(arrowGroup)
 
-    function buildArrow(turn) {
-      arrowGroup.children.forEach((child) => child.geometry.dispose())
-      arrowGroup.clear()
-      if (!turn) return
-      // Built around +Z, centred on +X; positive steps turn +X towards +Y (right-hand rule).
-      const span = Math.abs(turn.steps) === 2 ? Math.PI : Math.PI / 2
-      const sign = turn.steps > 0 ? 1 : -1
-      const radius = 1.5 * spacing * Math.SQRT2 + 0.35
-      const points = []
-      for (let i = 0; i <= 32; i += 1) {
-        const a = -span / 2 + (span * i) / 32
-        points.push(new THREE.Vector3(radius * Math.cos(a), radius * Math.sin(a), 0))
+    /** Arrow pointing along +X in the XY plane; `heads` chevrons for a half turn; `grow` fattens it for the glow. */
+    function makeArrowGeometry(length, width, heads, grow) {
+      const half = length / 2 + grow
+      const wing = width / 2 + grow
+      const shaft = width * 0.2 + grow
+      const headLen = width * 1.05 + grow
+      const step = headLen * 0.75
+      const shapes = []
+      const shaftEnd = half - (heads - 1) * step - headLen + 0.02
+      const shaftShape = new THREE.Shape()
+      shaftShape.moveTo(-half, -shaft)
+      shaftShape.lineTo(shaftEnd, -shaft)
+      shaftShape.lineTo(shaftEnd, shaft)
+      shaftShape.lineTo(-half, shaft)
+      shapes.push(shaftShape)
+      for (let k = 0; k < heads; k += 1) {
+        const tip = half - k * step
+        const head = new THREE.Shape()
+        head.moveTo(tip, 0)
+        head.lineTo(tip - headLen, wing)
+        head.lineTo(tip - headLen, -wing)
+        shapes.push(head)
       }
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.07, 8, false), arrowMaterial)
-      const end = (sign * span) / 2
-      const tangent = new THREE.Vector3(-Math.sin(end) * sign, Math.cos(end) * sign, 0)
-      const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 20), arrowMaterial)
-      head.position.set(radius * Math.cos(end), radius * Math.sin(end), 0).addScaledVector(tangent, 0.18)
-      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent)
-      arrowGroup.add(tube, head)
-      arrowAxis.set(turn.axis === 'x' ? 1 : 0, turn.axis === 'y' ? 1 : 0, turn.axis === 'z' ? 1 : 0)
-      arrowOffset = getCoordFromIndex(turn.layers.reduce((a, b) => a + b, 0) / turn.layers.length, spacing, size)
+      return new THREE.ShapeGeometry(shapes)
     }
 
-    const arrowBasis = new THREE.Matrix4()
-    const arrowX = new THREE.Vector3()
-    const arrowY = new THREE.Vector3()
-    /** Keeps the arc on the side of the layer facing the camera. */
+    function addArrow(position, normal, direction, length, heads) {
+      const item = new THREE.Group()
+      const x = direction.clone().normalize()
+      const y = new THREE.Vector3().crossVectors(normal, x)
+      item.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, normal))
+      item.position.copy(position)
+      const width = 0.34
+      ;[0.26, 0.12].forEach((grow, i) => {
+        const glow = new THREE.Mesh(makeArrowGeometry(length, width, heads, grow), arrowGlowMaterials[i])
+        glow.position.z = 0.02
+        glow.renderOrder = 10
+        item.add(glow)
+      })
+      const core = new THREE.Mesh(makeArrowGeometry(length, width, heads, 0), arrowCoreMaterial)
+      core.position.z = 0.03
+      core.renderOrder = 11
+      item.add(core)
+      arrowGroup.add(item)
+      arrowItems.push({ group: item, normal: normal.clone() })
+    }
+
+    function buildArrow(turn) {
+      arrowGroup.traverse((obj) => obj.geometry?.dispose())
+      arrowGroup.clear()
+      arrowItems = []
+      if (!turn) return
+      const axis = new THREE.Vector3(turn.axis === 'x' ? 1 : 0, turn.axis === 'y' ? 1 : 0, turn.axis === 'z' ? 1 : 0)
+      const others = ['x', 'y', 'z']
+        .filter((name) => name !== turn.axis)
+        .map((name) => new THREE.Vector3(name === 'x' ? 1 : 0, name === 'y' ? 1 : 0, name === 'z' ? 1 : 0))
+      const around = [others[0], others[0].clone().negate(), others[1], others[1].clone().negate()]
+      // Right-hand rule about +axis for positive steps: a point p moves along axis × p.
+      const sign = turn.steps > 0 ? 1 : -1
+      const heads = Math.abs(turn.steps) === 2 ? 2 : 1
+      const offset = getCoordFromIndex(turn.layers.reduce((a, b) => a + b, 0) / turn.layers.length, spacing, size)
+      const edge = ((size - 1) / 2) * spacing
+      const faceDist = edge + 0.49 + 0.01
+      const sideLength = Math.min(size * spacing * 0.75, 1.9 * spacing)
+
+      around.forEach((normal) => {
+        const direction = new THREE.Vector3().crossVectors(axis, normal).multiplyScalar(sign)
+        const position = normal.clone().multiplyScalar(faceDist).addScaledVector(axis, offset)
+        addArrow(position, normal, direction, sideLength, heads)
+      })
+
+      const caps = []
+      if (turn.layers.includes(size - 1)) caps.push(axis.clone())
+      if (turn.layers.includes(0)) caps.push(axis.clone().negate())
+      caps.forEach((cap) => {
+        around.forEach((side) => {
+          const direction = new THREE.Vector3().crossVectors(axis, side).multiplyScalar(sign)
+          const position = cap.clone().multiplyScalar(faceDist).addScaledVector(side, edge)
+          addArrow(position, cap, direction, 1.25 * spacing, heads)
+        })
+      })
+    }
+
+    const arrowWorldNormal = new THREE.Vector3()
+    const arrowToCamera = new THREE.Vector3()
+    /** Shows only arrows on faces turned towards the camera, and breathes the glow. */
     function orientArrow(time) {
-      const toCamera = cubeGroup.worldToLocal(camera.position.clone())
-      arrowX.copy(toCamera).addScaledVector(arrowAxis, -toCamera.dot(arrowAxis))
-      if (arrowX.lengthSq() < 1e-6) arrowX.set(arrowAxis.y, arrowAxis.z, arrowAxis.x)
-      arrowX.normalize()
-      arrowY.crossVectors(arrowAxis, arrowX)
-      arrowBasis.makeBasis(arrowX, arrowY, arrowAxis)
-      arrowGroup.quaternion.setFromRotationMatrix(arrowBasis)
-      arrowGroup.position.copy(arrowAxis).multiplyScalar(arrowOffset)
-      arrowMaterial.opacity = 0.6 + 0.3 * Math.sin(time * 0.006)
+      arrowToCamera.copy(camera.position).sub(cubeGroup.position).normalize()
+      arrowItems.forEach(({ group, normal }) => {
+        arrowWorldNormal.copy(normal).applyQuaternion(cubeGroup.quaternion)
+        group.visible = arrowWorldNormal.dot(arrowToCamera) > 0.12
+      })
+      const pulse = 0.5 + 0.5 * Math.sin(time * 0.005)
+      arrowGlowMaterials[0].opacity = 0.22 + 0.2 * pulse
+      arrowGlowMaterials[1].opacity = 0.08 + 0.14 * pulse
     }
 
     function toMultiLayer(turn) {
@@ -530,30 +655,39 @@ export default function App() {
     window.addEventListener('pointerup', onPointerUp)
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false })
 
-    function getDefaultScale(rect) {
-      const isMobile = rect.width < 720
-      return isMobile ? 0.78 : 0.9
+    function isDesktopViewport() {
+      if (typeof window === 'undefined') return false
+      return window.matchMedia ? window.matchMedia(DESKTOP_QUERY).matches : window.innerWidth >= 960
     }
 
-    function getDefaultZoom(rect) {
-      const isMobile = rect.width < 720
-      return isMobile ? 11.2 : 9.6
+    function getDefaultScale() {
+      return isDesktopViewport() ? 0.9 : 0.78
+    }
+
+    function getDefaultZoom() {
+      return isDesktopViewport() ? 9.6 : 11.2
     }
 
     function resize() {
       const rect = mount.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
       camera.aspect = rect.width / rect.height
       camera.updateProjectionMatrix()
       camera.lookAt(0, 0, 0)
       renderer.setSize(rect.width, rect.height)
 
-      cubeGroup.scale.setScalar(getDefaultScale(rect))
       if (!hasUserZoomed) {
-        zoomRadius = getDefaultZoom(rect)
+        cubeGroup.scale.setScalar(getDefaultScale())
+        zoomRadius = getDefaultZoom()
         camera.position.copy(cameraDir.clone().multiplyScalar(zoomRadius))
         camera.lookAt(0, 0, 0)
       }
     }
+
+    const resizeObserver = new ResizeObserver(() => {
+      resize()
+    })
+    resizeObserver.observe(mount)
 
     function applyZoom(delta) {
       hasUserZoomed = true
@@ -718,6 +852,7 @@ export default function App() {
     if (import.meta.env.DEV) window.__cube = controller
 
     return () => {
+      resizeObserver.disconnect()
       lastMove?.onCancel?.()
       moveQueue.forEach((move) => move.onCancel?.())
       moveQueue = []
@@ -746,80 +881,45 @@ export default function App() {
     }
   }, [size, resetKey])
 
+  const statusText = scrambled
+    ? solved
+      ? 'Đã giải'
+      : running
+        ? 'Đang giải...'
+        : 'Sẵn sàng'
+    : 'Nhấn xáo trộn để bắt đầu'
+
   return (
-    <div className="app">
-      <div className="canvas-wrap" ref={mountRef} />
-      <div className={`intro${introCollapsed ? ' collapsed' : ''}`}>
-        <div className="panel-header">
-          <div className="intro-title">Rubik 3D Playground</div>
-          <button
-            className="panel-toggle"
-            onClick={() => setIntroCollapsed((v) => !v)}
-            aria-expanded={!introCollapsed}
-            aria-label={introCollapsed ? 'Mở rộng' : 'Thu gọn'}
-          >
-            {introCollapsed ? '+' : '−'}
-          </button>
-        </div>
-        {introCollapsed ? (
-          <div className="panel-summary-text">
-            {formatTime(timeMs)} · {moves} moves
-          </div>
-        ) : (
-          <>
-            <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
-            <span className="label">Zoom-Out</span>
-            <div className="zoom-row">
-              <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
-              <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
-            </div>
-            <div className="stats">
-              <div className="stat">
-                <span className="label">Time</span>
-                <span className="value">{formatTime(timeMs)}</span>
-              </div>
-              <div className="stat">
-                <span className="label">Moves</span>
-                <span className="value">{moves}</span>
-              </div>
-            </div>
-            <div className="actions">
-              <button className="scramble" onClick={() => scrambleRef.current?.()}>
-                Xáo trộn
-              </button>
-              <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
-                Reset
-              </button>
-            </div>
-            <div className="status">
-              {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
-            </div>
-          </>
-        )}
-      </div>
-      <div className={`controls${showCamera ? ' expanded' : ''}`}>
-        <div className="controls-row">
-          <div className="control">
-            <label>Size</label>
-            <button className="size-btn" onClick={() => setShowSizeModal(true)}>
-              {size}x{size}
-            </button>
-          </div>
-          <div className="control">
-            <label>Quét</label>
-            <button
-              className="size-btn"
-              onClick={() => {
-                setCameraMounted(true)
-                setShowCamera((v) => !v)
-              }}
-            >
-              {showCamera ? 'Tắt' : 'Bật'}
-            </button>
-          </div>
+    <>
+      <PlayShell
+        stageSlotRef={stage.slotRef}
+        solverSlotRef={solver.slotRef}
+        solverPhase={solverPhase}
+        solverCollapsed={solverCollapsed}
+        timeMs={timeMs}
+        moves={moves}
+        running={running}
+        statusText={statusText}
+        size={size}
+        onScramble={() => scrambleRef.current?.()}
+        onReset={() => setResetKey((v) => v + 1)}
+        onZoomIn={() => zoomInRef.current?.()}
+        onZoomOut={() => zoomOutRef.current?.()}
+        onOpenSize={handleOpenSizeModal}
+        onChangeSize={(n) => setSize(n)}
+        isDesktop={isDesktop}
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        showSolver={showCamera}
+        onOpenSolver={handleOpenSolver}
+        onSolveDisplayed={handleSolveDisplayed}
+        onCloseSolver={handleCloseSolver}
+        sizeTriggerRef={sizeButtonRef}
+      />
+
+      {cameraMounted && solver.host && createPortal(
+        <div style={{ position: 'relative', width: '100%' }}>
           {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
-        </div>
-        {cameraMounted && (
           <SmartSolverPanel
             open={showCamera}
             headerSlot={solverHeadSlot}
@@ -829,31 +929,22 @@ export default function App() {
             scrambleVersion={scrambleVersion}
             resetVersion={resetKey}
             onRequestSize={setSize}
+            onPhaseChange={setSolverPhase}
+            solveRequest={solveRequest}
+            onCollapsedChange={setSolverCollapsed}
           />
-        )}
-      </div>
-      {showSizeModal && (
-        <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Chọn kích thước</div>
-            <div className="modal-grid">
-              {[2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  className={`modal-option${size === n ? ' active' : ''}`}
-                  onClick={() => {
-                    setSize(n)
-                    setShowSizeModal(false)
-                  }}
-                >
-                  {n}x{n}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        </div>,
+        solver.host
       )}
-    </div>
+
+      <SizeSheet
+        isOpen={showSizeModal}
+        currentSize={size}
+        onSelect={handleSelectSize}
+        onClose={handleCloseSizeModal}
+        triggerRef={sizeButtonRef}
+      />
+    </>
   )
 }
 

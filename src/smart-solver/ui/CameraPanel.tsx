@@ -36,6 +36,8 @@ export interface CameraPanelProps {
   onToggleCollapsed: () => void
   /** One-line status shown next to the title. */
   summary?: ReactNode
+  /** Badge in the top-left corner of the camera frame (e.g. face name). */
+  badge?: ReactNode
   /** Big text over the video (countdown). */
   overlay?: ReactNode
   /** Filled with a function that grabs the guide square from the live video at full resolution. */
@@ -55,6 +57,7 @@ export default function CameraPanel({
   collapsed,
   onToggleCollapsed,
   summary,
+  badge,
   overlay,
   grabRef,
   onResult,
@@ -113,16 +116,26 @@ export default function CameraPanel({
 
     const draw = (r: ScheduledResult | null) => {
       const ctx = overlay.getContext('2d')
-      if (!ctx || !video.videoWidth) return
+      if (!ctx || !video.videoWidth || !video.videoHeight) return
       const dpr = window.devicePixelRatio || 1
-      const w = Math.round(video.clientWidth * dpr)
-      const h = Math.round(video.clientHeight * dpr)
+      const containerWidth = video.clientWidth || overlay.clientWidth
+      const containerHeight = video.clientHeight || overlay.clientHeight
+      const w = Math.round(containerWidth * dpr)
+      const h = Math.round(containerHeight * dpr)
       if (overlay.width !== w || overlay.height !== h) {
         overlay.width = w
         overlay.height = h
       }
+
+      const scaleCss = Math.max(containerWidth / video.videoWidth, containerHeight / video.videoHeight)
+      const offsetXCss = (containerWidth - video.videoWidth * scaleCss) / 2
+      const offsetYCss = (containerHeight - video.videoHeight * scaleCss) / 2
+
+      const scale = scaleCss * dpr
+      const offset = { x: offsetXCss * dpr, y: offsetYCss * dpr }
+
       const roi = r?.roi ?? computeRoi(video.videoWidth, video.videoHeight, SCHEDULER_OPTIONS.roiFraction)
-      drawOverlay(ctx, roi, SCHEDULER_OPTIONS.size, w / video.videoWidth, r?.result.face ?? null)
+      drawOverlay(ctx, roi, SCHEDULER_OPTIONS.size, scale, r?.result.face ?? null, offset)
     }
 
     const fail = (message: string) => {
@@ -234,10 +247,19 @@ export default function CameraPanel({
           headerSlot
         )}
       <div className="camera-panel" hidden={hidden || collapsed}>
-        <div className="camera-view" hidden={!cameraEnabled}>
+        <div className="camera-view rb-camera" hidden={!cameraEnabled}>
           <video ref={videoRef} className="camera-video" muted playsInline />
           <canvas ref={overlayRef} className="camera-overlay" />
-          {status === 'running' && overlay != null && <div className="camera-countdown">{overlay}</div>}
+          {badge && <div className="rb-camera__badge">{badge}</div>}
+          {status === 'running' && overlay != null && <div className="rb-camera__countdown">{overlay}</div>}
+          {status === 'running' && (
+            <div className="rb-camera__feedback">
+              <span role="status" aria-live="polite">
+                {face ? 'Đã thấy lưới' : 'Đưa mặt rubik vào khung'}
+              </span>
+              {face && <span aria-hidden="true"> ({stats.inliers} ô)</span>}
+            </div>
+          )}
           {status !== 'running' && (
             <div className="camera-message">
               {status === 'starting' && 'Đang mở camera...'}
@@ -260,7 +282,7 @@ export default function CameraPanel({
         <details className="camera-details">
           <summary>Số liệu</summary>
           {cameraEnabled && (
-            <button className="reset camera-save" onClick={saveFrame} disabled={status !== 'running'}>
+            <button className="rb-btn rb-btn--ghost camera-save" onClick={saveFrame} disabled={status !== 'running'}>
               Lưu khung hình (debug)
             </button>
           )}
