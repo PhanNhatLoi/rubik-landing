@@ -553,7 +553,17 @@ export default function ScanView({
         <button type="button" className="rb-btn rb-btn--ghost" onClick={restart}>
           Quét lại
         </button>
-        {mode === 'webcam' ? (
+        {result ? (
+          <button
+            type="button"
+            className="rb-btn rb-btn--primary"
+            style={{ flex: 1 }}
+            onClick={confirm}
+            disabled={!validation?.ok}
+          >
+            {confirmLabel}
+          </button>
+        ) : mode === 'webcam' ? (
           <button
             type="button"
             className="rb-btn rb-btn--primary"
@@ -567,17 +577,7 @@ export default function ScanView({
             </svg>
             Chụp ngay
           </button>
-        ) : (
-          <button
-            type="button"
-            className="rb-btn rb-btn--primary"
-            style={{ flex: 1 }}
-            onClick={confirm}
-            disabled={!validation?.ok}
-          >
-            {confirmLabel}
-          </button>
-        )}
+        ) : null}
       </div>
 
       {onSkipScan && (
