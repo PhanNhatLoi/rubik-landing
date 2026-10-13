@@ -298,7 +298,7 @@ export default function NxnScanView({
                   {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp mặt ${label(target)}`}
                 </button>
               )}
-              <label className={`rb-btn ${canShutter ? 'rb-btn--ghost' : 'rb-btn--primary'} rb-btn--block${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
+              <label className={`rb-btn ${canShutter ? 'rb-btn--ghost' : 'rb-btn--primary'} rb-btn--block`} aria-disabled={!vision || photo.status === 'working'}>
                 {canShutter ? 'Chọn ảnh từ máy' : `Chụp / chọn ảnh mặt ${label(target)}`}
                 <input
                   type="file"
@@ -340,23 +340,37 @@ export default function NxnScanView({
               key={f}
               type="button"
               className={`rb-face${isDone ? ' rb-face--done' : ''}${isCurrent ? ' rb-face--current' : ''}`}
+              aria-current={isCurrent ? 'step' : undefined}
               onClick={() => select(f)}
               title={`Quét lại mặt ${label(f)}`}
             >
-              <span className="rb-face__swatch" style={{ background: scheme[f]?.css ?? 'transparent' }} />
-              <span>{isDone ? '✓' : label(f)}</span>
+              <span
+                className={`rb-face__swatch${isDone ? ' rb-face__swatch--done' : ''}`}
+                style={
+                  isDone
+                    ? { background: scheme[f]?.css ?? 'transparent' }
+                    : { background: 'transparent', border: `1.5px solid ${scheme[f]?.css ?? 'var(--rb-border)'}` }
+                }
+              >
+                {isDone && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </span>
+              <span>{label(f)}</span>
             </button>
           )
         })}
       </div>
 
-      <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />
+      {stickers && <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />}
       <div className="scan-legend">
         {stickers ? 'Bấm một ô để đổi màu; bấm tên mặt để quét lại mặt đó.' : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
       </div>
 
       <div className="scan-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button type="button" className="rb-btn rb-btn--ghost" onClick={restart}>
+        <button type="button" className="rb-btn rb-btn--ghost" onClick={restart} aria-label="Quét lại từ đầu">
           Quét lại
         </button>
         <button

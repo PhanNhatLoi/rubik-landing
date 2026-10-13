@@ -138,6 +138,7 @@
 .rb-btn--ghost { background: transparent; border-color: var(--rb-border-strong); color: var(--rb-text); }
 .rb-btn--link { height: 44px; background: none; color: var(--rb-accent-link); font-weight: 500; font-size: 13.5px; }
 .rb-btn--block { width: 100%; }
+.rb-btn[aria-disabled="true"], .rb-btn.is-disabled { opacity: 0.5; pointer-events: none; }
 .rb-btn:focus-visible, .rb-icon-btn:focus-visible, .rb-seg__item:focus-visible, .rb-size-card:focus-visible, .rb-tab-btn:focus-visible, .rb-btn--shutter:focus-visible { outline: none; box-shadow: var(--rb-ring-focus); }
 
 /* ---------- Icon button ---------- */
@@ -211,6 +212,7 @@
 .rb-sticker--sm { width: 64px; height: 64px; }
 .rb-sticker[aria-pressed="true"] { box-shadow: var(--rb-ring-focus); }
 .rb-sticker--low { box-shadow: var(--rb-ring-warn); }
+.rb-sticker--changed { box-shadow: 0 0 0 2px var(--rb-bg-0), 0 0 0 4px var(--rb-cube-yellow); }
 
 /* ---------- Move token (solution sequence) ---------- */
 .rb-move {

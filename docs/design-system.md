@@ -89,7 +89,7 @@ Bản chạy trong repo: [`src/styles/tokens.css`](../src/styles/tokens.css) —
 | `.zoom-btn` | `.rb-icon-btn .rb-icon-btn--square` | 36 → 44px |
 | `.panel-toggle`, `.close` | `.rb-icon-btn` | có `aria-label` |
 | `.stat`, `.stats` | `.rb-overline` + `.rb-num` + `.rb-chip` | đồng hồ 46px, số nước đi thành chip |
-| `.facelet` | `.rb-sticker` | `--low` khi `lowConfidence` |
+| `.facelet` | `.rb-sticker` | `--low` khi `lowConfidence`, `--changed` khi tự sửa |
 | `.guide-token` | `.rb-move` `--done`/`--current` | trạng thái theo chỉ số bước |
 | `.guide-notation` | `.rb-move-hero` | |
 | `.scan-error` | `.rb-alert` | |

@@ -385,7 +385,7 @@ export default function ScanView({
                   {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp mặt ${label(target)}`}
                 </button>
               )}
-              <label className={`rb-btn ${canShutter ? 'rb-btn--ghost' : 'rb-btn--primary'} rb-btn--block${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
+              <label className={`rb-btn ${canShutter ? 'rb-btn--ghost' : 'rb-btn--primary'} rb-btn--block`} aria-disabled={!vision || photo.status === 'working'}>
                 {photo.status === 'working' && !canShutter
                   ? 'Đang phân tích ảnh...'
                   : canShutter
@@ -428,11 +428,24 @@ export default function ScanView({
                 .join(' ')}
             </div>
           )}
-
-          {/* Alert ô độ tin cậy thấp nếu có */}
+          {result?.alternative && (
+            <div className="rb-alert" style={{ marginBottom: '10px' }}>
+              Có hai cách đọc gần giống nhau — kiểm tra các ô viền vàng và bấm để sửa nếu sai.
+            </div>
+          )}
+          {result && result.changed.length > 0 && (
+            <div className="rb-alert" style={{ marginBottom: '10px' }}>
+              Đã tự sửa {result.changed.length} ô theo luật của khối. Kiểm tra lại trước khi tiếp tục.
+            </div>
+          )}
           {result && result.lowConfidence.length > 0 && (
-            <div className="rb-alert" style={{ marginBottom: '12px' }}>
+            <div className="rb-alert" style={{ marginBottom: '10px' }}>
               {result.lowConfidence.length} ô có độ tin cậy thấp — kiểm tra các ô viền cam.
+            </div>
+          )}
+          {validation?.ok && !result?.alternative && (!result || result.changed.length === 0) && (
+            <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginBottom: '10px' }}>
+              Trạng thái hợp lệ.
             </div>
           )}
 
@@ -456,15 +469,16 @@ export default function ScanView({
                 const cell = cells[globalIdx]
                 const isSelected = selectedReviewCell === k
                 const isLow = cell?.mark === 'uncertain'
+                const isChanged = cell?.mark === 'changed'
                 return (
                   <button
                     key={k}
                     type="button"
-                    className={`rb-sticker rb-sticker--sm${isLow ? ' rb-sticker--low' : ''}`}
+                    className={`rb-sticker rb-sticker--sm${isLow ? ' rb-sticker--low' : ''}${isChanged ? ' rb-sticker--changed' : ''}`}
                     aria-pressed={isSelected}
                     style={{ background: cell?.color ?? 'transparent' }}
                     onClick={() => setSelectedReviewCell(k)}
-                    aria-label={`Ô ${k + 1} mặt ${label(selectedReviewFace)}`}
+                    aria-label={`${k === 4 ? 'Ô tâm' : `Ô ${k + 1}`} mặt ${label(selectedReviewFace)}`}
                   />
                 )
               })}
@@ -474,24 +488,29 @@ export default function ScanView({
           {/* Bảng chọn màu 6 nút 44px */}
           <div style={{ textAlign: 'center', margin: '12px 0 16px' }}>
             <div style={{ fontSize: '13px', color: 'var(--rb-text-subtle)', marginBottom: '8px' }}>
-              Đổi ô đang chọn thành:
+              {selectedReviewCell === 4
+                ? 'Ô tâm quyết định màu mặt (không thể sửa)'
+                : 'Đổi ô đang chọn thành:'}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
               {FACES.map((f) => (
                 <button
                   key={f}
                   type="button"
+                  disabled={selectedReviewCell === 4}
                   style={{
                     width: '44px',
                     height: '44px',
                     borderRadius: 'var(--rb-r-md)',
                     background: scheme[f].css,
                     border: '2px solid var(--rb-border-strong)',
-                    cursor: 'pointer',
+                    cursor: selectedReviewCell === 4 ? 'not-allowed' : 'pointer',
+                    opacity: selectedReviewCell === 4 ? 0.4 : 1,
                   }}
                   title={scheme[f].label}
                   aria-label={`Đổi thành màu ${scheme[f].label}`}
                   onClick={() => {
+                    if (selectedReviewCell === 4) return
                     const fi = FACES.indexOf(selectedReviewFace)
                     const globalIdx = fi * 9 + selectedReviewCell
                     setEdits((prev) => ({ ...prev, [globalIdx]: f }))
@@ -513,6 +532,7 @@ export default function ScanView({
               key={f}
               type="button"
               className={`rb-face${isDone ? ' rb-face--done' : ''}${isCurrent ? ' rb-face--current' : ''}`}
+              aria-current={isCurrent ? 'step' : undefined}
               onClick={() => {
                 if (!scanning) {
                   setSelectedReviewFace(f)
@@ -523,34 +543,47 @@ export default function ScanView({
               }}
               title={`Mặt ${label(f)}`}
             >
-              <span className="rb-face__swatch" style={{ background: scheme[f]?.css ?? 'transparent' }} />
-              <span>{isDone ? '✓' : label(f)}</span>
+              <span
+                className={`rb-face__swatch${isDone ? ' rb-face__swatch--done' : ''}`}
+                style={
+                  isDone
+                    ? { background: scheme[f]?.css ?? 'transparent' }
+                    : { background: 'transparent', border: `1.5px solid ${scheme[f]?.css ?? 'var(--rb-border)'}` }
+                }
+              >
+                {isDone && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </span>
+              <span>{label(f)}</span>
             </button>
           )
         })}
       </div>
 
-      <ScanNet
-        cells={cells}
-        hold={hold}
-        activeFace={scanning ? target : selectedReviewFace}
-        onCellClick={onCellClick}
-        onFaceClick={(f) => {
-          if (!scanning) {
+      {!scanning && (
+        <ScanNet
+          cells={cells}
+          hold={hold}
+          activeFace={selectedReviewFace}
+          onCellClick={onCellClick}
+          onFaceClick={(f) => {
             setSelectedReviewFace(f)
             setSelectedReviewCell(0)
-          } else {
-            select(f)
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
       <div className="scan-legend">
-        {result ? 'Bấm ô tâm để chọn lại mặt đó, bấm ô khác để đổi màu.' : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
+        {result
+          ? 'Chọn mặt ở sơ đồ hoặc thanh trên, chạm ô rồi chọn màu bên dưới.'
+          : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
       </div>
 
       <div className="scan-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button type="button" className="rb-btn rb-btn--ghost" onClick={restart}>
+        <button type="button" className="rb-btn rb-btn--ghost" onClick={restart} aria-label="Quét lại từ đầu">
           Quét lại
         </button>
         {result ? (
