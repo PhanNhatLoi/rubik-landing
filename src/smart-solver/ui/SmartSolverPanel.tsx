@@ -358,7 +358,12 @@ export default function SmartSolverPanel({
         Bước {nxn.guide.index + 1}/{nxn.guide.solution.length}: <strong>{nxn.expected}</strong>
       </span>
       {collapsed && (
-        <button className="scramble" onClick={nxn.done}>
+        <button
+          type="button"
+          className="rb-btn rb-btn--primary"
+          style={{ height: '32px', padding: '0 12px', fontSize: '13px' }}
+          onClick={nxn.done}
+        >
           Đã xoay
         </button>
       )}
@@ -371,7 +376,12 @@ export default function SmartSolverPanel({
         Bước {guide.index + 1}/{guide.solution.length}: <strong>{expected}</strong>
       </span>
       {collapsed && (
-        <button className="scramble" onClick={() => report(turnNow ?? expected)}>
+        <button
+          type="button"
+          className="rb-btn rb-btn--primary"
+          style={{ height: '32px', padding: '0 12px', fontSize: '13px' }}
+          onClick={() => report(turnNow ?? expected)}
+        >
           Đã xoay
         </button>
       )}
@@ -394,13 +404,14 @@ export default function SmartSolverPanel({
       grabRef={grabStillRef}
       onResult={onResult}
     >
-      <div className="scan-mode" role="tablist" aria-label="Phương pháp giải">
+      <div className="rb-seg" role="tablist" aria-label="Phương pháp giải">
         {(['fast', 'beginner'] as const).map((m) => (
           <button
             key={m}
+            type="button"
             role="tab"
             aria-selected={solveMode === m}
-            className={solveMode === m ? 'active' : ''}
+            className="rb-seg__item"
             disabled={!sizeOk && m === 'fast'}
             title={!sizeOk && m === 'fast' ? `Khối ${cubeSize}x${cubeSize} chỉ có cách giải cho người mới học` : undefined}
             onClick={() => setSolveMode(m)}
@@ -415,10 +426,7 @@ export default function SmartSolverPanel({
           {/* Kept mounted while reviewing so "Quay lại" returns to the same faces and edits. */}
           {(nxn.guide.phase === 'SCANNING' || nxn.guide.phase === 'REVIEWING') && (
             <div className="scan" hidden={nxn.guide.phase !== 'SCANNING'}>
-              {notice && <div className="scan-error">{notice}</div>}
-              <button className="scramble" onClick={startSolving}>
-                Bắt đầu giải khối 3D đang hiển thị
-              </button>
+              {notice && <div className="rb-alert">{notice}</div>}
               <NxnScanView
                 key={`${cubeSize}-${nxn.guide.scanId}`}
                 n={cubeSize as CubeSize}
@@ -435,19 +443,20 @@ export default function SmartSolverPanel({
                 }}
                 schemeSettings={schemeSettings}
                 onSchemeSettings={changeScheme}
+                onSkipScan={startSolving}
               />
             </div>
           )}
 
           {nxn.guide.phase === 'REVIEWING' && (
             <div className="scan">
-              <div className="scan-step-title">Kiểm tra trên khối 3D</div>
-              <div className="scan-step-text">Khối 3D đang hiển thị trạng thái sẽ giải. So sánh từng mặt với khối thật.</div>
-              <div className="scan-actions">
-                <button className="reset" onClick={() => nxn.dispatch({ type: 'BACK_TO_SCAN' })}>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Kiểm tra trên khối 3D</div>
+              <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>Khối 3D đang hiển thị trạng thái sẽ giải. So sánh từng mặt với khối thật.</div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <button type="button" className="rb-btn rb-btn--ghost" style={{ flex: 1, height: '48px' }} onClick={() => nxn.dispatch({ type: 'BACK_TO_SCAN' })}>
                   Quay lại
                 </button>
-                <button className="scramble" onClick={nxn.confirmReview}>
+                <button type="button" className="rb-btn rb-btn--primary" style={{ flex: 1, height: '48px' }} onClick={nxn.confirmReview}>
                   Đúng rồi — Giải
                 </button>
               </div>
@@ -455,7 +464,7 @@ export default function SmartSolverPanel({
           )}
 
           {nxn.guide.phase === 'SOLVING' && (
-            <div className="scan-status">
+            <div className="rb-alert" style={{ marginTop: '8px' }}>
               Đang tính lời giải{cubeSize === 5 ? ' (khối 5x5 có thể mất 5–15 giây)' : ''}...
             </div>
           )}
@@ -471,11 +480,11 @@ export default function SmartSolverPanel({
 
           {nxn.guide.phase === 'COMPLETED' && (
             <div className="scan">
-              <div className="scan-step-title">Hoàn thành!</div>
-              <div className="scan-step-text">
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Hoàn thành!</div>
+              <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>
                 {nxn.guide.history.length ? `Khối đã được giải sau ${nxn.guide.history.length} bước.` : 'Khối đã ở trạng thái đã giải.'}
               </div>
-              <button className="scramble" onClick={() => nxn.dispatch({ type: 'START_SCAN' })}>
+              <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={() => nxn.dispatch({ type: 'START_SCAN' })}>
                 Giải khối khác
               </button>
             </div>
@@ -483,14 +492,14 @@ export default function SmartSolverPanel({
 
           {nxn.guide.phase === 'ERROR' && (
             <div className="scan">
-              <div className="scan-error">
+              <div className="rb-alert">
                 {nxn.guide.errorKind === 'invalid'
                   ? `Trạng thái không hợp lệ: ${nxn.guide.error}`
                   : nxn.guide.errorKind === 'timeout'
                     ? 'Quá thời gian tính lời giải. Thử lại.'
                     : `Không tìm được lời giải: ${nxn.guide.error}`}
               </div>
-              <button className="scramble" onClick={() => nxn.dispatch({ type: 'START_SCAN' })}>
+              <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={() => nxn.dispatch({ type: 'START_SCAN' })}>
                 Làm lại
               </button>
             </div>
@@ -499,13 +508,7 @@ export default function SmartSolverPanel({
       )}
 
       <div className="scan" hidden={!sizeOk}>
-        {notice && <div className="scan-error">{notice}</div>}
-
-        {scanning && (
-          <button className="scramble" onClick={startSolving}>
-            Bắt đầu giải khối 3D đang hiển thị
-          </button>
-        )}
+        {notice && <div className="rb-alert">{notice}</div>}
 
         {/* Kept mounted while reviewing so "Sửa lại" returns to the same faces and edits. */}
         {sizeOk && (scanning || guide.phase === 'REVIEWING') && (
@@ -523,28 +526,29 @@ export default function SmartSolverPanel({
               onConfirm={onScanned}
               schemeSettings={schemeSettings}
               onSchemeSettings={changeScheme}
+              onSkipScan={startSolving}
             />
           </div>
         )}
 
         {guide.phase === 'REVIEWING' && (
           <div className="scan">
-            <div className="scan-step-title">Kiểm tra trên khối 3D</div>
-            <div className="scan-step-text">
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Kiểm tra trên khối 3D</div>
+            <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>
               Khối 3D đang hiển thị trạng thái vừa quét. Kéo vào vùng nền để xoay khối 3D và so sánh từng mặt với khối thật.
             </div>
-            <div className="scan-actions">
-              <button className="reset" onClick={() => dispatch({ type: 'BACK_TO_SCAN' })}>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+              <button type="button" className="rb-btn rb-btn--ghost" style={{ flex: 1, height: '48px' }} onClick={() => dispatch({ type: 'BACK_TO_SCAN' })}>
                 Sửa lại
               </button>
-              <button className="scramble" onClick={confirmReview}>
+              <button type="button" className="rb-btn rb-btn--primary" style={{ flex: 1, height: '48px' }} onClick={confirmReview}>
                 Đúng rồi — Giải
               </button>
             </div>
           </div>
         )}
 
-        {guide.phase === 'SOLVING' && <div className="scan-status">Đang tính lời giải...</div>}
+        {guide.phase === 'SOLVING' && <div className="rb-alert" style={{ marginTop: '8px' }}>Đang tính lời giải...</div>}
 
         {(guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
           <GuideView
@@ -560,13 +564,13 @@ export default function SmartSolverPanel({
 
         {guide.phase === 'VERIFYING' && (
           <div className="scan">
-            <div className="scan-step-title">Theo tính toán, khối đã được giải</div>
-            <div className="scan-step-text">Quét lại 6 mặt để xác nhận khối thật đúng như vậy.</div>
-            <div className="scan-actions">
-              <button className="reset" onClick={() => dispatch({ type: 'SKIP_VERIFY' })}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Theo tính toán, khối đã được giải</div>
+            <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>Quét lại 6 mặt để xác nhận khối thật đúng như vậy.</div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+              <button type="button" className="rb-btn rb-btn--ghost" style={{ flex: 1, height: '48px' }} onClick={() => dispatch({ type: 'SKIP_VERIFY' })}>
                 Bỏ qua
               </button>
-              <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'verify' })}>
+              <button type="button" className="rb-btn rb-btn--primary" style={{ flex: 1, height: '48px' }} onClick={() => dispatch({ type: 'START_SCAN', purpose: 'verify' })}>
                 Quét xác nhận
               </button>
             </div>
@@ -575,11 +579,11 @@ export default function SmartSolverPanel({
 
         {guide.phase === 'COMPLETED' && (
           <div className="scan">
-            <div className="scan-step-title">Hoàn thành!</div>
-            <div className="scan-step-text">
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Hoàn thành!</div>
+            <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>
               {guide.history.length ? `Khối đã được giải sau ${guide.history.length} bước.` : 'Khối đã ở trạng thái đã giải.'}
             </div>
-            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+            <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
               Quét khối mới
             </button>
           </div>
@@ -587,8 +591,8 @@ export default function SmartSolverPanel({
 
         {guide.phase === 'ERROR' && (
           <div className="scan">
-            <div className="scan-error">Không tìm được lời giải: {guide.error}</div>
-            <button className="scramble" onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
+            <div className="rb-alert">Không tìm được lời giải: {guide.error}</div>
+            <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}>
               Quét lại
             </button>
           </div>

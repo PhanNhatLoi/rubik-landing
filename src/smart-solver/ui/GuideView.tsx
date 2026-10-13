@@ -47,41 +47,73 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
   if (!move) return null
   const { face } = parseMove(move)
 
+  const progressPercent = total > 0 ? Math.round(((guide.index) / total) * 100) : 0
+
   return (
     <div className="guide">
-      <div className="scan-step-text">
-        Cầm khối: mặt {colors.F.label} hướng về bạn, mặt {colors.U.label} ở trên.
+      {/* Thanh tiến độ giải */}
+      <div className="rb-progress" aria-hidden="true" style={{ margin: '4px 0 12px' }}>
+        <div className="rb-progress__bar" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      {beginnerStage && (
-        <>
-          <div className="scan-step-title">
-            Giai đoạn {beginnerStage.index + 1}/{beginnerStage.count}: {beginnerStage.title}
-          </div>
-          {beginnerStage.algorithms.length > 0 && <div className="scan-legend">Công thức: {[...new Set(beginnerStage.algorithms)].join(' · ')}</div>}
-        </>
-      )}
-      {beginner && !beginnerStage && <div className="scan-status">Hoàn tác bước xoay nhầm rồi tiếp tục.</div>}
-
-      <div className="guide-move">
-        <span className="guide-swatch" style={{ background: colors[face].css }} />
-        <span className="guide-notation">{move}</span>
-        <span className="guide-count">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>
+          {beginnerStage ? `Giai đoạn ${beginnerStage.index + 1}/${beginnerStage.count}: ${beginnerStage.title}` : 'Đang hướng dẫn giải'}
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)' }}>
           Bước {guide.index + 1}/{total}
-        </span>
+        </div>
       </div>
-      <div className="scan-step-text">{describeMove(move, colors)}</div>
+
+      <div style={{ fontSize: '13px', color: 'var(--rb-text-subtle)', marginBottom: '14px' }}>
+        Cầm khối: mặt {colors.F.label} hướng về bạn · mặt {colors.U.label} ở trên
+      </div>
+
+      {beginner && !beginnerStage && <div className="rb-alert" style={{ marginBottom: '12px' }}>Hoàn tác bước xoay nhầm rồi tiếp tục.</div>}
+
+      {/* Hero move card */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '14px',
+          alignItems: 'center',
+          margin: '12px 0 16px',
+          padding: '14px',
+          background: 'var(--rb-surface-1)',
+          borderRadius: 'var(--rb-r-xl)',
+          border: '1px solid var(--rb-border)',
+        }}
+      >
+        <div className="rb-move-hero">
+          {move}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="rb-overline">
+            Bước {guide.index + 1}/{total}
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)', marginTop: '2px', lineHeight: 1.3 }}>
+            {describeMove(move, colors)}
+          </div>
+          {beginnerStage && beginnerStage.algorithms.length > 0 && (
+            <div style={{ fontSize: '12px', color: 'var(--rb-accent-link)', marginTop: '4px' }}>
+              Công thức: {[...new Set(beginnerStage.algorithms)].join(' · ')}
+            </div>
+          )}
+        </div>
+      </div>
+
       {guide.partial && (
-        <div className="scan-status">
+        <div className="rb-alert" style={{ marginBottom: '12px' }}>
           Đã xoay {guide.partial} một lần — xoay thêm {guide.partial} lần nữa là xong bước {move}.
         </div>
       )}
-      {guide.phase === 'RECOVERING' && <div className="scan-status">Đang tìm lời giải ngắn hơn từ trạng thái mới...</div>}
+      {guide.phase === 'RECOVERING' && <div className="rb-alert" style={{ marginBottom: '12px' }}>Đang tìm lời giải ngắn hơn từ trạng thái mới...</div>}
 
-      <div className="guide-sequence">
+      {/* Dãy nước đi */}
+      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '4px 0 12px', WebkitOverflowScrolling: 'touch' }}>
         {guide.solution.map((m, i) =>
           beginnerStage && (i < beginnerStage.start || i >= beginnerStage.end) ? null : (
-            <span key={i} className={`guide-token${i < guide.index ? ' done' : i === guide.index ? ' current' : ''}`}>
+            <span key={i} className={`rb-move${i < guide.index ? ' rb-move--done' : i === guide.index ? ' rb-move--current' : ''}`}>
               {m}
             </span>
           )
@@ -89,8 +121,8 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
       </div>
 
       {picking ? (
-        <div className="guide-picker">
-          <div className="scan-legend">Bạn đã xoay phép nào?</div>
+        <div className="guide-picker" style={{ margin: '12px 0' }}>
+          <div className="rb-overline" style={{ marginBottom: '8px' }}>Bạn đã xoay phép nào?</div>
           <div className="guide-picker-grid">
             {FACES.flatMap((f) =>
               (['', "'", '2'] as const).map((suffix) => {
@@ -98,6 +130,7 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
                 return (
                   <button
                     key={m}
+                    type="button"
                     className="guide-pick"
                     onClick={() => {
                       setPicking(false)
@@ -111,37 +144,56 @@ export default function GuideView({ guide, colors, optimalStatus, beginnerStage,
               })
             )}
           </div>
-          <div className="scan-actions">
-            <button className="reset" onClick={() => setPicking(false)}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <button type="button" className="rb-btn rb-btn--ghost" onClick={() => setPicking(false)}>
               Huỷ
             </button>
-            <button className="reset" onClick={onRescan}>
+            <button type="button" className="rb-btn rb-btn--ghost" onClick={onRescan}>
               Không rõ — quét lại
             </button>
           </div>
         </div>
       ) : (
-        <div className="scan-actions">
-          <button className="reset" onClick={() => setPicking(true)}>
-            Xoay sai
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px' }}>
+          <button
+            type="button"
+            className="rb-icon-btn rb-icon-btn--square"
+            onClick={() => setPicking(true)}
+            aria-label="Xoay sai / chọn lại"
+            style={{ width: '52px', height: '52px' }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
           </button>
-          <button className="scramble" onClick={onDone}>
+          <button
+            type="button"
+            className="rb-btn rb-btn--primary"
+            style={{ flex: 1, height: '52px' }}
+            onClick={onDone}
+          >
             Đã xoay
           </button>
         </div>
       )}
+
       {!beginner && (
-      <div className={`guide-optimal ${optimalStatus}`}>
-        {optimalStatus === 'proven'
-          ? `Đường đi ngắn nhất (đã chứng minh): còn ${total - guide.index} bước.`
-          : optimalStatus === 'searching'
-            ? 'Gần tối ưu — đang tìm đường đi ngắn nhất...'
-            : total - guide.index <= OPTIMAL_SEARCH_MAX_REMAINING
-              ? 'Gần tối ưu — chưa chứng minh được đường ngắn nhất trong 3 giây, sẽ thử lại ở bước sau.'
-              : `Gần tối ưu (two-phase). Đường ngắn nhất sẽ được tìm khi còn ≤ ${OPTIMAL_SEARCH_MAX_REMAINING} bước.`}
-      </div>
+        <div className={`guide-optimal ${optimalStatus}`} style={{ marginTop: '12px' }}>
+          {optimalStatus === 'proven'
+            ? `Đường đi ngắn nhất (đã chứng minh): còn ${total - guide.index} bước.`
+            : optimalStatus === 'searching'
+              ? 'Gần tối ưu — đang tìm đường đi ngắn nhất...'
+              : total - guide.index <= OPTIMAL_SEARCH_MAX_REMAINING
+                ? 'Gần tối ưu — chưa chứng minh được đường ngắn nhất trong 3 giây, sẽ thử lại ở bước sau.'
+                : `Gần tối ưu (two-phase). Đường ngắn nhất sẽ được tìm khi còn ≤ ${OPTIMAL_SEARCH_MAX_REMAINING} bước.`}
+        </div>
       )}
-      <div className="scan-legend">Có thể kéo xoay trực tiếp trên khối 3D thay cho nút.</div>
+
+      <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--rb-text-subtle)', marginTop: '8px' }}>
+        Có thể kéo xoay trực tiếp trên khối 3D. Xoay nhầm sẽ tự chèn bước hoàn tác.
+      </div>
     </div>
   )
+
 }

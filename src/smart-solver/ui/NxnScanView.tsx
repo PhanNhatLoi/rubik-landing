@@ -30,6 +30,7 @@ export interface NxnScanViewProps {
   onConfirm: (stickers: Uint8Array, scheme: Scheme) => void
   schemeSettings: SchemeSettings
   onSchemeSettings: (settings: SchemeSettings) => void
+  onSkipScan?: () => void
 }
 
 /**
@@ -47,7 +48,8 @@ export default function NxnScanView({
   onOverlay,
   onConfirm,
   schemeSettings,
-  onSchemeSettings
+  onSchemeSettings,
+  onSkipScan
 }: NxnScanViewProps) {
   const odd = n % 2 === 1
   const per = n * n
@@ -244,9 +246,16 @@ export default function NxnScanView({
 
   return (
     <div className="scan">
-      <div className="scan-mode" role="tablist">
+      <div className="rb-seg" role="tablist" aria-label="Chế độ quét">
         {(['webcam', 'photo'] as const).map((m) => (
-          <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'active' : ''} onClick={() => onModeChange(m)}>
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            className="rb-seg__item"
+            onClick={() => onModeChange(m)}
+          >
             {m === 'webcam' ? 'Webcam' : 'Chụp ảnh'}
           </button>
         ))}
@@ -257,15 +266,17 @@ export default function NxnScanView({
       )}
       {scanning ? (
         <div className="scan-step">
-          <div className="scan-step-title">
+          <div className="scan-step-title" style={{ fontSize: '16px', fontWeight: 600 }}>
             {odd && <span className="scan-swatch" style={{ background: scheme[target].css }} />}
             Mặt {label(target)} · {SCAN_ORDER.filter((f) => faces[f]).length}/6
           </div>
-          <div className="scan-step-text">{odd ? stepFor(target).instruction(label) : EVEN_INSTRUCTIONS[target]}</div>
+          <div className="scan-step-text" style={{ fontSize: '13px', color: 'var(--rb-text-muted)' }}>
+            {odd ? stepFor(target).instruction(label) : EVEN_INSTRUCTIONS[target]}
+          </div>
           {faces[target] && <div className="scan-status">Mặt này đã quét — lần chụp tiếp theo sẽ ghi đè.</div>}
           {mode === 'webcam' ? (
             wrongSize !== null ? (
-              <div className="scan-error">
+              <div className="rb-alert">
                 Camera thấy khối {wrongSize}x{wrongSize}, bạn đang chọn khối {n}x{n}. Đổi Size cho đúng.
               </div>
             ) : (
@@ -274,11 +285,20 @@ export default function NxnScanView({
           ) : (
             <>
               {canShutter && (
-                <button className="scramble" onClick={() => void shoot()} disabled={!vision || photo.status === 'working'}>
+                <button
+                  type="button"
+                  className="rb-btn rb-btn--primary rb-btn--block"
+                  onClick={() => void shoot()}
+                  disabled={!vision || photo.status === 'working'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
                   {photo.status === 'working' ? 'Đang phân tích ảnh...' : `Chụp mặt ${label(target)}`}
                 </button>
               )}
-              <label className={`${canShutter ? 'reset' : 'scramble'} scan-photo-button${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
+              <label className={`rb-btn ${canShutter ? 'rb-btn--ghost' : 'rb-btn--primary'} rb-btn--block${!vision || photo.status === 'working' ? ' disabled' : ''}`}>
                 {canShutter ? 'Chọn ảnh từ máy' : `Chụp / chọn ảnh mặt ${label(target)}`}
                 <input
                   type="file"
@@ -293,13 +313,13 @@ export default function NxnScanView({
               </label>
             </>
           )}
-          {photo.status === 'done' && photo.message && <div className="scan-error">{photo.message}</div>}
+          {photo.status === 'done' && photo.message && <div className="rb-alert">{photo.message}</div>}
         </div>
       ) : (
         <div className="scan-step">
-          <div className="scan-step-title">Đã quét đủ 6 mặt</div>
+          <div className="scan-step-title" style={{ fontSize: '16px', fontWeight: 600 }}>Đã quét đủ 6 mặt</div>
           {error ? (
-            <div className="scan-error">{error} Bấm vào ô sai để đổi màu, hoặc quét lại mặt đó.</div>
+            <div className="rb-alert">{error} Bấm vào ô sai để đổi màu, hoặc quét lại mặt đó.</div>
           ) : (
             <div className="scan-status">
               {reading?.lowConfidence.length
@@ -310,26 +330,54 @@ export default function NxnScanView({
         </div>
       )}
 
-      <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />
-      <div className="scan-faces">
-        {SCAN_ORDER.map((f) => (
-          <button key={f} className={f === target ? 'active' : ''} onClick={() => select(f)} title="Quét lại mặt này">
-            {odd ? scheme[f].label : `Mặt ${label(f)}`}
-          </button>
-        ))}
+      {/* 6 face progress chips */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', margin: '12px 0' }}>
+        {SCAN_ORDER.map((f) => {
+          const isDone = faces[f] !== undefined
+          const isCurrent = target === f
+          return (
+            <button
+              key={f}
+              type="button"
+              className={`rb-face${isDone ? ' rb-face--done' : ''}${isCurrent ? ' rb-face--current' : ''}`}
+              onClick={() => select(f)}
+              title={`Quét lại mặt ${label(f)}`}
+            >
+              <span className="rb-face__swatch" style={{ background: scheme[f]?.css ?? 'transparent' }} />
+              <span>{isDone ? '✓' : label(f)}</span>
+            </button>
+          )
+        })}
       </div>
+
+      <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />
       <div className="scan-legend">
         {stickers ? 'Bấm một ô để đổi màu; bấm tên mặt để quét lại mặt đó.' : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
       </div>
 
-      <div className="scan-actions">
-        <button className="reset" onClick={restart}>
-          Quét lại từ đầu
+      <div className="scan-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <button type="button" className="rb-btn rb-btn--ghost" onClick={restart}>
+          Quét lại
         </button>
-        <button className="scramble" onClick={() => stickers && !error && onConfirm(stickers, scheme)} disabled={!stickers || !!error}>
+        <button
+          type="button"
+          className="rb-btn rb-btn--primary"
+          style={{ flex: 1 }}
+          onClick={() => stickers && !error && onConfirm(stickers, scheme)}
+          disabled={!stickers || !!error}
+        >
           Áp lên khối 3D
         </button>
       </div>
+
+      {onSkipScan && (
+        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+          <button type="button" className="rb-btn rb-btn--link" onClick={onSkipScan}>
+            Bỏ qua quét — giải khối đang hiển thị
+          </button>
+        </div>
+      )}
     </div>
   )
 }
+

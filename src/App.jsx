@@ -12,6 +12,9 @@ import {
 } from './smart-solver/adapter/stickerModel'
 import { layerTurnToToken, sceneToStickers, stickersToScene, tokenToLayerTurn } from './smart-solver/adapter/nxnModel'
 import SmartSolverPanel from './smart-solver/ui/SmartSolverPanel'
+import { useMediaQuery, DESKTOP_QUERY } from './ui/useMediaQuery'
+import PlayShell from './ui/PlayShell'
+import SizeSheet from './ui/SizeSheet'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -47,12 +50,32 @@ export default function App() {
   const [sceneVersion, setSceneVersion] = useState(0)
   // Bumped when a scramble animation has finished, so the smart solver can take the new state.
   const [scrambleVersion, setScrambleVersion] = useState(0)
-  const [introCollapsed, setIntroCollapsed] = useState(() => window.matchMedia?.('(max-width: 720px)').matches ?? false)
+  const [activeTab, setActiveTab] = useState('play')
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
   const [timeMs, setTimeMs] = useState(0)
   const [moves, setMoves] = useState(0)
   const [running, setRunning] = useState(false)
   const [scrambled, setScrambled] = useState(false)
   const [solved, setSolved] = useState(true)
+
+  const handleSelectTab = useCallback((tab) => {
+    setActiveTab(tab)
+    if (tab === 'solver') {
+      setCameraMounted(true)
+      setShowCamera(true)
+    } else {
+      setShowCamera(false)
+    }
+  }, [])
+
+  const handleOpenSolver = useCallback(() => {
+    setCameraMounted(true)
+    setShowCamera(true)
+  }, [])
+
+  const handleCloseSolver = useCallback(() => {
+    setShowCamera(false)
+  }, [])
 
   const scrambleRef = useRef(null)
   const zoomInRef = useRef(null)
@@ -531,17 +554,18 @@ export default function App() {
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false })
 
     function getDefaultScale(rect) {
-      const isMobile = rect.width < 720
+      const isMobile = rect.width < 960
       return isMobile ? 0.78 : 0.9
     }
 
     function getDefaultZoom(rect) {
-      const isMobile = rect.width < 720
+      const isMobile = rect.width < 960
       return isMobile ? 11.2 : 9.6
     }
 
     function resize() {
       const rect = mount.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
       camera.aspect = rect.width / rect.height
       camera.updateProjectionMatrix()
       camera.lookAt(0, 0, 0)
@@ -554,6 +578,11 @@ export default function App() {
         camera.lookAt(0, 0, 0)
       }
     }
+
+    const resizeObserver = new ResizeObserver(() => {
+      resize()
+    })
+    resizeObserver.observe(mount)
 
     function applyZoom(delta) {
       hasUserZoomed = true
@@ -718,6 +747,7 @@ export default function App() {
     if (import.meta.env.DEV) window.__cube = controller
 
     return () => {
+      resizeObserver.disconnect()
       lastMove?.onCancel?.()
       moveQueue.forEach((move) => move.onCancel?.())
       moveQueue = []
@@ -746,115 +776,64 @@ export default function App() {
     }
   }, [size, resetKey])
 
-  return (
-    <div className="app">
-      <div className="canvas-wrap" ref={mountRef} />
-      <div className={`intro${introCollapsed ? ' collapsed' : ''}`}>
-        <div className="panel-header">
-          <div className="intro-title">Rubik 3D Playground</div>
-          <button
-            className="panel-toggle"
-            onClick={() => setIntroCollapsed((v) => !v)}
-            aria-expanded={!introCollapsed}
-            aria-label={introCollapsed ? 'Mở rộng' : 'Thu gọn'}
-          >
-            {introCollapsed ? '+' : '−'}
-          </button>
-        </div>
-        {introCollapsed ? (
-          <div className="panel-summary-text">
-            {formatTime(timeMs)} · {moves} moves
-          </div>
-        ) : (
-          <>
-            <div className="intro-text">Xoay nền để đổi góc nhìn, kéo trực tiếp mặt rubik để quay tầng.</div>
-            <span className="label">Zoom-Out</span>
-            <div className="zoom-row">
-              <button className="zoom-btn" onClick={() => zoomInRef.current?.()}>+</button>
-              <button className="zoom-btn" onClick={() => zoomOutRef.current?.()}>−</button>
-            </div>
-            <div className="stats">
-              <div className="stat">
-                <span className="label">Time</span>
-                <span className="value">{formatTime(timeMs)}</span>
-              </div>
-              <div className="stat">
-                <span className="label">Moves</span>
-                <span className="value">{moves}</span>
-              </div>
-            </div>
-            <div className="actions">
-              <button className="scramble" onClick={() => scrambleRef.current?.()}>
-                Xáo trộn
-              </button>
-              <button className="reset" onClick={() => setResetKey((v) => v + 1)}>
-                Reset
-              </button>
-            </div>
-            <div className="status">
-              {scrambled ? (solved ? 'Đã giải' : running ? 'Đang giải...' : 'Sẵn sàng') : 'Nhấn xáo trộn để bắt đầu'}
-            </div>
-          </>
-        )}
-      </div>
-      <div className={`controls${showCamera ? ' expanded' : ''}`}>
-        <div className="controls-row">
-          <div className="control">
-            <label>Size</label>
-            <button className="size-btn" onClick={() => setShowSizeModal(true)}>
-              {size}x{size}
-            </button>
-          </div>
-          <div className="control">
-            <label>Quét</label>
-            <button
-              className="size-btn"
-              onClick={() => {
-                setCameraMounted(true)
-                setShowCamera((v) => !v)
-              }}
-            >
-              {showCamera ? 'Tắt' : 'Bật'}
-            </button>
-          </div>
-          {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
-        </div>
-        {cameraMounted && (
-          <SmartSolverPanel
-            open={showCamera}
-            headerSlot={solverHeadSlot}
-            getController={getCubeController}
-            cubeSize={size}
-            sceneVersion={sceneVersion}
-            scrambleVersion={scrambleVersion}
-            resetVersion={resetKey}
-            onRequestSize={setSize}
-          />
-        )}
-      </div>
-      {showSizeModal && (
-        <div className="modal-backdrop" onClick={() => setShowSizeModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Chọn kích thước</div>
-            <div className="modal-grid">
-              {[2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  className={`modal-option${size === n ? ' active' : ''}`}
-                  onClick={() => {
-                    setSize(n)
-                    setShowSizeModal(false)
-                  }}
-                >
-                  {n}x{n}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+  const statusText = scrambled
+    ? solved
+      ? 'Đã giải'
+      : running
+        ? 'Đang giải...'
+        : 'Sẵn sàng'
+    : 'Nhấn xáo trộn để bắt đầu'
+
+  const solverElement = cameraMounted ? (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
+      <SmartSolverPanel
+        open={showCamera}
+        headerSlot={solverHeadSlot}
+        getController={getCubeController}
+        cubeSize={size}
+        sceneVersion={sceneVersion}
+        scrambleVersion={scrambleVersion}
+        resetVersion={resetKey}
+        onRequestSize={setSize}
+      />
     </div>
+  ) : null
+
+  return (
+    <>
+      <PlayShell
+        mountRef={mountRef}
+        timeMs={timeMs}
+        moves={moves}
+        running={running}
+        statusText={statusText}
+        size={size}
+        onScramble={() => scrambleRef.current?.()}
+        onReset={() => setResetKey((v) => v + 1)}
+        onZoomIn={() => zoomInRef.current?.()}
+        onZoomOut={() => zoomOutRef.current?.()}
+        onOpenSize={() => setShowSizeModal(true)}
+        onChangeSize={(n) => setSize(n)}
+        isDesktop={isDesktop}
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        showSolver={showCamera}
+        onOpenSolver={handleOpenSolver}
+        onCloseSolver={handleCloseSolver}
+        solverElement={solverElement}
+      />
+
+      <SizeSheet
+        isOpen={showSizeModal}
+        currentSize={size}
+        onSelect={(newSize) => setSize(newSize)}
+        onClose={() => setShowSizeModal(false)}
+      />
+    </>
   )
+
+
 }
 
 function getIndexFromPosition(value, spacing, size) {

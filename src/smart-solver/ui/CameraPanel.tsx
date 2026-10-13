@@ -36,6 +36,8 @@ export interface CameraPanelProps {
   onToggleCollapsed: () => void
   /** One-line status shown next to the title. */
   summary?: ReactNode
+  /** Badge in the top-left corner of the camera frame (e.g. face name). */
+  badge?: ReactNode
   /** Big text over the video (countdown). */
   overlay?: ReactNode
   /** Filled with a function that grabs the guide square from the live video at full resolution. */
@@ -55,6 +57,7 @@ export default function CameraPanel({
   collapsed,
   onToggleCollapsed,
   summary,
+  badge,
   overlay,
   grabRef,
   onResult,
@@ -234,10 +237,16 @@ export default function CameraPanel({
           headerSlot
         )}
       <div className="camera-panel" hidden={hidden || collapsed}>
-        <div className="camera-view" hidden={!cameraEnabled}>
+        <div className="camera-view rb-camera" hidden={!cameraEnabled}>
           <video ref={videoRef} className="camera-video" muted playsInline />
           <canvas ref={overlayRef} className="camera-overlay" />
-          {status === 'running' && overlay != null && <div className="camera-countdown">{overlay}</div>}
+          {badge && <div className="rb-camera__badge">{badge}</div>}
+          {status === 'running' && overlay != null && <div className="rb-camera__countdown">{overlay}</div>}
+          {status === 'running' && (
+            <div className="rb-camera__feedback" role="status">
+              {face ? `Đã thấy lưới (${stats.inliers} ô)` : 'Đưa mặt rubik vào khung'}
+            </div>
+          )}
           {status !== 'running' && (
             <div className="camera-message">
               {status === 'starting' && 'Đang mở camera...'}
@@ -260,7 +269,7 @@ export default function CameraPanel({
         <details className="camera-details">
           <summary>Số liệu</summary>
           {cameraEnabled && (
-            <button className="reset camera-save" onClick={saveFrame} disabled={status !== 'running'}>
+            <button className="rb-btn rb-btn--ghost camera-save" onClick={saveFrame} disabled={status !== 'running'}>
               Lưu khung hình (debug)
             </button>
           )}
