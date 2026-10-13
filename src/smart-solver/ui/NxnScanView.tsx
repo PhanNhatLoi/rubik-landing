@@ -365,7 +365,7 @@ export default function NxnScanView({
         })}
       </div>
 
-      {stickers && <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />}
+      <ScanNet n={n} cells={cells} hold={lastHold.current} activeFace={target} onCellClick={onCellClick} onFaceClick={select} />
       <div className="scan-legend">
         {stickers ? 'Bấm một ô để đổi màu; bấm tên mặt để quét lại mặt đó.' : 'Bấm vào một mặt để chọn quét lại mặt đó.'}
       </div>

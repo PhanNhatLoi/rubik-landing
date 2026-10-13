@@ -564,18 +564,19 @@ export default function ScanView({
         })}
       </div>
 
-      {!scanning && (
-        <ScanNet
-          cells={cells}
-          hold={hold}
-          activeFace={selectedReviewFace}
-          onCellClick={onCellClick}
-          onFaceClick={(f) => {
+      <ScanNet
+        cells={cells}
+        hold={hold}
+        activeFace={scanning ? target : selectedReviewFace}
+        onCellClick={onCellClick}
+        onFaceClick={(f) => {
+          if (scanning) select(f)
+          else {
             setSelectedReviewFace(f)
             setSelectedReviewCell(0)
-          }}
-        />
-      )}
+          }
+        }}
+      />
 
       <div className="scan-legend">
         {result
