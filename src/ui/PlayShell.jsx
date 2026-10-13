@@ -7,6 +7,7 @@ export default function PlayShell({
   stageSlotRef,
   solverSlotRef,
   solverPhase,
+  solverCollapsed,
   timeMs,
   moves,
   running,
@@ -23,6 +24,7 @@ export default function PlayShell({
   onSelectTab,
   showSolver,
   onOpenSolver,
+  onSolveDisplayed,
   onCloseSolver,
   sizeTriggerRef,
 }) {
@@ -168,7 +170,7 @@ export default function PlayShell({
                   <button
                     type="button"
                     className="rb-btn rb-btn--ghost rb-btn--block"
-                    onClick={onOpenSolver}
+                    onClick={onSolveDisplayed}
                   >
                     Giải khối 3D đang hiển thị
                   </button>
@@ -239,13 +241,14 @@ export default function PlayShell({
               </div>
             </header>
 
-            {/* Sân khấu 3D cho solver: ẩn khi quét để nhường chỗ cho camera, hiện khi review và guide */}
+            {/* Sân khấu 3D cho solver: ẩn khi quét để nhường chỗ cho camera, hiện khi review và guide.
+                Khi thu gọn panel (camera đã tắt) khối 3D chiếm phần còn lại của màn hình. */}
             <div
               style={{
-                display: solverPhase === 'SCANNING' ? 'none' : 'flex',
-                flex: '0 0 38%',
+                display: solverPhase === 'SCANNING' && !solverCollapsed ? 'none' : 'flex',
+                flex: solverCollapsed ? '1 1 0' : '0 0 38%',
                 minHeight: '180px',
-                maxHeight: '280px',
+                maxHeight: solverCollapsed ? 'none' : '280px',
                 width: '100%',
                 position: 'relative',
                 alignItems: 'center',
@@ -255,7 +258,7 @@ export default function PlayShell({
               <div className="rb-stage-slot" ref={stageSlotRef} />
             </div>
 
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <div style={{ flex: solverCollapsed ? '0 0 auto' : 1, minHeight: 0, overflowY: 'auto' }}>
               <div className="rb-solver-slot" ref={solverSlotRef} />
             </div>
             <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />

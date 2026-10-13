@@ -353,8 +353,9 @@ export default function NxnScanView({
                 }
               >
                 {isDone && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>
-                    <polyline points="20 6 9 17 4 12" />
+                  <svg className="rb-face__check" width="12" height="12" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline className="rb-face__check-outline" points="20 6 9 17 4 12" />
+                    <polyline className="rb-face__check-mark" points="20 6 9 17 4 12" />
                   </svg>
                 )}
               </span>

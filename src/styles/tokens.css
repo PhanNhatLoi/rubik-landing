@@ -205,7 +205,10 @@
 }
 .rb-face--done { background: var(--rb-surface-1); border: 1px solid var(--rb-border-strong); color: var(--rb-text-muted); }
 .rb-face--current { background: #0f1a2c; border: 2px solid var(--rb-accent-2); color: var(--rb-text); font-weight: 600; }
-.rb-face__swatch { width: 20px; height: 20px; border-radius: var(--rb-r-xs); box-sizing: border-box; }
+.rb-face__swatch { width: 20px; height: 20px; border-radius: var(--rb-r-xs); box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.rb-face__check { display: block; }
+.rb-face__check-outline { stroke: var(--rb-text-on-accent); stroke-width: 5.5; }  /* dark halo so the tick reads on any sticker color */
+.rb-face__check-mark { stroke: #fff; stroke-width: 3; }
 
 /* ---------- Sticker cell (color review) ---------- */
 .rb-sticker { border: 0; border-radius: var(--rb-r-lg); padding: 0; }
@@ -254,10 +257,11 @@
 @media (min-width: 960px) {
   .rb-btn { height: var(--rb-h-control-desktop); font-size: 15px; }
   .rb-tabbar { display: none; }              /* desktop uses the left panel instead */
-  .rb-shell { display: flex; gap: var(--rb-gutter-desktop); padding: var(--rb-gutter-desktop); min-height: 100dvh; }
-  .rb-shell__left  { flex: 0 0 var(--rb-panel-left); }
+  .rb-shell { display: flex; gap: var(--rb-gutter-desktop); padding: var(--rb-gutter-desktop); height: 100dvh; min-height: 0; box-sizing: border-box; }
+  .rb-shell__left  { flex: 0 0 var(--rb-panel-left); min-height: 0; overflow-y: auto; }
   .rb-shell__stage { flex: 1 1 0; min-width: 0; display: grid; place-items: center; }
-  .rb-shell__right { flex: 0 0 var(--rb-panel-right); }
+  .rb-shell__right { flex: 0 0 var(--rb-panel-right); min-height: 0; display: flex; flex-direction: column; }
+  .rb-shell__right > .rb-panel { flex: 1; min-height: 0; }
   .rb-shell__right--open { flex-basis: var(--rb-panel-right-open); }
 }
 @media (prefers-reduced-motion: reduce) {

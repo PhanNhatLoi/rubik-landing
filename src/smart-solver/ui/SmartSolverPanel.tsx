@@ -93,6 +93,10 @@ export interface SmartSolverPanelProps {
   resetVersion: number
   onRequestSize: (size: number) => void
   onPhaseChange?: (phase: string) => void
+  /** Bumped to ask for "solve the cube shown in 3D" without scanning (handled once per value). */
+  solveRequest?: number
+  /** Reports the collapsed/expanded state so the host layout can give the space back to the 3D cube. */
+  onCollapsedChange?: (collapsed: boolean) => void
 }
 
 export default function SmartSolverPanel({
@@ -104,7 +108,9 @@ export default function SmartSolverPanel({
   scrambleVersion,
   resetVersion,
   onRequestSize,
-  onPhaseChange
+  onPhaseChange,
+  solveRequest = 0,
+  onCollapsedChange
 }: SmartSolverPanelProps) {
   const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
   const sizeOk = cubeSize === 3
@@ -316,6 +322,18 @@ export default function SmartSolverPanel({
     // onScanned writes it back, which is refused while the cube is still turning.
     if (onScanned(facelets, colors)) dispatch({ type: 'CONFIRM_REVIEW' })
   }
+
+  useEffect(() => {
+    onCollapsedChange?.(collapsed)
+  }, [collapsed, onCollapsedChange])
+
+  const handledSolveRequest = useRef(0)
+  useEffect(() => {
+    if (!solveRequest || solveRequest === handledSolveRequest.current) return
+    handledSolveRequest.current = solveRequest
+    startSolving()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solveRequest])
 
   // "Xáo trộn": guidance for the previous cube no longer applies. Nothing is solved until the
   // user asks (they may want to solve it themselves); a scan in progress is kept.
