@@ -2,6 +2,7 @@ import { EDGE_FACELETS } from '../core/facelets'
 import { fromFacelets } from '../core/facelets'
 import type { CubieState } from '../core/types'
 import { FACE_ORDER, getEngine, splitMoves, type Engine, type FaceName } from './engine'
+import { simplifyMoves } from './simplify'
 import { stickerIndex } from './state'
 
 /**
@@ -618,5 +619,9 @@ export function reduce(start: Uint8Array, n: number, target: readonly number[], 
 
   const parsed = fromFacelets(virtualFacelets(s, n))
   if (!parsed.ok) throw new StuckError('parity')
-  return { steps, state: s, virtual: parsed.state }
+  // Searches are chained greedily, so neighbouring turns can cancel; the cube state is unchanged.
+  const tidy = steps
+    .map((st) => ({ ...st, moves: simplifyMoves(st.moves) }))
+    .filter((st) => st.moves.length > 0)
+  return { steps: tidy, state: s, virtual: parsed.state }
 }

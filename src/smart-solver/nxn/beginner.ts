@@ -1,6 +1,7 @@
 import { SOLVED, applyMoves, moveState, multiply, parseAlgorithm } from '../core/cubie'
 import { CORNER_COLORS, CORNER_FACELETS } from '../core/facelets'
 import { MOVES, type CubieState, type Face, type Move } from '../core/types'
+import { simplifyMoves } from './simplify'
 
 /**
  * Layer-by-layer ("beginner") method on the 3x3 cubie model, following the Cresta booklet.
@@ -217,7 +218,8 @@ function run(
   found: Macro[] | null
 ): CubieState {
   if (!found) throw new BeginnerError(stage)
-  const moves = found.flatMap((m) => m.moves)
+  // Macros are searched one by one, so neighbours can undo or repeat each other (… U' + U …).
+  const moves = simplifyMoves(found.flatMap((m) => m.moves))
   if (moves.length) steps.push({ stage, title, moves, algorithms: found.filter((m) => m.name).map((m) => m.name) })
   return applyMoves(state, moves)
 }
