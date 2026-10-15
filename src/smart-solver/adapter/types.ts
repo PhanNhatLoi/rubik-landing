@@ -28,6 +28,9 @@ export interface NxnController {
   setFaceColors(colors: Record<Face, number>): boolean
 }
 
+/** What the tutorial points at on the 3D cube: a kind of piece, or every piece on a face (relative to the centers). */
+export type SpotlightTarget = { kind: 'centers' | 'edges' | 'corners' } | { kind: 'face'; face: Face }
+
 /** The 3x3 extras, relative to the centers (the cube may be held any way round). */
 export interface CubeController extends NxnController {
   getFacelets(): Facelets
@@ -40,6 +43,17 @@ export interface CubeController extends NxnController {
    * follows the layer as the cube changes.
    */
   highlight(move: Move | null): void
+  /**
+   * Makes the pieces of `target` glow in their own colors (null clears). Replaces any `highlight`
+   * and is replaced by the next one.
+   */
+  spotlight(target: SpotlightTarget | null): void
+  /**
+   * Makes the pieces now at these grid cells ([x, y, z], each 0..2, standard orientation) glow in their
+   * own colors (null clears). Unlike `spotlight` it stays while `highlight` changes, so a lesson can
+   * point at the pieces to place and at the turn to make at once. Re-apply after the cube changes.
+   */
+  mark(cells: number[][] | null): void
   /**
    * Fires after each turn made by dragging, with moves relative to the centers
    * (a slice like E is reported as notation 'E', moves ['U', "D'"]). Returns an unsubscribe function.

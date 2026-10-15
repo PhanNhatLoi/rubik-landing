@@ -44,14 +44,15 @@ export default function App() {
   const stage = usePersistentHost('canvas-wrap')
   const solver = usePersistentHost('solver-host')
   const [solverPhase, setSolverPhase] = useState('SCANNING')
-  // Bumped by "Giải khối 3D đang hiển thị": the panel skips scanning and solves what the 3D cube shows.
-  const [solveRequest, setSolveRequest] = useState(0)
   const [solverCollapsed, setSolverCollapsed] = useState(false)
+  // Lessons keep the 3D cube out of the way until the learner practices (phones only).
+  const [stageHidden, setStageHidden] = useState(false)
   const [size, setSize] = useState(3)
   const [resetKey, setResetKey] = useState(0)
   const [showSizeModal, setShowSizeModal] = useState(false)
   const sizeButtonRef = useRef(null)
-  const [showCamera, setShowCamera] = useState(false)
+  // Menu entry that is open ('learn' | 'scan' | 'solve'), or null for the menu itself.
+  const [section, setSection] = useState(null)
   // Mounted on first open, then only hidden, so the scan/guidance survives closing the panel.
   const [cameraMounted, setCameraMounted] = useState(false)
   const [solverHeadSlot, setSolverHeadSlot] = useState(null)
@@ -68,31 +69,23 @@ export default function App() {
   const [solved, setSolved] = useState(true)
 
   const handleSelectTab = useCallback((tab) => {
+    // Tapping Menu while already on it goes back to the menu list.
+    if (tab === 'menu' && activeTab === 'menu') setSection(null)
     setActiveTab(tab)
-    if (tab === 'solver') {
-      setCameraMounted(true)
-      setShowCamera(true)
-    } else {
-      setShowCamera(false)
-    }
-  }, [])
+  }, [activeTab])
 
-  // activeTab === 'solver' exactly when the solver is open, so resizing between layouts never shows an empty tab.
-  const handleOpenSolver = useCallback(() => {
+  const handleOpenSection = useCallback((next) => {
     setCameraMounted(true)
-    setShowCamera(true)
-    setActiveTab('solver')
+    setSection(next)
+    setActiveTab('menu')
   }, [])
 
-  const handleSolveDisplayed = useCallback(() => {
-    handleOpenSolver()
-    setSolveRequest((v) => v + 1)
-  }, [handleOpenSolver])
-
-  const handleCloseSolver = useCallback(() => {
-    setShowCamera(false)
-    setActiveTab('play')
+  const handleCloseSection = useCallback(() => {
+    setSection(null)
   }, [])
+
+  // The camera only runs while its section is on screen.
+  const panelOpen = section !== null && (isDesktop || activeTab === 'menu')
 
   const handleOpenSizeModal = useCallback(() => {
     setShowSizeModal(true)
@@ -217,6 +210,10 @@ export default function App() {
     const userTurnListeners = new Set()
     /** { move } relative to the centers (3x3) or { token } in the scene frame (any size). */
     let highlighted = null
+    // Cubies the tutorial points at; their glow breathes in the render loop.
+    let spotlightCubies = []
+    // Grid cells the lesson marks; survives highlight changes.
+    let markedCells = null
 
     function setPointerNdc(event) {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -299,21 +296,25 @@ export default function App() {
       const wing = width / 2 + grow
       const shaft = width * 0.2 + grow
       const headLen = width * 1.05 + grow
-      const step = headLen * 0.75
+      const notch = headLen * 0.45
+      const step = headLen * 0.65
       const shapes = []
-      const shaftEnd = half - (heads - 1) * step - headLen + 0.02
+      const shaftEnd = half - (heads - 1) * step - headLen + notch + 0.02
       const shaftShape = new THREE.Shape()
       shaftShape.moveTo(-half, -shaft)
       shaftShape.lineTo(shaftEnd, -shaft)
       shaftShape.lineTo(shaftEnd, shaft)
       shaftShape.lineTo(-half, shaft)
+      shaftShape.closePath()
       shapes.push(shaftShape)
       for (let k = 0; k < heads; k += 1) {
         const tip = half - k * step
         const head = new THREE.Shape()
         head.moveTo(tip, 0)
         head.lineTo(tip - headLen, wing)
+        head.lineTo(tip - headLen + notch, 0)
         head.lineTo(tip - headLen, -wing)
+        head.closePath()
         shapes.push(head)
       }
       return new THREE.ShapeGeometry(shapes)
@@ -400,11 +401,56 @@ export default function App() {
         : highlighted?.token
           ? tokenToLayerTurn(highlighted.token, size)
           : null
+      spotlightCubies = []
       cubies.forEach((cubie) => {
         const lit = turn && turn.layers.includes(cubie.userData.grid[turn.axis])
-        cubie.material.forEach((m) => m.emissive.setHex(lit ? HIGHLIGHT_EMISSIVE : 0x000000))
+        cubie.material.forEach((m) => {
+          m.emissive.setHex(lit ? HIGHLIGHT_EMISSIVE : 0x000000)
+          m.emissiveIntensity = 1
+        })
       })
       buildArrow(turn)
+      applyMarks()
+    }
+
+    function applyMarks() {
+      if (!markedCells) return
+      const marked = cubies.filter((cubie) => {
+        const { x, y, z } = cubie.userData.grid
+        return markedCells.some((c) => c[0] === x && c[1] === y && c[2] === z)
+      })
+      marked.forEach((cubie) => cubie.material.forEach((m) => {
+        if (m.color.getHex() === COLORS.core) return
+        m.emissive.copy(m.color)
+        m.emissiveIntensity = 0.3
+      }))
+      spotlightCubies = marked
+    }
+
+    /** Glow in each sticker's own color, so the colors stay recognisable. */
+    function applySpotlight(target) {
+      highlighted = null
+      applyHighlight()
+      if (!target) return
+      let pick
+      if (target.kind === 'face') {
+        const turn = moveToLayerTurn(target.face, readSceneOrientation() ?? undefined)
+        pick = (cubie) => cubie.userData.grid[turn.axis] === turn.layer
+      } else {
+        const want = { centers: 1, edges: 2, corners: 3 }[target.kind]
+        pick = (cubie) => {
+          const { x, y, z } = cubie.userData.grid
+          return [x, y, z].filter((v) => v === 0 || v === size - 1).length === want
+        }
+      }
+      spotlightCubies = cubies.filter(pick)
+      spotlightCubies.forEach((cubie) => {
+        cubie.material.forEach((m) => {
+          if (m.color.getHex() === COLORS.core) return
+          m.emissive.copy(m.color)
+          m.emissiveIntensity = 0.3
+        })
+      })
     }
 
     /** Every face one color, whichever way round the cube is (a slice turn moves the centers). */
@@ -741,6 +787,13 @@ export default function App() {
         }
       }
 
+      if (spotlightCubies.length) {
+        const glow = 0.32 + 0.14 * Math.sin(time * 0.004)
+        spotlightCubies.forEach((cubie) => cubie.material.forEach((m) => {
+          if (m.emissiveIntensity !== 1) m.emissiveIntensity = glow
+        }))
+      }
+
       arrowGroup.visible = highlighted !== null && !tween && !pivot && arrowGroup.children.length > 0
       if (arrowGroup.visible) orientArrow(time)
 
@@ -842,6 +895,13 @@ export default function App() {
         highlighted = move ? { move } : null
         applyHighlight()
       },
+      spotlight(target) {
+        applySpotlight(target)
+      },
+      mark(cells) {
+        markedCells = cells
+        applyHighlight()
+      },
       onUserMove(listener) {
         userMoveListeners.add(listener)
         return () => userMoveListeners.delete(listener)
@@ -896,6 +956,7 @@ export default function App() {
         solverSlotRef={solver.slotRef}
         solverPhase={solverPhase}
         solverCollapsed={solverCollapsed}
+        stageHidden={stageHidden}
         timeMs={timeMs}
         moves={moves}
         running={running}
@@ -910,18 +971,21 @@ export default function App() {
         isDesktop={isDesktop}
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
-        showSolver={showCamera}
-        onOpenSolver={handleOpenSolver}
-        onSolveDisplayed={handleSolveDisplayed}
-        onCloseSolver={handleCloseSolver}
+        section={section}
+        onOpenSection={handleOpenSection}
+        onCloseSection={handleCloseSection}
         sizeTriggerRef={sizeButtonRef}
       />
 
       {cameraMounted && solver.host && createPortal(
         <div style={{ position: 'relative', width: '100%' }}>
-          {showCamera && <div className="solver-head" ref={setSolverHeadSlot} />}
+          {panelOpen && <div className="solver-head" ref={setSolverHeadSlot} />}
           <SmartSolverPanel
-            open={showCamera}
+            open={panelOpen}
+            section={section ?? 'scan'}
+            onSelectSection={handleOpenSection}
+            onCloseSection={handleCloseSection}
+            onStageHiddenChange={setStageHidden}
             headerSlot={solverHeadSlot}
             getController={getCubeController}
             cubeSize={size}
@@ -930,7 +994,6 @@ export default function App() {
             resetVersion={resetKey}
             onRequestSize={setSize}
             onPhaseChange={setSolverPhase}
-            solveRequest={solveRequest}
             onCollapsedChange={setSolverCollapsed}
           />
         </div>,

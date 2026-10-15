@@ -89,21 +89,21 @@ export function searchMacros(
 
 // --- Goals --------------------------------------------------------------------------------
 
-const edgeDone = (s: CubieState, i: number) => s.ep[i] === i && s.eo[i] === 0
-const cornerDone = (s: CubieState, i: number) => s.cp[i] === i && s.co[i] === 0
+export const edgeDone = (s: CubieState, i: number) => s.ep[i] === i && s.eo[i] === 0
+export const cornerDone = (s: CubieState, i: number) => s.cp[i] === i && s.co[i] === 0
 const all = (idx: readonly number[], f: (i: number) => boolean) => idx.every(f)
 
-const CROSS = [5, 4, 7, 6] // DF DR DB DL
-const D_CORNERS = [4, 5, 6, 7] // DFR DLF DBL DRB
-const MIDDLE = [8, 9, 10, 11] // FR FL BL BR
+export const CROSS = [5, 4, 7, 6] // DF DR DB DL
+export const D_CORNERS = [4, 5, 6, 7] // DFR DLF DBL DRB
+export const MIDDLE = [8, 9, 10, 11] // FR FL BL BR
 
-const crossDone = (s: CubieState) => all(CROSS, (i) => edgeDone(s, i))
-const firstLayerDone = (s: CubieState) => crossDone(s) && all(D_CORNERS, (i) => cornerDone(s, i))
-const f2lDone = (s: CubieState) => firstLayerDone(s) && all(MIDDLE, (i) => edgeDone(s, i))
-const topCrossDone = (s: CubieState) => f2lDone(s) && all([0, 1, 2, 3], (i) => s.eo[i] === 0)
-const topFaceDone = (s: CubieState) => topCrossDone(s) && all([0, 1, 2, 3], (i) => s.co[i] === 0)
-const cornersDone = (s: CubieState) => topFaceDone(s) && all([0, 1, 2, 3], (i) => cornerDone(s, i))
-const allDone = (s: CubieState) => cornersDone(s) && all([0, 1, 2, 3], (i) => edgeDone(s, i))
+export const crossDone = (s: CubieState) => all(CROSS, (i) => edgeDone(s, i))
+export const firstLayerDone = (s: CubieState) => crossDone(s) && all(D_CORNERS, (i) => cornerDone(s, i))
+export const f2lDone = (s: CubieState) => firstLayerDone(s) && all(MIDDLE, (i) => edgeDone(s, i))
+export const topCrossDone = (s: CubieState) => f2lDone(s) && all([0, 1, 2, 3], (i) => s.eo[i] === 0)
+export const topFaceDone = (s: CubieState) => topCrossDone(s) && all([0, 1, 2, 3], (i) => s.co[i] === 0)
+export const cornersDone = (s: CubieState) => topFaceDone(s) && all([0, 1, 2, 3], (i) => cornerDone(s, i))
+export const allDone = (s: CubieState) => cornersDone(s) && all([0, 1, 2, 3], (i) => edgeDone(s, i))
 
 // --- Algorithm library (booklet + equivalent standard forms) --------------------------------
 

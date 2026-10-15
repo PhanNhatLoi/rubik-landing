@@ -33,7 +33,8 @@ export interface CameraPanelProps {
   /** Hidden panels stay mounted so their state survives closing. */
   hidden: boolean
   collapsed: boolean
-  onToggleCollapsed: () => void
+  /** Omitted when the panel can't be collapsed (desktop). */
+  onToggleCollapsed?: () => void
   /** One-line status shown next to the title. */
   summary?: ReactNode
   /** Badge in the top-left corner of the camera frame (e.g. face name). */
@@ -232,17 +233,19 @@ export default function CameraPanel({
         createPortal(
           <div className="camera-header">
             <div className="camera-heading">
-              <span className="camera-title">{title}</span>
+              {title && <span className="camera-title">{title}</span>}
               {summary && <div className="panel-summary">{summary}</div>}
             </div>
-            <button
-              className="panel-toggle"
-              onClick={onToggleCollapsed}
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
-            >
-              {collapsed ? '+' : '−'}
-            </button>
+            {onToggleCollapsed && (
+              <button
+                className="panel-toggle"
+                onClick={onToggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
+              >
+                {collapsed ? '+' : '−'}
+              </button>
+            )}
           </div>,
           headerSlot
         )}

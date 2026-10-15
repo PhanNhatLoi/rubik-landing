@@ -29,8 +29,8 @@ export default function TabBar({ activeTab, onSelectTab }) {
       <button
         type="button"
         className="rb-tabbar__item"
-        aria-current={activeTab === 'solver' ? 'page' : undefined}
-        onClick={() => onSelectTab('solver')}
+        aria-current={activeTab === 'menu' ? 'page' : undefined}
+        onClick={() => onSelectTab('menu')}
       >
         <svg
           width="22"
@@ -43,10 +43,11 @@ export default function TabBar({ activeTab, onSelectTab }) {
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="20" y2="17" />
         </svg>
-        <span>Giải khối</span>
+        <span>Menu</span>
       </button>
     </nav>
   )

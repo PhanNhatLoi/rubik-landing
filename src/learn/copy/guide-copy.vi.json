@@ -1,0 +1,336 @@
+{
+  "moves": {
+    "R": {
+      "title": "Phải lên",
+      "hint": "Xoay mặt phải 90° theo chiều kim đồng hồ"
+    },
+    "R'": {
+      "title": "Phải xuống",
+      "hint": "Xoay mặt phải 90° ngược chiều kim đồng hồ"
+    },
+    "R2": {
+      "title": "Phải nửa vòng",
+      "hint": "Xoay mặt phải 180°"
+    },
+    "L": {
+      "title": "Trái xuống",
+      "hint": "Xoay mặt trái 90° theo chiều kim đồng hồ"
+    },
+    "L'": {
+      "title": "Trái lên",
+      "hint": "Xoay mặt trái 90° ngược chiều kim đồng hồ"
+    },
+    "L2": {
+      "title": "Trái nửa vòng",
+      "hint": "Xoay mặt trái 180°"
+    },
+    "U": {
+      "title": "Trên sang trái",
+      "hint": "Xoay mặt trên 90° theo chiều kim đồng hồ"
+    },
+    "U'": {
+      "title": "Trên sang phải",
+      "hint": "Xoay mặt trên 90° ngược chiều kim đồng hồ"
+    },
+    "U2": {
+      "title": "Trên nửa vòng",
+      "hint": "Xoay mặt trên 180°"
+    },
+    "D": {
+      "title": "Dưới sang phải",
+      "hint": "Xoay mặt dưới 90° theo chiều kim đồng hồ"
+    },
+    "D'": {
+      "title": "Dưới sang trái",
+      "hint": "Xoay mặt dưới 90° ngược chiều kim đồng hồ"
+    },
+    "D2": {
+      "title": "Dưới nửa vòng",
+      "hint": "Xoay mặt dưới 180°"
+    },
+    "F": {
+      "title": "Trước sang phải",
+      "hint": "Xoay mặt trước 90° theo chiều kim đồng hồ"
+    },
+    "F'": {
+      "title": "Trước sang trái",
+      "hint": "Xoay mặt trước 90° ngược chiều kim đồng hồ"
+    },
+    "F2": {
+      "title": "Trước nửa vòng",
+      "hint": "Xoay mặt trước 180°"
+    },
+    "B": {
+      "title": "Sau sang trái",
+      "hint": "Xoay mặt sau 90° theo chiều kim đồng hồ"
+    },
+    "B'": {
+      "title": "Sau sang phải",
+      "hint": "Xoay mặt sau 90° ngược chiều kim đồng hồ"
+    },
+    "B2": {
+      "title": "Sau nửa vòng",
+      "hint": "Xoay mặt sau 180°"
+    }
+  },
+  "stages": [
+    {
+      "id": "cross",
+      "title": "Chữ thập mặt đáy",
+      "goal": "Tạo hình chữ thập ở mặt đáy với 4 cạnh khớp màu tâm các mặt bên",
+      "why": "Đặt nền móng vững chắc cho tầng đầu tiên mà không làm xáo trộn các bước sau",
+      "check": [
+        "4 cạnh mặt đáy tạo thành dấu cộng đúng màu",
+        "Màu còn lại của mỗi cạnh khớp với tâm mặt bên tương ứng"
+      ]
+    },
+    {
+      "id": "corners",
+      "title": "Góc mặt đáy",
+      "goal": "Đưa 4 viên góc mặt đáy về đúng vị trí để hoàn thành toàn bộ tầng 1",
+      "why": "Hoàn thành toàn bộ tầng 1 gồm mặt đáy và viền dưới cùng của 4 mặt bên",
+      "check": [
+        "Mặt đáy hoàn thành đồng màu",
+        "Viền tầng 1 của cả 4 mặt bên khớp màu tâm"
+      ]
+    },
+    {
+      "id": "middle",
+      "title": "Cạnh tầng giữa",
+      "goal": "Đưa 4 viên cạnh tầng giữa về đúng vị trí",
+      "why": "Giải quyết xong 2 tầng đầu tiên mà không làm phá vỡ tầng 1 đã hoàn thành",
+      "check": [
+        "Hai tầng dưới hoàn thành hoàn chỉnh",
+        "Tầng 1 vẫn giữ nguyên vẹn"
+      ]
+    },
+    {
+      "id": "topCross",
+      "title": "Chữ thập mặt trên",
+      "goal": "Tạo hình chữ thập ở mặt trên cùng",
+      "why": "Định hướng các cạnh mặt trên mà không làm ảnh hưởng hai tầng dưới",
+      "check": [
+        "4 cạnh mặt trên hướng đúng màu lên trên",
+        "Hai tầng dưới vẫn giữ nguyên"
+      ]
+    },
+    {
+      "id": "topFace",
+      "title": "Hoàn thành mặt trên",
+      "goal": "Xoay đúng hướng cho tất cả các góc mặt trên",
+      "why": "Toàn bộ mặt trên cùng đồng màu mà không làm xáo trộn hai tầng dưới",
+      "check": [
+        "Mặt trên cùng hoàn toàn đồng màu",
+        "Hai tầng dưới vẫn nguyên vẹn"
+      ]
+    },
+    {
+      "id": "topCorners",
+      "title": "Đưa góc trên về đúng vị trí",
+      "goal": "Hoán vị các góc mặt trên về đúng vị trí tương ứng với tâm các mặt bên",
+      "why": "Chuẩn bị cho bước cuối cùng — đưa các cạnh về đúng chỗ",
+      "check": [
+        "Cả 4 góc mặt trên nằm đúng vị trí giữa các tâm tương ứng"
+      ]
+    },
+    {
+      "id": "topEdges",
+      "title": "Đưa cạnh trên về đúng vị trí",
+      "goal": "Hoán vị các cạnh mặt trên về đúng vị trí để hoàn thành khối Rubik",
+      "why": "Khối Rubik được giải hoàn chỉnh 100%!",
+      "check": [
+        "Tất cả các cạnh tầng trên khớp đúng vị trí",
+        "Toàn bộ khối Rubik đã được giải xong"
+      ]
+    }
+  ],
+  "situations": {
+    "stepCounter": "Bước {step}/{total}",
+    "moveCounter": "{count} nước đi",
+    "timeSpent": "Thời gian: {time}",
+    "hintUsed": "{count} gợi ý",
+    "stageProgress": "{done}/{total} {unit}",
+    "stageDone": "Bạn vừa hoàn thành giai đoạn {stage}!",
+    "preconditionMissing": "Cần hoàn thành giai đoạn \"{stage}\" trước",
+    "invalidState": "Trạng thái khối không hợp lệ. Vui lòng kiểm tra lại màu sắc.",
+    "misorientWarning": "Giữ nguyên hướng cầm khối trong suốt quá trình giải.",
+    "undoAction": "Hoàn tác nước vừa xoay",
+    "checkMatch": "Giống rồi",
+    "needFix": "Chưa giống — giúp mình sửa",
+    "checkpointTitle": "Kiểm tra giai đoạn",
+    "checkStageButton": "Kiểm tra",
+    "checkpointSubtitle": "Đối chiếu khối Rubik trên tay với các tiêu chí dưới đây",
+    "autoCheckPassed": "Hệ thống nhận diện khối đã thoả mãn tiêu chí giai đoạn này",
+    "autoCheckManualFallback": "Nếu chưa chắc, bạn có thể tự tích chọn từng tiêu chí để kiểm tra",
+    "nextStagePreview": "Tiếp theo: Giai đoạn {index}/7 — {title}",
+    "checklistHint": "Chạm vào từng mục để đánh dấu nếu khớp với khối của bạn",
+    "allDoneCelebration": "Tất cả 7 giai đoạn đã hoàn thành!",
+    "usePracticeSample": "Dùng khối mẫu thay thế",
+    "rescanCube": "Quét lại khối",
+    "learnFromHere": "Học từ đây",
+    "practice": "Luyện tập",
+    "practiceDoneSummary": "Bạn vừa hoàn thành luyện tập giai đoạn này!",
+    "roadmapTitle": "Lộ trình người mới học",
+    "roadmapSubtitle": "Làm quen khối, rồi 7 bài giải Rubik 3x3 theo phương pháp từng tầng",
+    "whatIsNotation": "Ký hiệu là gì?",
+    "close": "Đóng",
+    "goalLabel": "Mục tiêu",
+    "whyLabel": "Vì sao",
+    "criteriaLabel": "Tiêu chí kiểm tra",
+    "stageCounter": "Giai đoạn {index}/7: {title}",
+    "notationTitle": "Làm quen ký hiệu",
+    "holdConventionTitle": "Quy ước cầm khối",
+    "holdConventionDesc": "Mặt trước ({front}) hướng về bạn, mặt trên ({top}) ở trên.",
+    "piecesTitle": "3 loại mảnh Rubik",
+    "piecesCenter": "Tâm: 1 màu, cố định vị trí, quy định màu cả mặt.",
+    "piecesEdge": "Cạnh: 2 màu, nằm giữa 2 tâm.",
+    "piecesCorner": "Góc: 3 màu, nằm ở các đỉnh.",
+    "notationInteractiveHint": "Chạm vào ký hiệu để xem mô tả và mũi tên 3D trên khối",
+    "understood": "Đã hiểu — Tiếp tục",
+    "wrongMove": "Xoay nhầm?",
+    "whichMoveDidYouTurn": "Bạn đã xoay phép nào?",
+    "cancel": "Huỷ",
+    "rescan": "Không rõ — quét lại",
+    "doneTurn": "Đã xoay xong",
+    "dragHint": "Có thể kéo xoay trực tiếp trên khối 3D. Xoay nhầm sẽ tự chèn bước hoàn tác.",
+    "algorithmLabel": "Công thức:",
+    "allStagesCompleted": "Chúc mừng! Bạn đã hoàn thành toàn bộ khối Rubik!",
+    "nextStageAction": "Giai đoạn kế tiếp",
+    "practiceSourceTitle": "Chọn nguồn khối luyện tập",
+    "practiceSourceSubtitle": "Luyện tập riêng giai đoạn: {title}",
+    "tabPresetSamples": "Mẫu có sẵn",
+    "tabScanOwnCube": "Quét khối của mình",
+    "scanOwnCubeDesc": "Quét khối thật để luyện tập trực tiếp trên trạng thái thực tế của bạn.",
+    "scanToPracticeBtn": "Bắt đầu quét khối",
+    "chooseSampleHint": "Chọn một mẫu để đưa khối về tình huống luyện tập:",
+    "hintBtn": "Gợi ý",
+    "undoBtn": "Hoàn tác",
+    "checkBtn": "Kiểm tra",
+    "hintActiveTitle": "Gợi ý nước đi: {move}",
+    "unitEdge": "cạnh",
+    "unitCorner": "góc",
+    "unitPiece": "mảnh",
+    "practiceMode": "Đang luyện tập",
+    "practiceDoneTitle": "Luyện tập thành công!",
+    "practiceAgain": "Luyện lại mẫu này",
+    "backToRoadmap": "Về lộ trình",
+    "statsMoves": "Số nước đi",
+    "statsTime": "Thời gian",
+    "statsHints": "Gợi ý đã dùng",
+    "whatYouAchieved": "Bạn vừa đạt được:",
+    "preconditionTitle": "Chưa đủ điều kiện tiên quyết",
+    "preconditionDesc": "Khối vừa quét chưa hoàn thành các giai đoạn trước:",
+    "doMissingStageFirst": "Học giai đoạn \"{stage}\" trước",
+    "backToRoadmapAria": "Quay lại lộ trình",
+    "backToSourceAria": "Quay lại chọn nguồn khối",
+    "stopPracticeAria": "Dừng luyện tập và quay lại",
+    "learnStageBefore": "Học giai đoạn {stage} trước",
+    "stepCardAria": "Bước {step} trên {total}: {title}",
+    "viewRoadmap": "Xem lộ trình",
+    "checkStageAria": "Kiểm tra hoàn thành giai đoạn",
+    "selectMoveAria": "Xem phép xoay {move}",
+    "noHint": "Không tìm thấy gợi ý hoặc đã hoàn thành!",
+    "progressFeedback": "Tiến độ hiện tại: {done}/{total} {unit}. Hãy tiếp tục!",
+    "stopPractice": "Dừng luyện",
+    "stageOfSeven": "Giai đoạn {index}/7",
+    "sessionStatsAria": "Thông số phiên luyện tập",
+    "movesAria": "Số nước đi: {count}",
+    "timeAria": "Thời gian: {time}",
+    "hintsAria": "Số gợi ý đã dùng: {count}",
+    "movesLabel": "Nước đi",
+    "timeLabel": "Thời gian",
+    "hintsLabel": "Gợi ý",
+    "practiceDragHint": "Kéo trực tiếp trên khối 3D để xoay theo suy nghĩ của bạn.",
+    "partialTurn": "Đã xoay {partial} một lần — xoay thêm {partial} lần nữa là xong bước {move}.",
+    "recovering": "Đang tìm lời giải ngắn hơn từ trạng thái mới...",
+    "autoPlayStep": "Tự động xoay bước này",
+    "roadmapShort": "Lộ trình",
+    "sevenStages": "7 giai đoạn"
+  },
+  "practiceSamples": {
+    "cross-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "Còn 3/4 cạnh đáy đúng chỗ, chỉ lệch 1 cạnh"
+    },
+    "cross-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "Còn 2/4 cạnh đáy đúng chỗ"
+    },
+    "cross-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Cả 4 cạnh đáy đều lệch"
+    },
+    "corners-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "1 góc mặt đáy cần đưa vào slot"
+    },
+    "corners-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "1 góc mặt đáy bên trái cần đưa vào"
+    },
+    "corners-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Nhiều góc mặt đáy cần giải quyết"
+    },
+    "middle-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "1 cạnh tầng giữa cần đưa sang phải"
+    },
+    "middle-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "1 cạnh tầng giữa cần đưa sang trái"
+    },
+    "middle-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "2 cạnh tầng giữa cần giải quyết"
+    },
+    "topCross-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "Chữ thập trên: 2/4 cạnh đã đúng hướng (ít bước nhất)"
+    },
+    "topCross-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "Chữ thập trên: 2/4 cạnh đã đúng hướng"
+    },
+    "topCross-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Chữ thập trên: 2/4 cạnh đã đúng hướng (nhiều bước hơn)"
+    },
+    "topFace-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "Mặt trên dạng Sune: 1/4 góc đã đúng hướng"
+    },
+    "topFace-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "Mặt trên chưa có góc nào đúng hướng (cần lặp công thức)"
+    },
+    "topFace-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Mặt trên chưa có góc nào đúng hướng, cần nhiều lần công thức"
+    },
+    "topCorners-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "Hoán vị 2 góc trên (dạng thuận)"
+    },
+    "topCorners-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "Hoán vị góc trên (dạng nghịch)"
+    },
+    "topCorners-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Hoán vị 4 góc trên"
+    },
+    "topEdges-a": {
+      "label": "Mẫu A (Dễ)",
+      "desc": "Hoán vị 3 cạnh trên cùng chiều (U-perm)"
+    },
+    "topEdges-b": {
+      "label": "Mẫu B (Vừa)",
+      "desc": "Hoán vị 3 cạnh trên, cách khác"
+    },
+    "topEdges-c": {
+      "label": "Mẫu C (Đủ bộ)",
+      "desc": "Các cạnh trên xáo trộn nhiều, cần lặp công thức"
+    }
+  }
+}
