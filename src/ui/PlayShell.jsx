@@ -28,6 +28,7 @@ export default function PlayShell({
   onOpenSection,
   onCloseSection,
   sizeTriggerRef,
+  recorderSlot,
 }) {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -59,6 +60,8 @@ export default function PlayShell({
                 Reset
               </button>
             </div>
+
+            {recorderSlot}
 
             <div>
               <div className="rb-overline" style={{ marginBottom: '8px' }}>Kích thước</div>
@@ -319,6 +322,8 @@ export default function PlayShell({
                 Xáo trộn
               </button>
             </div>
+
+            <div style={{ flexShrink: 0, paddingBottom: '8px', maxHeight: '30dvh', overflowY: 'auto' }}>{recorderSlot}</div>
 
             {/* Thanh Tab bar */}
             <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />

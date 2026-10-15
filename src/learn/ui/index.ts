@@ -9,3 +9,4 @@ export { default as PreconditionView, type PreconditionViewProps } from './Preco
 export { default as CrossLessonView, type CrossLessonViewProps } from './CrossLessonView'
 export { default as CornerLessonView, type CornerLessonViewProps } from './CornerLessonView'
 export { default as MiddleLessonView, type MiddleLessonViewProps } from './MiddleLessonView'
+export { default as TopCrossLessonView, type TopCrossLessonViewProps } from './TopCrossLessonView'

@@ -17,6 +17,8 @@ import { useMediaQuery, DESKTOP_QUERY } from './ui/useMediaQuery'
 import { usePersistentHost } from './ui/usePersistentHost'
 import PlayShell from './ui/PlayShell'
 import SizeSheet from './ui/SizeSheet'
+import FormulaRecorder from './ui/FormulaRecorder'
+import { useFormulaRecorder } from './ui/useFormulaRecorder'
 
 const COLORS = {
   white: 0xf4f4f4,
@@ -106,6 +108,7 @@ export default function App() {
   // Center colors survive size changes and resets (the smart solver may set the user's scheme).
   const faceColorRef = useRef({ ...DEFAULT_FACE_COLOR })
   const getCubeController = useCallback(() => cubeControllerRef.current, [])
+  const formulaRecorder = useFormulaRecorder(getCubeController, sceneVersion, size)
   const movesRef = useRef(moves)
   const runningRef = useRef(running)
   const scrambledRef = useRef(scrambled)
@@ -962,8 +965,8 @@ export default function App() {
         running={running}
         statusText={statusText}
         size={size}
-        onScramble={() => scrambleRef.current?.()}
-        onReset={() => setResetKey((v) => v + 1)}
+        onScramble={() => { formulaRecorder.stop(); scrambleRef.current?.() }}
+        onReset={() => { formulaRecorder.stop(); setResetKey((v) => v + 1) }}
         onZoomIn={() => zoomInRef.current?.()}
         onZoomOut={() => zoomOutRef.current?.()}
         onOpenSize={handleOpenSizeModal}
@@ -974,6 +977,7 @@ export default function App() {
         section={section}
         onOpenSection={handleOpenSection}
         onCloseSection={handleCloseSection}
+        recorderSlot={<FormulaRecorder recorder={formulaRecorder} />}
         sizeTriggerRef={sizeButtonRef}
       />
 

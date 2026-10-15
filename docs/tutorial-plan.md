@@ -394,6 +394,39 @@ Bài 1–4 đã chốt, không sửa nếu chủ dự án chưa yêu cầu. Ch�
 
 ### 15.5 Giới hạn đã biết
 - Guide giả định các tâm đang ở chỗ cũ khi bấm Gợi ý.
-- Chỉ 3x3 trong chế độ học. Chế độ giải "Cơ bản" ở mục Giải và các bài 5–8 (chưa có bài riêng) vẫn dùng bộ giải `solveBeginner3` (`nxn/beginner.ts`), không theo quy tắc 15.3.
+- Chỉ 3x3 trong chế độ học. Chế độ giải "Cơ bản" ở mục Giải và các bài 6–8 (chưa có bài riêng) vẫn dùng bộ giải `solveBeginner3` (`nxn/beginner.ts`), không theo quy tắc 15.3.
 - Chưa có bản desktop riêng cho các bài học và chưa kiểm thử trên thiết bị thật; phần giao diện chủ yếu đã được duyệt bằng mắt của chủ dự án.
 - Nhiều chuỗi chữ tiếng Việt nằm thẳng trong code (`copy/lessonN.ts`, các `*Guide.ts`); `guide-copy.vi.json` chỉ giữ chữ của bộ luyện tập cũ.
+
+
+## 16. Bài 5 — Dấu cộng tầng trên (đã triển khai, chờ duyệt giao diện)
+
+Cài đặt: `src/learn/guide/topCrossGuide.ts`, `src/learn/copy/lesson5.ts`, `src/learn/ui/TopCrossLessonView.tsx`. Mở trực tiếp từ Bài 5 trên lộ trình. Cần hai tầng dưới hoàn thành (`f2lDone`). Bài 1–4 giữ nguyên.
+
+- Khung `LessonPlayer`: mục tiêu và khối trước/sau → nhận diện chữ L / hai cạnh đối (đường thẳng), chấm là trạng thái khởi đầu → chọn cách học → công thức và thực hành theo lựa chọn. Chưa chọn thì chưa mở công thức/thực hành; không chọn sẵn. Mặt trên U là trắng theo màu mặc định, mặt đáy D vẫn là vàng.
+- Mục tiêu chỉ là 4 ô cạnh cùng màu tâm U hướng lên, không yêu cầu cạnh bên khớp tâm hay góc đúng. Khối minh hoạ sau được dựng từ chính khối trước qua các lượt hướng dẫn, không thay bằng khối đã giải toàn bộ.
+- Hai cách học: **một công thức** vẫn dùng `F R U R′ U′ F′` lặp (chấm → chữ L → hai cạnh đối → dấu cộng); **hai công thức** giữ nguyên công thức đối và thay công thức chữ L bằng công thức 8 nước của chủ dự án. Bản gốc đặt mặt đích ở đáy: `L′ F′ D F L B D′ B′`, L ở DF–DR. Bản tương đương dùng trong bài hiện tại (mặt đích U): `L′ B′ U B L F U′ F′`, L ở UB–UR, quy đổi qua x2 (D↔U, F↔B). Ở cách hai công thức, chấm dùng L mới hai lượt liên tiếp, không cần căn U giữa hai lượt. Hai cạnh đối vẫn ở UL–UR. Cách một công thức cũ vẫn căn L ở UL–UB. Mỗi lần Gợi ý chỉ chạy một lượt rồi dừng quan sát. Không dùng lời giải solver.
+- Đơn vị hướng dẫn của bài này là một lượt xử lý hình cạnh, vì công thức đổi hướng cả nhóm cạnh. Chỉ theo dõi/phát sáng tâm U và một cạnh đang đổi hướng, có giải thích rõ trong bài. Khi chưa bật gợi ý chỉ phát sáng các cạnh còn cần đổi hướng. Hai tầng dưới có thể lệch tạm thời trong lượt nhưng phải nguyên vẹn ở cuối.
+- Dễ / Trung bình / Khó tương ứng hai cạnh đối / chữ L / chấm. Cách một công thức cần 1 / 2 / 3 lượt; cách hai công thức cần 1 / 1 / 2 lượt. Mô tả mức độ, nhánh Gợi ý và lời giải thích từng nước theo lựa chọn. Khối mẫu ngẫu nhiên dựng từ công thức của bài, kiểm tra hình và giữ hai tầng dưới; xáo lại tránh trùng trạng thái khối vừa nạp. Đổi cách học ở trang chọn sẽ nạp lại khối mẫu đang luyện và reset hướng dẫn/số nước/số gợi ý.
+- Theo dõi nước xoay, nước nửa vòng U2, đi sai đường và Hoàn tác theo `guide/follow.ts` giống các bài trước. Không cho xin gợi ý mới giữa một lượt đang làm.
+- Thẻ công thức có các nhịp riêng: đối giữ **F / R U R′ U′ / F′**; L mới là **L′ / B′ U B / L / F U′ F′** trong khung U hiện tại. Có công thức gốc đặt ở đáy và giải thích quy đổi, điều kiện căn hình, lý do các nước trả lại không đơn giản huỷ nước đầu. Gợi ý từng nước khớp chuỗi 6 hoặc 8 nước, không hardcode số bước.
+- Test mô phỏng 300 khối mỗi cách học (600 tổng), thay đổi thêm hướng góc tầng trên, kiểm tra căn hình, giữ hai tầng dưới, phát sáng đúng cạnh, tiến độ nửa vòng, tiếp tục sau Hoàn tác và nội dung/số lượt của từng lựa chọn. Thêm kiểm tra log gốc của chủ dự án, phép quy đổi x2 trên engine và hai lượt L mới liên tiếp từ hình chấm.
+- Chưa kiểm tra trực quan trên trình duyệt/điện thoại: công cụ trình duyệt không khả dụng trong phiên triển khai. Nội dung và giao diện Bài 5 chưa được chủ dự án duyệt.
+- Kiểm tra triển khai: `pnpm typecheck`, `pnpm test` (37 test files, 254 passed / 1 skipped), `pnpm build` và `git diff --check` đều đạt. Build còn cảnh báo OpenCV externalized modules và kích thước bundle lớn. Chưa commit/push.
+
+
+### 16.1 Ghi công thức do người học cung cấp
+
+- Nút **Bật ghi log công thức** đặt ngay dưới **Xáo trộn / Reset** trong `PlayShell` (desktop và tab Chơi trên mobile); không cần mở Bài 5. `useFormulaRecorder` giữ phiên ghi ở App nên đổi layout không làm mất log.
+- Ghi trực tiếp `onUserTurn` từ khối 3D, giữ token lớp cố định và snapshot stickers gốc cùng facelets tương đối tâm. Log `rubik-formula-v2` tái hiện được từ bất kỳ khối bắt đầu nào, cả khi các tâm đã di chuyển; nhận diện M/E/S.
+- **Dừng và in log** in ra Console, có **Sao chép log** và ô văn bản dự phòng. Reset/xáo trộn/đổi scene tự dừng và giữ log. Bắt đầu phiên mới xoá bản ghi cũ. Nếu có thay đổi ngoài nước kéo tay giữa hai bước, dừng và báo để tránh tạo chuỗi không tái hiện được.
+- Đã kiểm tra vị trí nút bằng render desktop/mobile và tái hiện từ snapshot có tâm đổi chỗ. Chưa thử UI trực tiếp trên trình duyệt.
+
+## 17. Đề nghị đổi hướng lắp / quét — CHƯA TRIỂN KHAI
+
+Chủ dự án muốn học theo thứ tự tầng trắng ở trên → tầng giữa → tầng vàng ở đáy, giữ trắng trên/vàng dưới. Yêu cầu hiện tại chỉ áp dụng L mới ở Bài 5; chưa đổi bài 1–4 hoặc luồng quét.
+
+- Màu chuẩn của scene/palette đã là U trắng, D vàng. Điểm khác là bài 2–4 đang lắp đáy D trước; Bài 5 hiện xử lý U. Chuyển thứ tự lắp sẽ thay mục tiêu và khung hướng của guide, không chỉ đổi màu.
+- Các công thức vẫn đúng về nguyên lý, nhưng ký hiệu, vị trí chuẩn bị, tâm/khối phát sáng, điều kiện hoàn thành, mẫu xáo và bài giảng cần được quy đổi theo một phép xoay 3D hợp lệ. Không chỉ thay riêng U bằng D vì các mặt bên phải khớp cùng khung hướng. Hướng mới có thể dùng nguyên văn L gốc đặt đích ở đáy; công thức đối cũng cần bản tương đương cho đáy.
+- `scanGuide.ts` hiện hướng người học cầm D (vàng) ở trên, dù face IDs chuẩn vẫn U trắng/D vàng. Đổi cách cầm sang trắng trên cần cập nhật các Hold, chỉ dẫn, vị trí trái/phải trong net, camera/display rotations và test cả 6 mặt. Phân loại màu theo tâm và dữ liệu chuẩn URFDLB vẫn có thể giữ.
+- Nên có khung hướng dùng chung cho bài học và quét để chuyển công thức/điều kiện/minh hoạ nhất quán. Đây là đánh giá phạm vi, chưa sửa kiến trúc.
