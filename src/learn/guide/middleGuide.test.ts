@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { layerTurnToEvent, readOrientation } from '../../smart-solver/adapter/stickerModel'
-import { MIDDLE, edgeDone, firstLayerDone } from '../../smart-solver/nxn/beginner'
+import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import { generateMiddleScramble, MIDDLE_PICTURE_SCRAMBLE } from '../copy/lesson4'
 import { buildMiddleGuide, type MiddleCase } from './middleGuide'
 import { applyNotation, fromCubie, notationToTurn } from './physical'
@@ -25,7 +25,7 @@ describe('buildMiddleGuide', () => {
       const level = (['easy', 'medium', 'hard'] as const)[i % 3]!
       let state = applyMoves(SOLVED, generateMiddleScramble(level, r))
       // Sometimes the learner has already made a move or two on top.
-      if (i % 4 === 0) state = applyMoves(state, ['U'])
+      if (i % 4 === 0) state = applyMoves(state, ['D'])
       expect(firstLayerDone(state)).toBe(true)
       const guide = buildMiddleGuide(state, NAMES)
       const todo = MIDDLE.filter((e) => !edgeDone(state, e))

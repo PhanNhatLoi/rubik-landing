@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyMoves, equals, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
 import { layerTurnToEvent, readOrientation } from '../../smart-solver/adapter/stickerModel'
-import { CROSS, edgeDone } from '../../smart-solver/nxn/beginner'
+import { CROSS, edgeDone } from '../goals'
 import { buildCrossGuide, type CrossCase } from './crossGuide'
 import { applyNotation, fromCubie, notationToTurn, toCubie } from './physical'
 

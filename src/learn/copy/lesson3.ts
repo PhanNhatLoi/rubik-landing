@@ -1,6 +1,7 @@
-import { applyMoves, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
+import { parseLearningAlgorithm as parseAlgorithm } from '../orientation'
+import { applyMoves, SOLVED } from '../../smart-solver/core/cubie'
 import type { Move } from '../../smart-solver/core/types'
-import { D_CORNERS, cornerDone, crossDone } from '../../smart-solver/nxn/beginner'
+import { FIRST_CORNERS, cornerDone, crossDone } from '../goals'
 import type { LessonPage } from '../ui/LessonPlayer'
 
 export type Lesson3Page = LessonPage & { kind: 'cornersIntro'; body: string[]; reason: string[] }
@@ -27,17 +28,17 @@ const FALLBACK: Record<CornerLevelId, Move[]> = {
   hard: parseAlgorithm("R U' R' U' L' U2 L U B U' B' U B' U' B")
 }
 
-/** The picture: the cross is done and all four corners sit in the top layer. */
+/** The picture: the cross is done and all four first-layer corners sit in the bottom layer. */
 export const CORNER_PICTURE_SCRAMBLE = parseAlgorithm("B U' B' R U2 R' B' U B L' U' L")
 
-/** How many bottom corners a scramble leaves in place (0 when it breaks the cross). */
+/** How many first-layer corners a scramble leaves in place (0 when it breaks the cross). */
 function cornersInPlace(moves: Move[]): number {
   const state = applyMoves(SOLVED, moves)
-  return crossDone(state) ? D_CORNERS.filter((c) => cornerDone(state, c)).length : -1
+  return crossDone(state) ? FIRST_CORNERS.filter((c) => cornerDone(state, c)).length : -1
 }
 
 /**
- * A random scramble that keeps the cross and leaves 3 (easy), 2 (medium) or 0 (hard) bottom corners in
+ * A random scramble that keeps the cross and leaves 3 (easy), 2 (medium) or 0 (hard) first-layer corners in
  * place. It is built from "a side face, a top turn, the side face back", which never breaks the cross.
  * `avoid` is the scramble just played, so a re-roll differs.
  */
@@ -68,13 +69,13 @@ export const LESSON3_PAGES: readonly Lesson3Page[] = [
     title: 'Lắp 4 góc của tầng đầu',
     kind: 'cornersIntro',
     body: [
-      'Mục tiêu của bài này: đưa 4 khối góc về đúng chỗ ở mặt đáy, hoàn thành cả tầng đầu tiên.',
-      'Mỗi góc có 3 màu: một màu thuộc mặt đáy, hai màu còn lại phải khớp với tâm của hai mặt bên cạnh nó.'
+      'Mục tiêu của bài này: đưa 4 khối góc về đúng chỗ ở mặt trên, hoàn thành cả tầng đầu tiên.',
+      'Mỗi góc có 3 màu: một màu thuộc mặt trên, hai màu còn lại phải khớp với tâm của hai mặt bên cạnh nó.'
     ],
     reason: [
-      'Có dấu cộng rồi, bốn góc sẽ làm tròn tầng đầu: cả mặt đáy đúng và mỗi mặt bên đều có một hàng đúng ở dưới.',
-      'Khối góc chỉ có thể nằm ở tầng trên cùng hoặc tầng đáy, nên ta chỉ cần phân biệt hai trường hợp: góc ở tầng trên (lắp xuống) hoặc góc ở tầng đáy nhưng sai (đưa lên rồi lắp lại).',
-      'Xong bước này, các bước sau chỉ làm việc ở hai tầng trên, không phá tầng đầu.'
+      'Có dấu cộng rồi, bốn góc sẽ làm tròn tầng đầu: cả mặt trên đúng và mỗi mặt bên đều có một hàng đúng ở trên.',
+      'Khối góc chỉ có thể nằm ở tầng dưới cùng hoặc tầng trên, nên ta chỉ cần phân biệt hai trường hợp: góc ở tầng dưới (lắp lên) hoặc góc ở tầng trên nhưng sai (đưa xuống rồi lắp lại).',
+      'Xong bước này, các bước sau chỉ làm việc ở hai tầng dưới, không phá tầng đầu.'
     ]
   }
 ]

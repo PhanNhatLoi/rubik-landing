@@ -1,5 +1,7 @@
 # Chế độ "Người mới học" — Implementation Plan (cho agy)
 
+> **Cập nhật mới nhất: §17.** Chủ dự án đã yêu cầu và cho phép chuyển bài 1–5, lộ trình/giải cơ bản 3×3 và hướng quét sang trắng trên → tầng giữa → vàng dưới. Các phần nghiệm thu cũ phía dưới là lịch sử; hướng hiện hành theo §17.
+
 > Chỉ thêm **chế độ học** (lộ trình, hướng dẫn từng bước, luyện tập). Không đổi logic giải/quét/vision. Ngoại lệ duy nhất đụng Three.js: Phase 2 (mũi tên F/B/nửa vòng), làm PR riêng.
 > Đọc theo thứ tự: §1 bối cảnh → §2 design → §3 hiện trạng code → §4 hợp đồng dữ liệu → §5 phase. Mỗi phase có "Nghiệm thu" để tự kiểm.
 
@@ -399,21 +401,17 @@ Bài 1–4 đã chốt, không sửa nếu chủ dự án chưa yêu cầu. Ch�
 - Nhiều chuỗi chữ tiếng Việt nằm thẳng trong code (`copy/lessonN.ts`, các `*Guide.ts`); `guide-copy.vi.json` chỉ giữ chữ của bộ luyện tập cũ.
 
 
-## 16. Bài 5 — Dấu cộng tầng trên (đã triển khai, chờ duyệt giao diện)
+## 16. Bài 5 — Dấu cộng tầng vàng ở đáy (đã chốt cùng Bài 1–4)
 
-Cài đặt: `src/learn/guide/topCrossGuide.ts`, `src/learn/copy/lesson5.ts`, `src/learn/ui/TopCrossLessonView.tsx`. Mở trực tiếp từ Bài 5 trên lộ trình. Cần hai tầng dưới hoàn thành (`f2lDone`). Bài 1–4 giữ nguyên.
+Cài đặt: `guide/topCrossGuide.ts`, `copy/lesson5.ts`, `ui/TopCrossLessonView.tsx`. Tên file và stage id `topCross` được giữ để tương thích, nhưng mặt đích hiện là **D vàng ở đáy**. Cần tầng trắng U và tầng giữa xong trước (`learn/goals.ts`).
 
-- Khung `LessonPlayer`: mục tiêu và khối trước/sau → nhận diện chữ L / hai cạnh đối (đường thẳng), chấm là trạng thái khởi đầu → chọn cách học → công thức và thực hành theo lựa chọn. Chưa chọn thì chưa mở công thức/thực hành; không chọn sẵn. Mặt trên U là trắng theo màu mặc định, mặt đáy D vẫn là vàng.
-- Mục tiêu chỉ là 4 ô cạnh cùng màu tâm U hướng lên, không yêu cầu cạnh bên khớp tâm hay góc đúng. Khối minh hoạ sau được dựng từ chính khối trước qua các lượt hướng dẫn, không thay bằng khối đã giải toàn bộ.
-- Hai cách học: **một công thức** vẫn dùng `F R U R′ U′ F′` lặp (chấm → chữ L → hai cạnh đối → dấu cộng); **hai công thức** giữ nguyên công thức đối và thay công thức chữ L bằng công thức 8 nước của chủ dự án. Bản gốc đặt mặt đích ở đáy: `L′ F′ D F L B D′ B′`, L ở DF–DR. Bản tương đương dùng trong bài hiện tại (mặt đích U): `L′ B′ U B L F U′ F′`, L ở UB–UR, quy đổi qua x2 (D↔U, F↔B). Ở cách hai công thức, chấm dùng L mới hai lượt liên tiếp, không cần căn U giữa hai lượt. Hai cạnh đối vẫn ở UL–UR. Cách một công thức cũ vẫn căn L ở UL–UB. Mỗi lần Gợi ý chỉ chạy một lượt rồi dừng quan sát. Không dùng lời giải solver.
-- Đơn vị hướng dẫn của bài này là một lượt xử lý hình cạnh, vì công thức đổi hướng cả nhóm cạnh. Chỉ theo dõi/phát sáng tâm U và một cạnh đang đổi hướng, có giải thích rõ trong bài. Khi chưa bật gợi ý chỉ phát sáng các cạnh còn cần đổi hướng. Hai tầng dưới có thể lệch tạm thời trong lượt nhưng phải nguyên vẹn ở cuối.
-- Dễ / Trung bình / Khó tương ứng hai cạnh đối / chữ L / chấm. Cách một công thức cần 1 / 2 / 3 lượt; cách hai công thức cần 1 / 1 / 2 lượt. Mô tả mức độ, nhánh Gợi ý và lời giải thích từng nước theo lựa chọn. Khối mẫu ngẫu nhiên dựng từ công thức của bài, kiểm tra hình và giữ hai tầng dưới; xáo lại tránh trùng trạng thái khối vừa nạp. Đổi cách học ở trang chọn sẽ nạp lại khối mẫu đang luyện và reset hướng dẫn/số nước/số gợi ý.
-- Theo dõi nước xoay, nước nửa vòng U2, đi sai đường và Hoàn tác theo `guide/follow.ts` giống các bài trước. Không cho xin gợi ý mới giữa một lượt đang làm.
-- Thẻ công thức có các nhịp riêng: đối giữ **F / R U R′ U′ / F′**; L mới là **L′ / B′ U B / L / F U′ F′** trong khung U hiện tại. Có công thức gốc đặt ở đáy và giải thích quy đổi, điều kiện căn hình, lý do các nước trả lại không đơn giản huỷ nước đầu. Gợi ý từng nước khớp chuỗi 6 hoặc 8 nước, không hardcode số bước.
-- Test mô phỏng 300 khối mỗi cách học (600 tổng), thay đổi thêm hướng góc tầng trên, kiểm tra căn hình, giữ hai tầng dưới, phát sáng đúng cạnh, tiến độ nửa vòng, tiếp tục sau Hoàn tác và nội dung/số lượt của từng lựa chọn. Thêm kiểm tra log gốc của chủ dự án, phép quy đổi x2 trên engine và hai lượt L mới liên tiếp từ hình chấm.
-- Chưa kiểm tra trực quan trên trình duyệt/điện thoại: công cụ trình duyệt không khả dụng trong phiên triển khai. Nội dung và giao diện Bài 5 chưa được chủ dự án duyệt.
-- Kiểm tra triển khai: `pnpm typecheck`, `pnpm test` (37 test files, 254 passed / 1 skipped), `pnpm build` và `git diff --check` đều đạt. Build còn cảnh báo OpenCV externalized modules và kích thước bundle lớn. Chưa commit/push.
-
+- Lộ trình: mục tiêu/khối trước-sau → nhận diện chữ L/hai cạnh đối/chấm → chọn cách học → công thức và thực hành. Không chọn sẵn phương pháp.
+- Công thức chữ L nguyên bản chủ dự án: **L′ F′ D F L B D′ B′**; căn chữ L ở **DF–DR (trước–phải)**. Hình chấm dùng hai lượt liên tiếp, không cần căn giữa hai lượt.
+- Công thức đối là bản quy đổi của phương pháp 6 nước cũ sang đích D: **B R D R′ D′ B′**; căn hai cạnh ở **DL–DR**. Nếu dùng riêng công thức này cho chữ L, căn L ở **DF–DL** rồi chuyển qua hai cạnh đối.
+- Cách **một công thức** dùng công thức L gốc cho mọi trường hợp: mức Dễ/Trung bình/Khó (đối/L/chấm) cần 2/1/2 lượt. Đối → L (căn lại D) → cộng; chấm → L → cộng không cần căn giữa hai lượt. Cách **hai công thức** dùng L gốc và công thức đối, cần 1/1/2 lượt. Hình minh hoạ, công thức và gợi ý thực hành theo cùng lựa chọn này.
+- Đếm nước, lời giải thích, gợi ý, căn D, mũi tên, phát sáng, nhận diện nước nửa vòng và Hoàn tác theo khối thật. Chỉ tâm D và một cạnh được theo dõi khi bật Gợi ý. Hai tầng phía trên phải được khôi phục sau mỗi lượt.
+- Khối minh hoạ nhìn từ dưới, trạng thái sau được dựng từ cùng khối trước; chưa yêu cầu góc vàng hay màu cạnh bên khớp tâm.
+- Đã kiểm tra công thức từ log chủ dự án, mô phỏng từng nước và 300 mẫu cho mỗi phương pháp; chưa kiểm tra UI trên thiết bị thật.
 
 ### 16.1 Ghi công thức do người học cung cấp
 
@@ -422,11 +420,95 @@ Cài đặt: `src/learn/guide/topCrossGuide.ts`, `src/learn/copy/lesson5.ts`, `s
 - **Dừng và in log** in ra Console, có **Sao chép log** và ô văn bản dự phòng. Reset/xáo trộn/đổi scene tự dừng và giữ log. Bắt đầu phiên mới xoá bản ghi cũ. Nếu có thay đổi ngoài nước kéo tay giữa hai bước, dừng và báo để tránh tạo chuỗi không tái hiện được.
 - Đã kiểm tra vị trí nút bằng render desktop/mobile và tái hiện từ snapshot có tâm đổi chỗ. Chưa thử UI trực tiếp trên trình duyệt.
 
-## 17. Đề nghị đổi hướng lắp / quét — CHƯA TRIỂN KHAI
+## 17. Đổi hướng lắp và quét — ĐÃ TRIỂN KHAI, CHỜ DOUBLE CHECK
 
-Chủ dự án muốn học theo thứ tự tầng trắng ở trên → tầng giữa → tầng vàng ở đáy, giữ trắng trên/vàng dưới. Yêu cầu hiện tại chỉ áp dụng L mới ở Bài 5; chưa đổi bài 1–4 hoặc luồng quét.
+Chủ dự án đã cho phép thực hiện sau đánh giá ảnh hưởng. Khung vật lý/các màu vẫn là **U trắng, D vàng, F xanh lá, R đỏ**. Thứ tự học là **tầng trắng ở trên → tầng giữa → tầng vàng ở đáy**.
 
-- Màu chuẩn của scene/palette đã là U trắng, D vàng. Điểm khác là bài 2–4 đang lắp đáy D trước; Bài 5 hiện xử lý U. Chuyển thứ tự lắp sẽ thay mục tiêu và khung hướng của guide, không chỉ đổi màu.
-- Các công thức vẫn đúng về nguyên lý, nhưng ký hiệu, vị trí chuẩn bị, tâm/khối phát sáng, điều kiện hoàn thành, mẫu xáo và bài giảng cần được quy đổi theo một phép xoay 3D hợp lệ. Không chỉ thay riêng U bằng D vì các mặt bên phải khớp cùng khung hướng. Hướng mới có thể dùng nguyên văn L gốc đặt đích ở đáy; công thức đối cũng cần bản tương đương cho đáy.
-- `scanGuide.ts` hiện hướng người học cầm D (vàng) ở trên, dù face IDs chuẩn vẫn U trắng/D vàng. Đổi cách cầm sang trắng trên cần cập nhật các Hold, chỉ dẫn, vị trí trái/phải trong net, camera/display rotations và test cả 6 mặt. Phân loại màu theo tâm và dữ liệu chuẩn URFDLB vẫn có thể giữ.
-- Nên có khung hướng dùng chung cho bài học và quét để chuyển công thức/điều kiện/minh hoạ nhất quán. Đây là đánh giá phạm vi, chưa sửa kiến trúc.
+### 17.1 Kiến trúc
+
+- `learn/orientation.ts`: phép quy đổi x2 cho trạng thái/công thức của phương pháp cũ, bao gồm đổi vị trí và nhãn màu để SOLVED vẫn là SOLVED; scene không bị lật/repaint. Có kiểm tra đảo ngược và tính nhất quán trạng thái/nước xoay trên 100 khối.
+- `learn/goals.ts`: điều kiện và danh sách mảnh vật lý riêng cho lộ trình học. Cross/góc đầu kiểm U; tầng cuối kiểm D. Không thay các predicate nội bộ của solver cũ vốn dùng D trước.
+- `learn/engine/solveLearning.ts`: tái sử dụng `solveBeginner3` trong khung quy đổi, trả lại nước cố định đúng với scene. Nhánh giải cơ bản 3×3 (`solveRubik`) và gợi ý luyện tập cũ dùng wrapper này để khớp lộ trình/checkpoint. Giải nhanh và giảm bậc 4×4/5×5 giữ thuật toán hiện có.
+- Guide bài 2/3 làm việc trực tiếp với các cạnh/góc U, căn tầng tự do D, mô phỏng lại từng nước (kể cả M/E/S). Guide bài 4 dùng biến thể công thức quy đổi, lấy cạnh từ tầng dưới và bảo vệ tầng trắng phía trên. Bài 5 dùng D và nguyên bản L của chủ dự án.
+- Toàn bộ mẫu luyện, hình trước/sau, kiểm tra điều kiện, tiến độ, copy roadmap và bài giảng cập nhật theo hướng mới. Stage IDs vẫn giữ nguyên; `topCross`/`topFace`/`topCorners`/`topEdges` nay có mục tiêu ở D.
+- Tiến độ mới lưu ở `rubik.learn.progress.white-top-v2`. Giữ bản ghi cũ `rubik.learn.progress`, không tự chuyển huy hiệu cũ sang mục tiêu mới.
+
+### 17.2 Quét
+
+- `scanGuide.ts`: giữ U (trắng) trên khi quét vòng bên, thứ tự **F → L → B → R → U → D** (xanh lá → cam → xanh dương → đỏ → trắng → vàng theo màu chuẩn).
+- Bốn mặt bên hold.top=U; khi chụp U thì L ở phía trên ảnh, khi chụp D thì R ở phía trên ảnh. Chỉ dẫn, số mặt cho khối chẵn, sơ đồ net và phép quy đổi camera dùng cùng các Hold này.
+- Dữ liệu đầu ra vẫn chuẩn URFDLB, mô hình màu theo tâm và thuật toán nhận diện được giữ nguyên. Các kích thước 2/3/4/5 dùng chung hướng quét; test render độc lập các pixel theo tọa độ 3D và round-trip đủ 6 mặt cho cả 4 kích thước.
+
+### 17.3 Kiểm tra và bàn giao
+
+- Mô phỏng hàng trăm khối cho từng guide; kiểm tra giữ phần đã lắp, nước nửa vòng, sự nhất quán giữa trạng thái vật lý và event của app, màu/ô phát sáng, precondition và sample.
+- Test nối bài 2 → 3 → 4 → 5 trên 30 khối ngẫu nhiên; test solver cơ bản/checkpoint theo thứ tự mới trên 100 khối. Test tiến độ cũ không bị ghi đè.
+- Chủ dự án sẽ kiểm tra trực tiếp: tải lại trang, thử ba mức ở bài 2–5, Gợi ý + xoay sai + Hoàn tác, cả hai phương pháp Bài 5, rồi quét đủ 6 mặt của một khối thật. Chưa thử trình duyệt/thiết bị thật trong phiên này.
+
+- Nghiệm thu tự động sau chuyển đổi: `pnpm typecheck`, `pnpm test` (**38 files, 263 passed / 1 skipped**), `pnpm build`, `git diff --check` đều đạt. Build còn cảnh báo OpenCV externalized modules và bundle lớn như trước. Chưa commit/push.
+
+## 18. Chốt Bài 1–5; đổi lộ trình Bài 6–8 theo cách của chủ dự án
+
+- Bài 1–5 đã được chủ dự án chốt. Thứ tự tiếp theo: **Bài 6 đưa 4 cạnh vàng về đúng vị trí → Bài 7 đưa góc vàng về đúng vị trí → Bài 8 lật góc**. Lộ trình học mới dùng `curriculum.ts`, thay thứ tự cũ trên roadmap. Bộ giải tự động giữ thứ tự nội bộ cũ; bài giảng 7–8 chờ công thức của chủ dự án.
+- Chủ dự án xác nhận phương pháp lật góc của mình không làm xáo phần đã giải. Không mặc định dùng phương pháp lật góc cũ hoặc đưa cảnh báo xáo tầng vào bài mới. Chờ công thức cụ thể Bài 7–8 để mô phỏng và thiết kế hướng dẫn đúng phương pháp được cung cấp.
+
+### 18.1 Công thức Bài 6 và mẹo chọn mặt (đã kiểm chứng mô phỏng)
+
+- Log `rubik-formula-v2`: `R′ D′ D′ R D R′ D R`, rút gọn **R′ D2 R D R′ D R**. Giữ cạnh DF, chuyển **DR → DL → DB → DR**. Bản đối xứng **L D2 L′ D′ L D′ L′** giữ DF, chuyển **DL → DR → DB → DL**. Cả hai giữ hai tầng trên và dấu cộng vàng khi hoàn thành công thức; các góc tầng cuối chưa phải mục tiêu của bước này.
+- Chỉ so màu bên hông cạnh với tâm, không đếm màu vàng hướng xuống (4 cạnh đã vàng từ Bài 5). Thử các hướng D: nếu có 4 cạnh khớp thì xong; nếu có đúng 1 cạnh khớp thì chọn cạnh đó làm mốc F cho công thức.
+- Với mốc F đã chọn, nhìn cạnh R: màu bên hông của nó cần về tâm L thì dùng bản bắt đầu R′; cần về tâm B thì dùng bản bắt đầu L. Hai bản là hai chiều của cùng vòng hoán đổi cạnh, không khẳng định là phép nghịch đảo của nhau trên toàn bộ khối.
+- Nếu đang có 2 cạnh đúng kề nhau, xoay D để còn đúng 1 cạnh rồi áp dụng mẹo trên. Nếu thử cả 4 hướng D vẫn không có đúng 1 hoặc 4 cạnh khớp (trường hợp hai cạnh đúng đối diện), làm 1 lượt chuẩn bị với một mốc F bất kỳ, rồi căn D tìm 1 cạnh đúng và giải bằng lượt tiếp theo. Không cần xoay công thức dò nhiều lần.
+- Tối đa **2 lượt công thức**, ngoài các nước căn D và chọn mặt mốc. Mốc F của công thức có thể khác mặt xanh lá cố định của scene: khi triển khai phải quy đổi nước sang mặt vật lý và hiển thị mốc rõ ràng, giữ trắng U/vàng D.
+- `guide/lastEdgesFormula.test.ts`: kiểm tra chiều vòng cạnh, khớp trạng thái cuối log, bảo toàn tầng trên/dấu cộng; duyệt đủ 24 hoán vị cạnh hợp lệ để xác nhận mẹo chọn mốc và giới hạn 2 lượt. UI và guide Bài 6 đã triển khai theo mục 18.2.
+
+
+### 18.2 Bài 6 — Đã triển khai, chờ chủ dự án kiểm tra trực tiếp
+
+- `guide/lastEdgesGuide.ts`: mỗi gợi ý là một lượt chuẩn bị/giải hoặc chỉ căn D. Tự tìm mặt mốc trong F/R/B/L, chọn chiều công thức bằng mô phỏng; trả về nước xoay theo mặt cố định của scene, không xoay cả khối. Giải đủ 24 hoán vị cạnh trong tối đa hai lượt công thức.
+- `copy/lesson6.ts`: 5 phần theo góp ý mới: (1) minh hoạ một lượt đổi cạnh; (2) khái niệm cạnh–tâm trên một mặt Rubik; (3) giữ F, hai chiều đi vòng của R/L/B; (4) hai công thức cùng ví dụ trước/sau cụ thể; (5) các trường hợp, chọn mốc/chiều và thực hành. Chưa giới thiệu công thức ở phần 1–3. Catalog khối hợp lệ được tạo từ công thức và D; ba mức: một cạnh đúng, hai cạnh đúng kề nhau, hai cạnh đúng đối diện. Chọn lại mức luôn đổi sang trạng thái khác.
+- `ui/LastEdgesLessonView.tsx`, `LastEdgesDiagram.tsx`, `LastEdgeFace.tsx`, `LastEdgesFormulaExample.tsx`: ảnh mở đầu giữ khối trước, phát sáng ba cạnh R/L/B và lấy ảnh sau từ đúng một lượt công thức (chưa hoàn thành khối). Các sơ đồ dùng mặt Rubik 3×3 với hai hàng trên cùng màu tâm, hai góc dưới xám, cạnh giữa hàng cuối lớn hơn và phát sáng. Phần 3 có mũi tên hai chiều đổi vòng và khung F giữ lại; phần 4 so ba mặt R/L/B trước/sau từng công thức. Thực hành theo khối thật, chỉ rõ F mốc và công thức đã quy đổi, phát sáng cạnh theo dõi và lớp xoay, đếm nước/gợi ý, nhận diện D2 từng nửa và Hoàn tác.
+- `curriculum.ts` tách thứ tự bài học khỏi các stage nội bộ của bộ giải tự động. Roadmap hiển thị Bài 6 cạnh → Bài 7 vị trí góc → Bài 8 lật góc; Bài 6 mở bài riêng. Bài 7–8 hiển thị mục tiêu mới và thông báo đang chuẩn bị, không mở lại công thức cũ khác phương pháp đã thống nhất.
+- Các điều kiện hoàn thành mới trên roadmap: Bài 6 kiểm cạnh đúng nhưng không yêu cầu góc; Bài 7 thêm vị trí góc, chưa yêu cầu hướng; Bài 8 toàn khối hoàn tất. Mục tiêu và thứ tự solver độc lập vẫn được giữ.
+- Kiểm tra tự động: đủ 24 hoán vị cạnh, cả bốn mặt mốc và hai chiều, tái hiện từng nước trên mô hình vật lý, D2 hai nửa, nước sai/Hoàn tác, 300 khối luyện ba mức, chuỗi Bài 2–6 trên 30 khối ngẫu nhiên. Chưa kiểm tra thao tác trực tiếp trên thiết bị thật.
+
+- Nghiệm thu tự động Bài 6: `pnpm typecheck`, `pnpm test` (**40 files, 269 passed / 1 skipped**), `pnpm build`, `git diff --check` đạt. Các huy hiệu hoàn thành tầng cuối của lộ trình cũ không được dùng để đánh dấu nhầm mục tiêu mới trên roadmap; không xoá dữ liệu đã lưu. Chưa commit/push.
+
+- Kiểm tra lần chỉnh minh hoạ/nội dung 5 phần: typecheck, build và 6 test công thức/guide đạt. Test xác nhận ảnh sau xuất phát từ đúng ảnh trước bằng công thức, ba cạnh đổi chỗ và F giữ lại; ảnh mở đầu chưa hoàn thành cạnh, hai ví dụ công thức hoàn thành cạnh nhưng còn góc chưa xong.
+
+- Làm rõ case hai cạnh đúng kề nhau ở phần 5: hình ban đầu → chọn một trong hai cách căn D → hình sau căn D với đúng một cạnh khớp làm F mốc → chọn chiều R′/L. `LastEdgesAdjacentCase.tsx` hiển thị mặt mốc, các mặt phải/trái/sau theo mốc, công thức mẫu và chuỗi quy đổi cố định. Không mặc định F mốc là xanh lá; 1 lượt công thức không tính nước căn D. Các lựa chọn đều lấy từ `lastEdgesCycleOptions`, dùng chung với guide và được mô phỏng tới trạng thái cạnh khớp hoàn toàn. Gợi ý từng nước cũng nói rõ mặt mốc phải được chọn sau bước căn. Kiểm tra lần này: typecheck, build và 12 test (guide/công thức/nối Bài 2–6) đạt; duyệt đủ bốn hoán vị có hai cạnh đúng kề nhau, kiểm cả hai cách căn/mốc/chiều.
+
+
+### 18.3 Bài 6 — Phương án mới nhất: chỉ xét thứ tự cạnh, bỏ màu tâm
+
+Phần này thay cách nhận diện theo cạnh khớp tâm ở 18.1–18.2. Công thức gốc và chiều hoán đổi không đổi.
+
+- Bài còn **4 phần**: giữ phần mở đầu → nguyên tắc đi vòng → hai công thức → tổ hợp thứ tự và thực hành. Bỏ phần nhận diện cạnh–tâm riêng.
+- Trừ ảnh 3D mở đầu đã được duyệt, các hình Rubik đều xám ở tâm và các khối không theo dõi. Phần nguyên tắc/công thức và tổ hợp đều giữ màu cả bốn ô cạnh giữa hàng dưới của bốn mặt F/R/B/L; mọi ô khác xám, không dùng dấu ✓ so với tâm. Ảnh trước/sau công thức luôn hiển thị đủ bốn cạnh có màu.
+- Đọc vòng F → R → B → L. Thứ tự chuẩn theo màu chuẩn: xanh lá → đỏ → xanh dương → cam, xoay vòng vẫn tính cùng thứ tự. Gom 24 hoán vị theo phép căn D thành **6 tổ hợp**: 1 đã đúng thứ tự (0 công thức), 4 tổ hợp có 2 lựa chọn cạnh mốc (1 công thức), 1 tổ hợp cần lượt chuẩn bị rồi chọn lại mốc (2 công thức).
+- `guide/lastEdgesOrder.ts` mô phỏng trực tiếp theo thứ tự vòng, không yêu cầu căn D để có cạnh khớp tâm trước. Chỉ căn D cuối cùng sau khi thứ tự đã đúng. Các lựa chọn mốc/chiều đều được kiểm chứng bằng mô phỏng; bất kỳ mốc chuẩn bị được hiển thị nào cũng đưa về tổ hợp một lượt.
+- `LastEdgesOrderCases.tsx`: liệt kê sáu chuỗi màu; chọn tổ hợp để xem hình. Người học chọn cạnh giữ lại làm F mốc; công thức mẫu, chuỗi theo vị trí cố định và ảnh kết quả đổi theo lựa chọn. Với tổ hợp hai lượt, cho chọn mốc chuẩn bị rồi tiếp tục chọn mốc lượt cuối.
+- Thực hành cũng dùng guide theo thứ tự, có nút chọn cạnh mốc trực tiếp trên khối hiện tại, gợi ý đi theo lựa chọn. Ba mức luyện mới: chỉ căn D, một lượt, hai lượt. Cuối cùng vẫn kiểm các cạnh về đúng vị trí thực để sẵn sàng Bài 7.
+- Test mới kiểm đủ sáu tổ hợp, mọi lựa chọn cạnh mốc và 24 hoán vị, D2 từng nửa và tái hiện vật lý từng nước; 120 mẫu luyện theo ba mức mới. Test render SVG xác nhận tâm/các khối khác xám, chỉ bốn cạnh được giữ màu; cả ảnh trước và sau mỗi công thức đều có đủ bốn màu cạnh. Test nối Bài 2–6 dùng guide mới, gồm tối đa hai lượt công thức và nước căn D cuối.
+
+- Nghiệm thu phương án theo thứ tự: `pnpm typecheck`, `pnpm build`, `git diff --check` đạt; toàn bộ **42 file, 276 test đạt / 1 bỏ qua**. Test nối Bài 2–6 chạy lại bằng guide mới đạt. Chưa kiểm tra thao tác trực tiếp trên thiết bị thật; chưa commit/push.
+
+- Đính chính hình phần 2 và 3: giữ màu cả bốn cạnh giữa hàng dưới, không dùng chế độ chỉ tô một cạnh. Đã bỏ tuỳ chọn tô một cạnh khỏi sơ đồ; kiểm tra render xác nhận mỗi ảnh có đúng bốn ô màu và các ô khác xám. Typecheck và 2 test hình minh hoạ đạt.
+
+- Cập nhật hình phần 2–4: giữ thêm **tâm D vàng** làm mốc đáy bên cạnh bốn ô cạnh có màu; các ô còn lại xám. Phần tổ hợp/thực hành có mũi tên đổi theo cả mặt mốc F/R/B/L và chiều R′/L đã chọn; chú thích chỉ rõ từng cạnh màu đi từ vị trí nào sang vị trí nào. Khung cạnh giữ lại không tham gia vòng mũi tên. Kiểm tra 6 test đạt, gồm đối chiếu ba mũi tên với phép hoán đổi thực của cả 8 biến thể công thức. Typecheck đạt.
+
+- Bổ sung mũi tên cho tổ hợp 1: vòng đủ bốn cạnh F → R → B → L → F, chú thích đây là thứ tự chuẩn chứ không phải công thức đổi ba cạnh. Test render cả thẻ tổ hợp 1 xác nhận đủ bốn mũi tên.
+
+- Sửa lại tổ hợp 1: bỏ hoàn toàn mũi tên quay cả bốn cạnh. Thứ tự đã đúng được tách thành hình đối chiếu riêng, không đánh số là tổ hợp cần giải; năm tổ hợp cần đổi cạnh được đánh số 1–5. Tổ hợp 1 mặc định mở lựa chọn mốc/chiều và hiển thị đúng ba mũi tên hoán đổi, cạnh mốc đứng yên. Test render thẻ mặc định kiểm trực tiếp ba mũi tên với trạng thái trước/sau công thức.
+
+- Theo yêu cầu hoàn tác: khôi phục **đủ 6 tổ hợp, nguyên thứ tự/nhãn cũ**, bỏ việc tách thứ tự chuẩn thành mẫu đối chiếu riêng. Tổ hợp 1 vẫn giữ nguyên dữ liệu và trạng thái đã đúng thứ tự; bổ sung hình mũi tên minh hoạ đúng vòng **R → L → B → R, giữ F** (không phải vòng bốn cạnh). Giữ thông tin không cần áp dụng công thức nếu đã có thứ tự này. Test UI kiểm đủ sáu mục và ba mũi tên đúng với phép hoán đổi, cạnh F không tham gia.
+
+
+### 18.4 Chốt cốt lõi Bài 6; bổ sung thực hành theo tổ hợp
+
+- Chủ dự án chốt cốt lõi Bài 6: giữ cấu trúc, đủ sáu tổ hợp và thứ tự/nhãn, công thức và logic minh hoạ; các thay đổi sau chỉ là chi tiết được yêu cầu.
+- Thực hành Bài 6 không chọn mức độ nữa. Nút Thực hành tải khối theo đúng tổ hợp hiện đang chọn trong phần 4. `generateLastEdgesCaseScramble` giữ chính xác bốn cạnh ở F/R/B/L giống ảnh đã chọn, chỉ biến đổi các góc bằng chuỗi hợp lệ để tạo khối mới; không xoay D làm lệch hình tổ hợp. Nút Xáo lại tổ hợp này giữ tổ hợp, đổi trạng thái góc; Đổi tổ hợp trở lại phần minh hoạ.
+- Lựa chọn tổ hợp và mặt mốc ở từng lượt được giữ ở `LastEdgesLessonView`, truyền cho minh hoạ và bản thực hành. Gợi ý dùng đúng mặt mốc đã chọn (kể cả lượt hai của tổ hợp cần chuẩn bị); người học vẫn có thể chọn mốc hợp lệ khác trên khối đang luyện.
+- Tô đậm toàn bộ lời nhắc `LAST_EDGES_FINAL_ALIGNMENT_NOTE`, đổi màu nhấn và thêm nền/viền để nhấn mạnh phải căn D sau khi bốn cạnh đúng thứ tự. Giữ nguyên nội dung câu đã duyệt.
+- Kiểm tra bổ sung 180 lần tải/xáo lại trên đủ sáu tổ hợp: màu cạnh đúng cả bốn vị trí trong ảnh, hai tầng trên và dấu cộng được giữ, không lặp lại nguyên trạng thái trước đó, các lựa chọn mốc/lượt hai từ minh hoạ vẫn hợp lệ và guide dùng đúng chuỗi đã chọn. Test render kiểm tổ hợp và mặt mốc được truyền vào đúng, không thay sáu tổ hợp hay các mũi tên đã chốt.
+
+- Nghiệm thu phần thực hành theo tổ hợp: typecheck, build, diff check đạt; toàn bộ **42 file, 280 test đạt / 1 bỏ qua**. Chưa kiểm tra thao tác trực tiếp trên thiết bị thật.

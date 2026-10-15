@@ -1,10 +1,16 @@
+import { LEARNING_FRAME, learningMoves } from '../orientation'
+import type { Face, Move } from '../../smart-solver/core/types'
 /**
  * The one middle-layer formula and its mirror. Written with U on top and the front face towards the
  * learner; turning the whole thing around the top (F→R→B→L) gives the same formula for the other
  * three sides, so one formula covers all four middle slots.
  */
-export const RIGHT_ALG = ["U", "R", "U'", "R'", "U'", "F'", "U", "F"] as const
-export const LEFT_ALG = ["U'", "L'", "U", "L", "U", "F", "U'", "F'"] as const
+const METHOD_RIGHT_ALG = ["U", "R", "U'", "R'", "U'", "F'", "U", "F"] as const
+const METHOD_LEFT_ALG = ["U'", "L'", "U", "L", "U", "F", "U'", "F'"] as const
+
+// Actual fixed-position formulas preserve the solved upper layer.
+export const RIGHT_ALG = learningMoves(METHOD_RIGHT_ALG)
+export const LEFT_ALG = learningMoves(METHOD_LEFT_ALG)
 
 const AROUND_TOP: Record<string, string> = { F: 'R', R: 'B', B: 'L', L: 'F', U: 'U', D: 'D' }
 
@@ -36,7 +42,7 @@ const LEFT_OF: Record<string, string> = { F: 'L', R: 'F', B: 'R', L: 'B' }
 export const ALG_VARIANTS: readonly AlgVariant[] = [0, 1, 2, 3].flatMap((k) => {
   const front = FRONT_AFTER[k]!
   return [
-    { side: 'right' as const, front, target: RIGHT_OF[front]!, seq: turnAround(RIGHT_ALG, k) },
-    { side: 'left' as const, front, target: LEFT_OF[front]!, seq: turnAround(LEFT_ALG, k) }
-  ]
+    { side: 'right' as const, front, target: RIGHT_OF[front]!, seq: turnAround(METHOD_RIGHT_ALG, k) },
+    { side: 'left' as const, front, target: LEFT_OF[front]!, seq: turnAround(METHOD_LEFT_ALG, k) }
+  ].map((variant) => ({ ...variant, front: LEARNING_FRAME[variant.front as Face], target: LEARNING_FRAME[variant.target as Face], seq: learningMoves(variant.seq as Move[]) }))
 })

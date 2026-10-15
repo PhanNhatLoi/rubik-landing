@@ -1,8 +1,9 @@
+import { parseLearningAlgorithm as parseAlgorithm } from './orientation'
 import { describe, expect, it } from 'vitest'
-import { applyMoves, parseAlgorithm, SOLVED } from '../smart-solver/core/cubie'
+import { applyMoves, SOLVED } from '../smart-solver/core/cubie'
 import { MOVES, type Move } from '../smart-solver/core/types'
 import { format, getMove, getStage } from './copy/copy'
-import { solveBeginner3 } from '../smart-solver/nxn/beginner'
+import { solveLearning3 as solveBeginner3 } from './engine/solveLearning'
 import {
   buildPracticeState,
   checkPrecondition,
@@ -52,7 +53,7 @@ describe('Phase 1: Engine + Copy', () => {
 
     it('returns false for each stage when its goal is specifically broken', () => {
       const brokenStates = [
-        { id: 'cross', state: applyMoves(SOLVED, ['D']) },
+        { id: 'cross', state: applyMoves(SOLVED, ['U']) },
         { id: 'corners', state: applyMoves(SOLVED, parseAlgorithm("R U R' U'")) },
         { id: 'middle', state: applyMoves(SOLVED, parseAlgorithm("U R U' R' U' F' U F")) },
         { id: 'topCross', state: applyMoves(SOLVED, parseAlgorithm("F R U R' U' F'")) },
@@ -91,7 +92,7 @@ describe('Phase 1: Engine + Copy', () => {
 
     it('correctly reports missing precondition when earlier stage is broken', () => {
       // Break cross
-      const brokenCross = applyMoves(SOLVED, ['D'])
+      const brokenCross = applyMoves(SOLVED, ['U'])
       const middleDef = STAGES.find((s) => s.id === 'middle')!
       const pre = checkPrecondition(middleDef, brokenCross)
 

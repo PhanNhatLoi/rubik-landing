@@ -1,11 +1,12 @@
+import { parseLearningAlgorithm as parseAlgorithm } from '../orientation'
 import { FACES, type Face, type Move } from '../../smart-solver/core/types'
-import { applyMoves, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
-import { CROSS, edgeDone } from '../../smart-solver/nxn/beginner'
+import { applyMoves, SOLVED } from '../../smart-solver/core/cubie'
+import { CROSS, edgeDone } from '../goals'
 import type { LessonPage } from '../ui/LessonPlayer'
 
 export type Lesson2Page = LessonPage & { kind: 'crossIntro'; body: string[]; reason: string[] }
 
-/** The picture: all four cross edges are away from the bottom layer, and visible from above. */
+/** The picture: all four cross edges are away from the first (U) layer. */
 export const CROSS_PICTURE_SCRAMBLE = parseAlgorithm('D B2 F2 R2 D F\'')
 
 export type CrossLevelId = 'easy' | 'medium' | 'hard'
@@ -67,8 +68,8 @@ export const LESSON2_PAGES: readonly Lesson2Page[] = [
     title: 'Dấu cộng ở tầng đầu',
     kind: 'crossIntro',
     body: [
-      'Mục tiêu của bài này: đưa 4 cạnh của mặt đáy về đúng chỗ để tạo thành dấu cộng.',
-      'Mỗi cạnh có 2 màu. Một màu thuộc mặt đáy, màu còn lại phải khớp với tâm của mặt bên cạnh nó.'
+      'Mục tiêu của bài này: đưa 4 cạnh của mặt trên về đúng chỗ để tạo thành dấu cộng.',
+      'Mỗi cạnh có 2 màu. Một màu thuộc mặt trên, màu còn lại phải khớp với tâm của mặt bên cạnh nó.'
     ],
     reason: [
       'Dấu cộng là nền móng của tầng đầu tiên: có nó rồi, bạn chỉ cần gắn thêm 4 góc là xong cả tầng.',

@@ -1,6 +1,6 @@
 import { STAGES, type StageId } from '../stages'
 
-const STORAGE_KEY = 'rubik.learn.progress'
+const STORAGE_KEY = 'rubik.learn.progress.white-top-v2'
 
 export interface LearnProgress {
   completed: StageId[]

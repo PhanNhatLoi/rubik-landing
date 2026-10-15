@@ -76,21 +76,21 @@
   "stages": [
     {
       "id": "cross",
-      "title": "Chữ thập mặt đáy",
-      "goal": "Tạo hình chữ thập ở mặt đáy với 4 cạnh khớp màu tâm các mặt bên",
+      "title": "Chữ thập mặt trên",
+      "goal": "Tạo hình chữ thập ở mặt trên với 4 cạnh khớp màu tâm các mặt bên",
       "why": "Đặt nền móng vững chắc cho tầng đầu tiên mà không làm xáo trộn các bước sau",
       "check": [
-        "4 cạnh mặt đáy tạo thành dấu cộng đúng màu",
+        "4 cạnh mặt trên tạo thành dấu cộng đúng màu",
         "Màu còn lại của mỗi cạnh khớp với tâm mặt bên tương ứng"
       ]
     },
     {
       "id": "corners",
-      "title": "Góc mặt đáy",
-      "goal": "Đưa 4 viên góc mặt đáy về đúng vị trí để hoàn thành toàn bộ tầng 1",
-      "why": "Hoàn thành toàn bộ tầng 1 gồm mặt đáy và viền dưới cùng của 4 mặt bên",
+      "title": "Góc mặt trên",
+      "goal": "Đưa 4 viên góc mặt trên về đúng vị trí để hoàn thành toàn bộ tầng 1",
+      "why": "Hoàn thành toàn bộ tầng 1 gồm mặt trên và viền trên cùng của 4 mặt bên",
       "check": [
-        "Mặt đáy hoàn thành đồng màu",
+        "Mặt trên hoàn thành đồng màu",
         "Viền tầng 1 của cả 4 mặt bên khớp màu tâm"
       ]
     },
@@ -100,46 +100,46 @@
       "goal": "Đưa 4 viên cạnh tầng giữa về đúng vị trí",
       "why": "Giải quyết xong 2 tầng đầu tiên mà không làm phá vỡ tầng 1 đã hoàn thành",
       "check": [
-        "Hai tầng dưới hoàn thành hoàn chỉnh",
+        "Hai tầng phía trên hoàn thành hoàn chỉnh",
         "Tầng 1 vẫn giữ nguyên vẹn"
       ]
     },
     {
       "id": "topCross",
-      "title": "Chữ thập mặt trên",
-      "goal": "Tạo hình chữ thập ở mặt trên cùng",
-      "why": "Định hướng các cạnh mặt trên mà không làm ảnh hưởng hai tầng dưới",
+      "title": "Chữ thập mặt đáy",
+      "goal": "Tạo hình chữ thập ở mặt đáy",
+      "why": "Định hướng các cạnh mặt đáy mà không làm ảnh hưởng hai tầng phía trên",
       "check": [
-        "4 cạnh mặt trên hướng đúng màu lên trên",
-        "Hai tầng dưới vẫn giữ nguyên"
+        "4 cạnh mặt đáy hướng đúng màu xuống dưới",
+        "Hai tầng phía trên vẫn giữ nguyên"
       ]
     },
     {
       "id": "topFace",
-      "title": "Hoàn thành mặt trên",
-      "goal": "Xoay đúng hướng cho tất cả các góc mặt trên",
-      "why": "Toàn bộ mặt trên cùng đồng màu mà không làm xáo trộn hai tầng dưới",
+      "title": "Hoàn thành mặt đáy",
+      "goal": "Xoay đúng hướng cho tất cả các góc mặt đáy",
+      "why": "Toàn bộ mặt đáy đồng màu mà không làm xáo trộn hai tầng phía trên",
       "check": [
-        "Mặt trên cùng hoàn toàn đồng màu",
-        "Hai tầng dưới vẫn nguyên vẹn"
+        "Mặt đáy hoàn toàn đồng màu",
+        "Hai tầng phía trên vẫn nguyên vẹn"
       ]
     },
     {
       "id": "topCorners",
-      "title": "Đưa góc trên về đúng vị trí",
-      "goal": "Hoán vị các góc mặt trên về đúng vị trí tương ứng với tâm các mặt bên",
+      "title": "Đưa góc đáy về đúng vị trí",
+      "goal": "Hoán vị các góc mặt đáy về đúng vị trí tương ứng với tâm các mặt bên",
       "why": "Chuẩn bị cho bước cuối cùng — đưa các cạnh về đúng chỗ",
       "check": [
-        "Cả 4 góc mặt trên nằm đúng vị trí giữa các tâm tương ứng"
+        "Cả 4 góc mặt đáy nằm đúng vị trí giữa các tâm tương ứng"
       ]
     },
     {
       "id": "topEdges",
-      "title": "Đưa cạnh trên về đúng vị trí",
-      "goal": "Hoán vị các cạnh mặt trên về đúng vị trí để hoàn thành khối Rubik",
+      "title": "Đưa cạnh đáy về đúng vị trí",
+      "goal": "Hoán vị các cạnh mặt đáy về đúng vị trí để hoàn thành khối Rubik",
       "why": "Khối Rubik được giải hoàn chỉnh 100%!",
       "check": [
-        "Tất cả các cạnh tầng trên khớp đúng vị trí",
+        "Tất cả các cạnh tầng đáy khớp đúng vị trí",
         "Toàn bộ khối Rubik đã được giải xong"
       ]
     }
@@ -262,15 +262,15 @@
     },
     "corners-a": {
       "label": "Mẫu A (Dễ)",
-      "desc": "1 góc mặt đáy cần đưa vào slot"
+      "desc": "1 góc mặt trên cần đưa vào slot"
     },
     "corners-b": {
       "label": "Mẫu B (Vừa)",
-      "desc": "1 góc mặt đáy bên trái cần đưa vào"
+      "desc": "1 góc mặt trên bên trái cần đưa vào"
     },
     "corners-c": {
       "label": "Mẫu C (Đủ bộ)",
-      "desc": "Nhiều góc mặt đáy cần giải quyết"
+      "desc": "Nhiều góc mặt trên cần giải quyết"
     },
     "middle-a": {
       "label": "Mẫu A (Dễ)",
@@ -298,39 +298,39 @@
     },
     "topFace-a": {
       "label": "Mẫu A (Dễ)",
-      "desc": "Mặt trên dạng Sune: 1/4 góc đã đúng hướng"
+      "desc": "Mặt đáy dạng Sune: 1/4 góc đã đúng hướng"
     },
     "topFace-b": {
       "label": "Mẫu B (Vừa)",
-      "desc": "Mặt trên chưa có góc nào đúng hướng (cần lặp công thức)"
+      "desc": "Mặt đáy chưa có góc nào đúng hướng (cần lặp công thức)"
     },
     "topFace-c": {
       "label": "Mẫu C (Đủ bộ)",
-      "desc": "Mặt trên chưa có góc nào đúng hướng, cần nhiều lần công thức"
+      "desc": "Mặt đáy chưa có góc nào đúng hướng, cần nhiều lần công thức"
     },
     "topCorners-a": {
       "label": "Mẫu A (Dễ)",
-      "desc": "Hoán vị 2 góc trên (dạng thuận)"
+      "desc": "Hoán vị 2 góc đáy (dạng thuận)"
     },
     "topCorners-b": {
       "label": "Mẫu B (Vừa)",
-      "desc": "Hoán vị góc trên (dạng nghịch)"
+      "desc": "Hoán vị góc đáy (dạng nghịch)"
     },
     "topCorners-c": {
       "label": "Mẫu C (Đủ bộ)",
-      "desc": "Hoán vị 4 góc trên"
+      "desc": "Hoán vị 4 góc đáy"
     },
     "topEdges-a": {
       "label": "Mẫu A (Dễ)",
-      "desc": "Hoán vị 3 cạnh trên cùng chiều (U-perm)"
+      "desc": "Hoán vị 3 cạnh đáy cùng chiều (U-perm)"
     },
     "topEdges-b": {
       "label": "Mẫu B (Vừa)",
-      "desc": "Hoán vị 3 cạnh trên, cách khác"
+      "desc": "Hoán vị 3 cạnh đáy, cách khác"
     },
     "topEdges-c": {
       "label": "Mẫu C (Đủ bộ)",
-      "desc": "Các cạnh trên xáo trộn nhiều, cần lặp công thức"
+      "desc": "Các cạnh đáy xáo trộn nhiều, cần lặp công thức"
     }
   }
 }

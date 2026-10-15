@@ -10,3 +10,5 @@ export { default as CrossLessonView, type CrossLessonViewProps } from './CrossLe
 export { default as CornerLessonView, type CornerLessonViewProps } from './CornerLessonView'
 export { default as MiddleLessonView, type MiddleLessonViewProps } from './MiddleLessonView'
 export { default as TopCrossLessonView, type TopCrossLessonViewProps } from './TopCrossLessonView'
+
+export { default as LastEdgesLessonView } from './LastEdgesLessonView'

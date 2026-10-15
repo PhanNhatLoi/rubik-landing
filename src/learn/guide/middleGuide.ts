@@ -1,6 +1,6 @@
 import { EDGE_COLORS } from '../../smart-solver/core/facelets'
 import type { CubieState, Face } from '../../smart-solver/core/types'
-import { MIDDLE, edgeDone, firstLayerDone } from '../../smart-solver/nxn/beginner'
+import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import { mergeSteps, type ColorNames, type GuideStep } from './crossGuide'
 import { ALG_VARIANTS, type AlgVariant } from './middleAlgs'
 import { applyNotation, findEdge, fromCubie, toCubie, type Physical } from './physical'
@@ -8,10 +8,10 @@ import { applyNotation, findEdge, fromCubie, toCubie, type Physical } from './ph
 /**
  * Step-by-step guide that puts ONE middle-layer edge in place (the first layer is already done).
  * There is a single formula (and its mirror); what changes is which side plays "front".
- *  - top: the edge is in the top layer (it has no white sticker): turn the top until its front
+ *  - top: the edge is in the bottom layer (it has neither white nor yellow): turn the bottom until its front
  *    sticker sits on the matching center, then run the formula towards the side its top color names;
  *  - wrong: the edge is in the middle layer but in the wrong slot or flipped: run the formula once
- *    on its slot to push it up to the top layer, then as above.
+ *    on its slot to push it up to the bottom layer, then as above.
  */
 export type MiddleCase = 'top' | 'wrong'
 
@@ -30,7 +30,7 @@ export interface MiddleGuide {
 }
 
 const EDGE_NAME: Record<number, string> = { 8: 'FR', 9: 'FL', 10: 'BL', 11: 'BR' }
-const PREFIXES: string[][] = [[], ['U'], ["U'"], ['U2']]
+const PREFIXES: string[][] = [[], ['D'], ["D'"], ['D2']]
 
 const centerCell = (p: Physical, face: Face): number[] => {
   const c = p.find((cb) => {
@@ -63,23 +63,23 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
 
   /** What each move of the formula does, in order (the same for every side and for the mirror). */
   const roleText = (v: AlgVariant, i: number, piece: number, kick: boolean): string => {
-    const sideWord = v.side === 'right' ? 'phải' : 'trái'
-    const otherWord = v.side === 'right' ? 'trái' : 'phải'
+    const sideWord = `mặt ${v.target}`
+    const otherWord = 'đối diện rãnh cần lắp'
     const front = `${v.front} (${names[v.front as Face]})`
     const side = `${v.target} (${names[v.target as Face]})`
     const texts = [
-      `Xoay tầng trên để đưa cạnh sang bên ${otherWord} (nhìn từ mặt trước ${front}), tránh khỏi mặt ${side} sắp xoay.`,
-      `Xoay mặt ${side} để kéo góc của tầng đầu lên và mở rãnh bên ${sideWord} của mặt trước ${front}. Các khối ở mặt này đi theo tạm thời.`,
-      'Xoay tầng trên trở lại: cạnh về phía trước, còn góc vừa nâng lên bị đẩy sang một bên.',
+      `Xoay tầng dưới để đưa cạnh sang phía ${otherWord}, tránh khỏi mặt ${side} sắp xoay.`,
+      `Xoay mặt ${side} để kéo góc của tầng đầu xuống và mở rãnh giữa mặt ${front} và ${side}. Các khối ở mặt này đi theo tạm thời.`,
+      'Xoay tầng dưới trở lại: cạnh về phía mặt mốc, còn góc vừa hạ xuống bị đẩy sang một bên.',
       `Trả mặt ${side} về: góc của tầng đầu được đặt lại ngay cạnh khối cạnh, hai khối đứng cạnh nhau thành một cặp.`,
-      `Xoay tầng trên để đưa cặp này sang bên ${sideWord} (nhìn từ mặt trước ${front}), nhường chỗ cho mặt trước xoay mà không va vào cặp.`,
-      `Xoay mặt trước ${front} để mở chỗ trống bên dưới: các khối tầng đầu của mặt này đi lên tạm thời.`,
-      'Xoay tầng trên đưa cặp về đúng phía trên chỗ trống vừa mở.',
-      `Trả mặt trước ${front} về: cặp trượt xuống cùng lúc, cạnh vào rãnh giữa ${front} và ${side}, góc về lại tầng đầu.`
+      `Xoay tầng dưới để đưa cặp này sang phía ${sideWord}, nhường chỗ cho mặt mốc xoay mà không va vào cặp.`,
+      `Xoay mặt mốc ${front} để mở chỗ trống của tầng giữa: các khối tầng đầu của mặt này đi xuống tạm thời.`,
+      'Xoay tầng dưới đưa cặp về đúng phía dưới chỗ trống vừa mở.',
+      `Trả mặt mốc ${front} về: cặp trượt lên cùng lúc, cạnh vào rãnh giữa ${front} và ${side}, góc về lại tầng đầu.`
     ]
     const base = texts[i]!
     if (kick && i === 0) {
-      return `Cạnh ${pairName(piece)} đang ở tầng giữa nhưng sai chỗ hoặc bị ngược. Dùng chính công thức này ở rãnh đó để đẩy nó lên tầng trên. ${base}`
+      return `Cạnh ${pairName(piece)} đang ở tầng giữa nhưng sai chỗ hoặc bị ngược. Dùng chính công thức này ở rãnh đó để đẩy nó xuống tầng dưới. ${base}`
     }
     return base
   }
@@ -98,7 +98,7 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
   const describe = (c: { v: AlgVariant; prefix: string[] }, piece: number, kick: boolean): GuideStep[] => [
     ...c.prefix.map((m) => ({
       notation: m,
-      why: `Xoay tầng trên cho màu ở mặt trước của cạnh ${pairName(piece)} khớp với tâm mặt đó: cạnh phải đứng ngay trước tâm ${names[c.v.front as Face]}.`
+      why: `Xoay tầng dưới cho màu ở mặt mốc của cạnh ${pairName(piece)} khớp với tâm mặt đó: cạnh phải đứng ngay trước tâm ${names[c.v.front as Face]}.`
     })),
     ...c.v.seq.map((m, i) => ({ notation: m, why: roleText(c.v, i, piece, kick) }))
   ]
@@ -106,11 +106,11 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
   const plans: { kind: MiddleCase; piece: number; steps: GuideStep[] }[] = []
   for (const piece of todo) {
     const ed = edgeAt(start, piece)
-    if (ed.grid.y === 2) {
+    if (ed.grid.y === 0) {
       const hit = find(start, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
       if (hit) plans.push({ kind: 'top', piece, steps: describe(hit, piece, false) })
     } else if (ed.grid.y === 1) {
-      const kick = find(start, (q) => edgeAt(q, piece).grid.y === 2 && safe(q))
+      const kick = find(start, (q) => edgeAt(q, piece).grid.y === 0 && safe(q))
       if (!kick || kick.prefix.length) continue
       const lifted = kick.v.seq.reduce(applyNotation, start)
       const hit = find(lifted, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
@@ -149,11 +149,11 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     piece: best.piece,
     edge: EDGE_NAME[best.piece]!,
     kind: best.kind,
-    title: best.kind === 'top' ? 'Cạnh ở tầng trên' : 'Cạnh sai chỗ ở tầng giữa',
+    title: best.kind === 'top' ? 'Cạnh ở tầng dưới' : 'Cạnh sai chỗ ở tầng giữa',
     intro:
       best.kind === 'top'
-        ? `Chọn cạnh ${name}: nó đang ở tầng trên (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). Mình xoay tầng trên cho khớp màu, rồi dùng công thức trượt nó xuống đúng rãnh.`
-        : `Chọn cạnh ${name}: nó đã ở tầng giữa nhưng sai chỗ hoặc bị ngược. Mình dùng chính công thức để đẩy nó lên tầng trên, rồi lắp lại cho đúng.`,
+        ? `Chọn cạnh ${name}: nó đang ở tầng dưới (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). Mình xoay tầng dưới cho khớp màu, rồi dùng công thức trượt nó lên đúng rãnh.`
+        : `Chọn cạnh ${name}: nó đã ở tầng giữa nhưng sai chỗ hoặc bị ngược. Mình dùng chính công thức để đẩy nó xuống tầng dưới, rồi lắp lại cho đúng.`,
     steps,
     states,
     halves,

@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
-import { D_CORNERS, cornerDone, crossDone } from '../../smart-solver/nxn/beginner'
+import { FIRST_CORNERS, cornerDone, crossDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
-import { bottomCornerCells, cornerCell } from '../cells'
+import { firstCornerCells, cornerCell } from '../cells'
 import { CORNER_LEVELS, CORNER_PICTURE_SCRAMBLE, LESSON3_PAGES, generateCornerScramble, type CornerLevelId } from '../copy/lesson3'
 import { buildCornerGuide, type CornerGuide } from '../guide/cornerGuide'
 import { notationToTurn } from '../guide/physical'
@@ -79,7 +79,7 @@ export default function CornerLessonView({
       if (!guide) break
       after = guide.states[guide.states.length - 1]!
     }
-    const spot = (state: CubieState) => [{ kind: 'centers' as const }, { kind: 'cells' as const, cells: bottomCornerCells(state) }]
+    const spot = (state: CubieState) => [{ kind: 'centers' as const }, { kind: 'cells' as const, cells: firstCornerCells(state) }]
     return {
       before: toFacelets(before),
       after: toFacelets(after),
@@ -94,7 +94,7 @@ export default function CornerLessonView({
   const [message, setMessage] = useState<string | null>(null)
   const [hints, setHints] = useState(0)
 
-  const done = cube ? D_CORNERS.filter((c) => cornerDone(cube, c)).length : 0
+  const done = cube ? FIRST_CORNERS.filter((c) => cornerDone(cube, c)).length : 0
   const solved = cube ? crossDone(cube) && done === 4 : false
 
   const loadLevel = (id: CornerLevelId) => {
@@ -112,7 +112,7 @@ export default function CornerLessonView({
   const askHint = () => {
     if (!cube) return
     if (!crossDone(cube)) {
-      setMessage('Dấu cộng ở mặt đáy đang bị lệch. Hoàn tác nước vừa xoay nhầm, hoặc trả các cạnh ở đáy về chỗ cũ, rồi bấm Gợi ý lại.')
+      setMessage('Dấu cộng ở mặt trên đang bị lệch. Hoàn tác nước vừa xoay nhầm, hoặc trả các cạnh ở trên về chỗ cũ, rồi bấm Gợi ý lại.')
       return
     }
     const guide = buildCornerGuide(cube, colorNames)
@@ -175,7 +175,7 @@ export default function CornerLessonView({
       onMark([plan.guide.centerCells[plan.index]!, plan.guide.pieceCells[plan.index]!])
       return
     }
-    const pieces = D_CORNERS.filter((c) => !cornerDone(cube, c))
+    const pieces = FIRST_CORNERS.filter((c) => !cornerDone(cube, c))
     onMark(pieces.map((c) => cornerCell(cube.cp.indexOf(c))))
   }, [practice, cube, level, plan, onMark])
 
@@ -186,11 +186,11 @@ export default function CornerLessonView({
     >
       <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)' }}>Đang lắp</div>
       <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--rb-text)', marginTop: '2px' }}>
-        Mặt đáy (D) — màu {colorNames.D}
+        Mặt trên (U) — màu {colorNames.U}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Dấu cộng ở mặt đáy đã xong; giờ gắn 4 góc vào mặt này (mặt đối diện mặt {colorNames.U}, không phải mặt trên).
-        {practice && ' Các góc đang phát sáng là những góc cần đưa về mặt đáy; kéo nền để xoay khối và nhìn thấy mặt đáy.'}
+        Dấu cộng ở mặt trên đã xong; giờ gắn 4 góc vào mặt này (mặt đối diện mặt {colorNames.D}, không phải mặt đáy).
+        {practice && ' Các góc đang phát sáng là những góc cần đưa về mặt trên; kéo nền để xoay khối và nhìn thấy mặt trên.'}
       </div>
     </div>
   )
@@ -328,8 +328,8 @@ export default function CornerLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp góc" spotlight={picture.afterSpot} view="below" />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng đầu hoàn chỉnh (nhìn từ đáy)</div>
+                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp góc" spotlight={picture.afterSpot} view="front" />
+                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng đầu hoàn chỉnh (nhìn từ tầng trên)</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>

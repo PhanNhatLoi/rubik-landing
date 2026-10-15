@@ -1,12 +1,12 @@
 import { applyMove } from '../../smart-solver/core/cubie'
 import type { CubieState, Face } from '../../smart-solver/core/types'
-import { CROSS, edgeDone } from '../../smart-solver/nxn/beginner'
+import { CROSS, edgeDone } from '../goals'
 import { applyNotation, findEdge, fromCubie, toCubie, type Physical } from './physical'
 
 /**
  * Step-by-step guide that puts ONE cross edge in place, in the order a learner can follow:
  * pick the edge that is easiest to see, then branch on where it is. Every step says why.
- * The yellow face (D) is the one being built; the cube is assumed to have its centers at home.
+ * The first-layer face (U) is the one being built; the cube is assumed to have its centers at home.
  */
 export type CrossCase = 'direct' | 'top' | 'bottom' | 'middle'
 
@@ -32,18 +32,18 @@ export interface CrossGuide {
   states: CubieState[]
   /** For each step: the cube after turning only a quarter of a half-turn step either way (empty for other steps). */
   halves: CubieState[][]
-  /** Grid cell of the edge before each step, and of the D center (the face being built). */
+  /** Grid cell of the edge before each step, and of the U center (the face being built). */
   pieceCells: number[][]
   centerCells: number[][]
 }
 
 export type ColorNames = Record<Face, string>
 
-const TARGET: Record<number, Face> = { 4: 'R', 5: 'F', 6: 'L', 7: 'B' }
-const EDGE_NAME: Record<number, string> = { 4: 'DR', 5: 'DF', 6: 'DL', 7: 'DB' }
+const TARGET: Record<number, Face> = { 0: 'R', 1: 'F', 2: 'L', 3: 'B' }
+const EDGE_NAME: Record<number, string> = { 0: 'UR', 1: 'UF', 2: 'UL', 3: 'UB' }
 const RANK: Record<CrossCase, number> = { direct: 0, top: 1, bottom: 2, middle: 3 }
 
-const ALL_TURNS = ['U', "U'", 'U2', 'D', "D'", 'D2', 'R', "R'", 'R2', 'L', "L'", 'L2', 'F', "F'", 'F2', 'B', "B'", 'B2'] as const
+const ALL_TURNS = ['D', "D'", 'D2', 'U', "U'", 'U2', 'R', "R'", 'R2', 'L', "L'", 'L2', 'F', "F'", 'F2', 'B', "B'", 'B2'] as const
 
 /** Shortest face-turn sequence (up to 4) that puts `piece` in place and leaves `placed` in place. */
 function shortestSafe(from: CubieState, piece: number, placed: readonly number[]): string[] | null {
@@ -89,15 +89,15 @@ export const inv = (m: string) => (m.endsWith("'") ? m[0]! : m.endsWith('2') ? m
 const run = (p: Physical, seq: readonly string[]) => seq.reduce(applyNotation, p)
 const cellOf = (p: Physical, e: number) => {
   const t = TARGET[e]!
-  const ed = findEdge(p, 'D', t)!
+  const ed = findEdge(p, 'U', t)!
   return [ed.grid.x, ed.grid.y, ed.grid.z]
 }
 const centerCell = (p: Physical) => {
   const c = p.find((cb) => {
     const colors = Object.values(cb.stickers).filter((v) => v != null)
-    return colors.length === 1 && colors[0] === 'D'
+    return colors.length === 1 && colors[0] === 'U'
   })
-  return c ? [c.grid.x, c.grid.y, c.grid.z] : [1, 0, 1]
+  return c ? [c.grid.x, c.grid.y, c.grid.z] : [1, 2, 1]
 }
 
 /** Faces touching an edge cell. */
@@ -134,32 +134,32 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
     return !!s && placed.every((o) => edgeDone(s, o))
   }
 
-  const yellow = names.D
-  const pairName = (piece: number) => `${yellow}–${names[TARGET[piece]!]}`
+  const firstColor = names.U
+  const pairName = (piece: number) => `${firstColor}–${names[TARGET[piece]!]}`
 
-  /** Last part, shared by the cases: the edge is in the top layer; put it into its slot. */
+  /** Last part, shared by the cases: the edge is in the free bottom layer; put it into its slot. */
   const insert = (p: Physical, piece: number): { notation: string; why: string }[] | null => {
     const X = TARGET[piece]!
-    const ed = findEdge(p, 'D', X)!
-    if (ed.grid.y !== 2) return null
+    const ed = findEdge(p, 'U', X)!
+    if (ed.grid.y !== 0) return null
     const cand: { seq: string[]; prefix: number; kind: 'A' | 'B' }[] = []
-    for (const prefix of [[], ['U'], ["U'"], ['U2']]) {
-      for (const s of ['M', "M'", 'S', "S'"]) cand.push({ seq: [...prefix, s, 'D2', inv(s)], prefix: prefix.length, kind: 'A' })
-      for (const d of ['D', "D'"]) for (const s of ['M', "M'", 'S', "S'"]) cand.push({ seq: [...prefix, d, s, inv(d), inv(s)], prefix: prefix.length, kind: 'B' })
+    for (const prefix of [[], ['D'], ["D'"], ['D2']]) {
+      for (const s of ['M', "M'", 'S', "S'"]) cand.push({ seq: [...prefix, s, 'U2', inv(s)], prefix: prefix.length, kind: 'A' })
+      for (const d of ['U', "U'"]) for (const s of ['M', "M'", 'S', "S'"]) cand.push({ seq: [...prefix, d, s, inv(d), inv(s)], prefix: prefix.length, kind: 'B' })
     }
     cand.sort((a, b) => a.seq.length - b.seq.length || a.prefix - b.prefix)
     const hit = cand.find((c) => okAfter(run(p, c.seq), piece))
     const why = (m: string, i: number, kind: 'A' | 'B', prefix: number): string => {
       const pos = i - prefix
-      if (i < prefix) return `Xoay tầng trên để đưa cạnh ${pairName(piece)} về vị trí thích hợp: nó nằm ở phía trên, cạnh mặt tâm ${names[X]} (nơi nó sẽ được lắp xuống).`
+      if (i < prefix) return `Xoay tầng dưới để đưa cạnh ${pairName(piece)} về vị trí thích hợp: nó nằm ở phía dưới, cạnh mặt tâm ${names[X]} (nơi nó sẽ được lắp lên).`
       if (kind === 'A') {
-        if (pos === 0) return `Mặt ${yellow} của cạnh đang hướng lên trên. Xoay lớp giữa (${m}) để kéo cạnh xuống tầng đáy.`
-        if (pos === 1) return `Xoay đáy nửa vòng (D2) để cạnh nằm đúng chỗ dưới tâm ${names[X]}.`
-        return `Trả lớp giữa về chỗ cũ (${m}) để các tâm và phần còn lại không bị xáo trộn; cạnh ở lại đúng vị trí và mặt ${yellow} hướng xuống.`
+        if (pos === 0) return `Mặt ${firstColor} của cạnh đang hướng xuống dưới. Xoay lớp giữa (${m}) để kéo cạnh lên tầng trên.`
+        if (pos === 1) return `Xoay tầng trên nửa vòng (U2) để cạnh nằm đúng chỗ trên tâm ${names[X]}.`
+        return `Trả lớp giữa về chỗ cũ (${m}) để các tâm và phần còn lại không bị xáo trộn; cạnh ở lại đúng vị trí và mặt ${firstColor} hướng lên.`
       }
-      if (pos === 0) return `Xoay tầng đáy (${m}) sang một bên để chừa đường cho cạnh đi xuống mà không va vào các cạnh đã lắp.`
-      if (pos === 1) return `Xoay lớp giữa (${m}) kéo cạnh xuống tầng đáy; việc này cũng lật nó để mặt ${yellow} hướng xuống.`
-      if (pos === 2) return `Trả tầng đáy (${m}) về, các cạnh đã lắp quay lại chỗ của chúng.`
+      if (pos === 0) return `Xoay tầng trên (${m}) sang một bên để chừa đường cho cạnh đi lên mà không va vào các cạnh đã lắp.`
+      if (pos === 1) return `Xoay lớp giữa (${m}) kéo cạnh lên tầng trên; việc này cũng lật nó để mặt ${firstColor} hướng lên.`
+      if (pos === 2) return `Trả tầng trên (${m}) về, các cạnh đã lắp quay lại chỗ của chúng.`
       return `Trả lớp giữa về chỗ cũ (${m}) để các tâm không bị lệch; cạnh ${pairName(piece)} đã vào đúng chỗ.`
     }
     if (hit) {
@@ -175,9 +175,9 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
       notation: m,
       why:
         i === found.length - 1
-          ? `Xoay ${m}: cạnh ${pairName(piece)} vào đúng chỗ, mặt ${yellow} hướng xuống; các cạnh đã lắp vẫn đúng.`
+          ? `Xoay ${m}: cạnh ${pairName(piece)} vào đúng chỗ, mặt ${firstColor} hướng lên; các cạnh đã lắp vẫn đúng.`
           : i === 0
-            ? `Xoay ${m} để mở đường cho cạnh ${pairName(piece)} xuống chỗ của nó mà không làm mất các cạnh đã lắp.`
+            ? `Xoay ${m} để mở đường cho cạnh ${pairName(piece)} lên chỗ của nó mà không làm mất các cạnh đã lắp.`
             : `Xoay ${m} để đưa cạnh ${pairName(piece)} gần chỗ của nó hơn.`
     }))
   }
@@ -185,14 +185,14 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
   const plans: Plan[] = []
   for (const piece of todo) {
     const X = TARGET[piece]!
-    const ed = findEdge(start, 'D', X)!
+    const ed = findEdge(start, 'U', X)!
     const { y } = ed.grid
     const cell = [ed.grid.x, y, ed.grid.z]
-    if (y === 2) {
+    if (y === 0) {
       const steps = insert(start, piece)
       if (steps) plans.push({ kind: 'top', piece, steps })
-    } else if (y === 0) {
-      const Y = facesAt(cell).find((f) => f !== 'D')!
+    } else if (y === 2) {
+      const Y = facesAt(cell).find((f) => f !== 'U')!
       const lifted = run(start, [`${Y}2`])
       const rest = insert(lifted, piece)
       if (rest) {
@@ -200,7 +200,7 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
           kind: 'bottom',
           piece,
           steps: [
-            { notation: `${Y}2`, why: `Cạnh ${pairName(piece)} đang ở tầng đáy nhưng chưa đúng chỗ hoặc bị ngược mặt. Xoay mặt ${Y} nửa vòng để đưa nó lên tầng trên mà không làm xáo các cạnh khác ở đáy, rồi lắp lại cho đúng.` },
+            { notation: `${Y}2`, why: `Cạnh ${pairName(piece)} đang ở tầng trên nhưng chưa đúng chỗ hoặc bị ngược mặt. Xoay mặt ${Y} nửa vòng để đưa nó xuống tầng dưới mà không làm xáo các cạnh khác ở trên, rồi lắp lại cho đúng.` },
             ...rest
           ]
         })
@@ -217,17 +217,17 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
         plans.push({
           kind: 'direct',
           piece,
-          steps: [{ notation: direct, why: `Cạnh ${pairName(piece)} đang ở tầng giữa, đúng cạnh mặt cần lắp: chỉ cần một nước xoay mặt ${direct[0]} là nó rơi thẳng vào chỗ và đúng mặt ${yellow}.` }]
+          steps: [{ notation: direct, why: `Cạnh ${pairName(piece)} đang ở tầng giữa, đúng cạnh mặt cần lắp: chỉ cần một nước xoay mặt ${direct[0]} là nó đi thẳng vào chỗ và đúng mặt ${firstColor}.` }]
         })
       } else {
         let lift: string[] | null = null
         for (const Z of faces) {
           for (const a of [Z, `${Z}'`]) {
-            for (const seq of [[a], [a, 'U', inv(a)], [a, "U'", inv(a)], [a, 'U2', inv(a)]]) {
+            for (const seq of [[a], [a, 'D', inv(a)], [a, "D'", inv(a)], [a, 'D2', inv(a)]]) {
               if (lift) continue
               const q = run(start, seq)
-              const e2 = findEdge(q, 'D', X)
-              if (e2 && e2.grid.y === 2 && placedIntact(q)) lift = seq
+              const e2 = findEdge(q, 'U', X)
+              if (e2 && e2.grid.y === 0 && placedIntact(q)) lift = seq
             }
           }
         }
@@ -244,9 +244,9 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
                   notation: m,
                   why:
                     i === 0
-                      ? `Cạnh ${pairName(piece)} đang ở tầng giữa và không thể xuống thẳng. Trước hết đưa nó lên tầng trên bằng cách xoay mặt ${m[0]}.${protectedLift ? ' Nước này cũng lôi theo một cạnh dấu cộng đã lắp, nên mình sẽ trả lại ngay sau đó.' : ''}`
+                      ? `Cạnh ${pairName(piece)} đang ở tầng giữa và không thể lên thẳng. Trước hết đưa nó xuống tầng dưới bằng cách xoay mặt ${m[0]}.${protectedLift ? ' Nước này cũng lôi theo một cạnh dấu cộng đã lắp, nên mình sẽ trả lại ngay sau đó.' : ''}`
                       : i === 1
-                        ? 'Xoay tầng trên để cạnh vừa lên tránh khỏi mặt đang xoay, để nước trả lại không kéo nó xuống.'
+                        ? 'Xoay tầng dưới để cạnh vừa xuống tránh khỏi mặt đang xoay, để nước trả lại không kéo nó lên.'
                         : 'Trả mặt về chỗ cũ để cạnh dấu cộng đã lắp quay lại đúng vị trí.'
                 })),
                 ...rest
@@ -286,16 +286,16 @@ export function buildCrossGuide(state: CubieState, names: ColorNames): CrossGuid
 
   const intro: Record<CrossCase, string> = {
     direct: `Chọn cạnh ${pairName(plan.piece)}: nó dễ làm nhất vì chỉ cần một nước xoay.`,
-    top: `Chọn cạnh ${pairName(plan.piece)}: nó đang nằm ở tầng trên, dễ thấy nhất. Mình đưa nó về đúng chỗ rồi hạ xuống đáy.`,
-    bottom: `Chọn cạnh ${pairName(plan.piece)}: nó đã ở tầng đáy nhưng chưa đúng chỗ hoặc bị ngược mặt. Đưa lên rồi lắp lại cho đúng.`,
-    middle: `Chọn cạnh ${pairName(plan.piece)}: nó nằm ở tầng giữa và phải qua hai bước: đưa lên tầng trên (giữ nguyên dấu cộng đang có), rồi hạ xuống đúng chỗ.`
+    top: `Chọn cạnh ${pairName(plan.piece)}: nó đang nằm ở tầng dưới, dễ thấy nhất. Mình đưa nó về đúng chỗ rồi đưa lên tầng trên.`,
+    bottom: `Chọn cạnh ${pairName(plan.piece)}: nó đã ở tầng trên nhưng chưa đúng chỗ hoặc bị ngược mặt. Đưa xuống rồi lắp lại cho đúng.`,
+    middle: `Chọn cạnh ${pairName(plan.piece)}: nó nằm ở tầng giữa và phải qua hai bước: đưa xuống tầng dưới (giữ nguyên dấu cộng đang có), rồi đưa lên đúng chỗ.`
   }
   return {
     piece: plan.piece,
     edge: EDGE_NAME[plan.piece]!,
     target: TARGET[plan.piece]!,
     kind: plan.kind,
-    title: { direct: 'Một nước là xong', top: 'Cạnh ở tầng trên', bottom: 'Cạnh sai chỗ ở tầng đáy', middle: 'Cạnh ở tầng giữa' }[plan.kind],
+    title: { direct: 'Một nước là xong', top: 'Cạnh ở tầng dưới', bottom: 'Cạnh sai chỗ ở tầng trên', middle: 'Cạnh ở tầng giữa' }[plan.kind],
     intro: intro[plan.kind],
     steps: plan.steps,
     states,

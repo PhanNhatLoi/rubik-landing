@@ -1,6 +1,7 @@
-import { applyMoves, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
+import { parseLearningAlgorithm as parseAlgorithm } from '../orientation'
+import { applyMoves, parseAlgorithm as parsePhysicalAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
 import type { Move } from '../../smart-solver/core/types'
-import { MIDDLE, edgeDone, firstLayerDone } from '../../smart-solver/nxn/beginner'
+import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import { ALG_VARIANTS } from '../guide/middleAlgs'
 import type { LessonPage } from '../ui/LessonPlayer'
 
@@ -20,7 +21,7 @@ export const MIDDLE_LEVELS: readonly MiddleLevel[] = [
   { id: 'hard', label: 'Khó', desc: 'Lệch cả 4 cạnh' }
 ]
 
-const TOPS = ['', 'U', "U'", 'U2'] as const
+const TOPS = ['', 'D', "D'", 'D2'] as const
 const FALLBACK: Record<MiddleLevelId, Move[]> = {
   easy: parseAlgorithm("U R U' R' U' F' U F"),
   medium: parseAlgorithm("U R U' R' U' F' U F U' L' U L U F U' F'"),
@@ -51,7 +52,7 @@ export function generateMiddleScramble(level: MiddleLevelId, rng: () => number =
       if (t) text.push(t)
       text.push(...pick(ALG_VARIANTS).seq)
     }
-    const moves = parseAlgorithm(text.join(' '))
+    const moves = parsePhysicalAlgorithm(text.join(' '))
     if (middleInPlace(moves) !== wanted) continue
     if (avoid && moves.join(' ') === avoid.join(' ')) continue
     return moves
@@ -67,11 +68,11 @@ export const LESSON4_PAGES: readonly Lesson4Page[] = [
     kind: 'middleIntro',
     body: [
       'Mục tiêu của bài này: đưa 4 cạnh của tầng giữa về đúng chỗ, giữa hai mặt bên.',
-      'Mỗi cạnh tầng giữa có 2 màu khớp với hai tâm của hai mặt bên cạnh nó, và không có màu của mặt đáy hay mặt trên.'
+      'Mỗi cạnh tầng giữa có 2 màu khớp với hai tâm của hai mặt bên cạnh nó, và không có màu của mặt trên hay mặt đáy.'
     ],
     reason: [
-      'Có tầng đầu rồi, tầng giữa làm hai phần ba khối đúng; chỉ còn lại tầng trên.',
-      'Một cạnh nằm ở tầng trên mà không có màu mặt trên thì chắc chắn là cạnh của tầng giữa, nên dễ nhận ra cạnh nào cần lắp.',
+      'Có tầng đầu rồi, tầng giữa làm hai phần ba khối đúng; chỉ còn lại tầng dưới.',
+      'Một cạnh nằm ở tầng dưới mà không có màu mặt đáy thì chắc chắn là cạnh của tầng giữa, nên dễ nhận ra cạnh nào cần lắp.',
       'Chỉ cần một công thức (cùng bản đối xứng của nó) cho cả 4 rãnh, và công thức này giữ nguyên tầng đầu, nên ta không phá những gì đã làm.'
     ]
   }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
-import { f2lDone, topCrossDone } from '../../smart-solver/nxn/beginner'
+import { f2lDone, topCrossDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
 import { edgeCell } from '../cells'
 import { TOP_CROSS_LEVELS, TOP_CROSS_PICTURE_SCRAMBLE, TOP_CROSS_METHODS, getLesson5Pages, topCrossPracticeRoute, generateTopCrossScramble, type TopCrossLevelId } from '../copy/lesson5'
@@ -12,6 +12,7 @@ import { layerTurnToToken } from '../../smart-solver/adapter/nxnModel'
 import { locateOnGuide } from '../guide/follow'
 import LessonPlayer from './LessonPlayer'
 import MiniCube from './MiniCube'
+import TopCrossMethodPreview from './TopCrossMethodPreview'
 
 export interface TopCrossLessonViewProps {
   faceColors: Record<Face, number>
@@ -81,7 +82,7 @@ export default function TopCrossLessonView({
       if (!guide) break
       after = guide.states[guide.states.length - 1]!
     }
-    const spot = () => ({ kind: 'cells' as const, cells: [[1, 2, 1], ...TOP_SLOTS.map(edgeCell)] })
+    const spot = () => ({ kind: 'cells' as const, cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] })
     return {
       before: toFacelets(before),
       after: toFacelets(after),
@@ -101,7 +102,7 @@ export default function TopCrossLessonView({
   const [message, setMessage] = useState<string | null>(null)
   const [hints, setHints] = useState(0)
 
-  const done = cube ? TOP_SLOTS.filter((e) => cube.ep[e]! < 4 && cube.eo[e] === 0).length : 0
+  const done = cube ? TOP_SLOTS.filter((e) => cube.ep[e]! >= 4 && cube.ep[e]! < 8 && cube.eo[e] === 0).length : 0
   const solved = cube ? topCrossDone(cube) : false
 
   const loadLevel = (id: TopCrossLevelId) => {
@@ -132,12 +133,12 @@ export default function TopCrossLessonView({
   const askHint = () => {
     if (!cube || plan || !method) return
     if (!f2lDone(cube)) {
-      setMessage('Hai tầng dưới đang bị lệch. Hoàn tác nước xoay nhầm hoặc chọn lại mức độ để bắt đầu từ khối mẫu, rồi bấm Gợi ý lại.')
+      setMessage('Hai tầng phía trên đang bị lệch. Hoàn tác nước xoay nhầm hoặc chọn lại mức độ để bắt đầu từ khối mẫu, rồi bấm Gợi ý lại.')
       return
     }
     const guide = buildTopCrossGuide(cube, colorNames, method)
     if (!guide) {
-      setMessage('Dấu cộng tầng trên đã xong.')
+      setMessage('Dấu cộng tầng đáy đã xong.')
       return
     }
     setPlan({ guide, index: 0 })
@@ -191,7 +192,7 @@ export default function TopCrossLessonView({
       return
     }
     if (plan) {
-      onMark([[1, 2, 1], edgeCell(cube.ep.indexOf(plan.guide.piece))])
+      onMark([[1, 0, 1], edgeCell(cube.ep.indexOf(plan.guide.piece))])
       return
     }
     onMark(f2lDone(cube) ? TOP_SLOTS.filter((slot) => cube.eo[slot] !== 0).map(edgeCell) : null)
@@ -208,10 +209,10 @@ export default function TopCrossLessonView({
     >
       <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)' }}>Đang lắp</div>
       <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--rb-text)', marginTop: '2px' }}>
-        Mặt trên — dấu cộng quanh tâm {colorNames.U}
+        Mặt đáy — dấu cộng quanh tâm {colorNames.D}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Hai tầng dưới đã xong, mặt đáy {colorNames.D} vẫn ở dưới. Đưa 4 ô cạnh màu {colorNames.U} hướng lên; chưa cần khớp màu cạnh bên hay làm các góc.
+        Hai tầng phía trên đã xong, tầng trắng {colorNames.U} vẫn ở trên. Đưa 4 ô cạnh màu {colorNames.D} hướng xuống; chưa cần khớp màu cạnh bên hay làm các góc.
         {practice && ' Các cạnh phát sáng cần được đổi hướng.'}
       </div>
     </div>
@@ -269,11 +270,11 @@ export default function TopCrossLessonView({
             {level && cube && (
               <>
                 <div role="status" style={{ fontSize: '13px', color: 'var(--rb-text-muted)' }}>
-                  {plan ? `Đang làm lượt: ${plan.guide.title}` : f2lDone(cube) ? `Hình hiện tại: ${PATTERN_LABEL[topCrossPattern(cube)]}` : 'Hãy khôi phục hai tầng dưới trước khi xin gợi ý.'}
+                  {plan ? `Đang làm lượt: ${plan.guide.title}` : f2lDone(cube) ? `Hình hiện tại: ${PATTERN_LABEL[topCrossPattern(cube)]}` : 'Hãy khôi phục hai tầng phía trên trước khi xin gợi ý.'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <div style={{ ...card, textAlign: 'center' }}>
-                    <div className="rb-overline" style={{ fontSize: '10px' }}>Cạnh hướng lên</div>
+                    <div className="rb-overline" style={{ fontSize: '10px' }}>Cạnh hướng xuống</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{done}/4</div>
                   </div>
                   <div style={{ ...card, textAlign: 'center' }}>
@@ -288,7 +289,7 @@ export default function TopCrossLessonView({
 
                 {solved && (
                   <div role="status" className="rb-alert" style={{ fontSize: '13px' }}>
-                    Đã tạo dấu cộng tầng trên! Màu cạnh bên và các góc sẽ học ở bài sau. Chạm lại mức độ để xáo lại ngẫu nhiên, hoặc chọn mức khó hơn.
+                    Đã tạo dấu cộng tầng đáy! Màu cạnh bên và các góc sẽ học ở bài sau. Chạm lại mức độ để xáo lại ngẫu nhiên, hoặc chọn mức khó hơn.
                   </div>
                 )}
 
@@ -350,7 +351,7 @@ export default function TopCrossLessonView({
             {page.id === 'top-cross' && <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi tạo dấu cộng tầng trên" spotlight={picture.beforeSpot} />
+                <MiniCube view="below" facelets={picture.before} faceColors={faceColors} label="Khối trước khi tạo dấu cộng tầng đáy" spotlight={picture.beforeSpot} />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi tạo dấu cộng</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
@@ -361,12 +362,12 @@ export default function TopCrossLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi xoay</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi tạo dấu cộng tầng trên" spotlight={picture.afterSpot} />
+                <MiniCube view="below" facelets={picture.after} faceColors={faceColors} label="Khối sau khi tạo dấu cộng tầng đáy" spotlight={picture.afterSpot} />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã xong</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
-              Phần phát sáng: tâm U và 4 cạnh tầng trên. Chỉ màu hướng lên cần khớp tâm; bỏ qua các góc và màu cạnh bên.
+              Phần phát sáng: tâm D và 4 cạnh tầng đáy. Chỉ màu hướng xuống cần khớp tâm; bỏ qua các góc và màu cạnh bên.
             </div>
 
             </>}
@@ -375,7 +376,7 @@ export default function TopCrossLessonView({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                 {patterns.map((p) => (
                   <div key={p.label} style={{ minWidth: 0, textAlign: 'center' }}>
-                    <MiniCube facelets={p.facelets} faceColors={faceColors} label={`Mẫu ${p.label.toLowerCase()} ở mặt trên`} spotlight={{ kind: 'cells', cells: [[1, 2, 1], ...TOP_SLOTS.map(edgeCell)] }} />
+                    <MiniCube view="below" facelets={p.facelets} faceColors={faceColors} label={`Mẫu ${p.label.toLowerCase()} ở mặt đáy`} spotlight={{ kind: 'cells', cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] }} />
                     <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>{p.label}</div>
                   </div>
                 ))}
@@ -389,16 +390,21 @@ export default function TopCrossLessonView({
             ))}
             {page.id === 'method' && (
               <>
-                <div role="radiogroup" aria-label="Cách học dấu cộng tầng trên" style={{ display: 'grid', gap: '10px' }}>
+                <div role="radiogroup" aria-label="Cách học dấu cộng tầng đáy" style={{ display: 'grid', gap: '10px' }}>
                   {TOP_CROSS_METHODS.map((option) => (
-                    <label key={option.id} style={{ ...card, display: 'flex', gap: '10px', alignItems: 'flex-start', minHeight: '44px', cursor: 'pointer', borderColor: method === option.id ? 'var(--rb-accent-link)' : 'var(--rb-border)' }}>
-                      <input type="radio" name="top-cross-method" value={option.id} checked={method === option.id} onChange={() => chooseMethod(option.id)} style={{ marginTop: '4px', accentColor: 'var(--rb-accent-link)' }} />
+                    <div key={option.id} style={{ ...card, display: 'grid', gap: '10px', borderColor: method === option.id ? 'var(--rb-accent-link)' : 'var(--rb-border)' }}>
+                    <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', minHeight: '44px', cursor: 'pointer' }}>
+                      <input type="radio" name="top-cross-method" value={option.id} checked={method === option.id} onChange={() => chooseMethod(option.id)} aria-controls={`top-cross-preview-${option.id}`} style={{ marginTop: '4px', accentColor: 'var(--rb-accent-link)' }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: 'var(--rb-text)' }}>{option.title}</span>
                         <span style={{ display: 'block', fontSize: '13px', lineHeight: 1.5, color: 'var(--rb-text-muted)', marginTop: '4px' }}>{option.desc}</span>
                         <span style={{ display: 'block', fontSize: '12px', lineHeight: 1.5, color: 'var(--rb-text-subtle)', marginTop: '4px' }}>{option.route}</span>
                       </span>
                     </label>
+                    <div id={`top-cross-preview-${option.id}`} hidden={method !== option.id}>
+                      {method === option.id && <TopCrossMethodPreview method={option.id} bottomColor={faceColors.D} />}
+                    </div>
+                    </div>
                   ))}
                 </div>
                 <div role="status" aria-live="polite" style={{ fontSize: '13px', color: 'var(--rb-accent-link)' }}>

@@ -1,8 +1,9 @@
+import { solveLearning3 as solveBeginner3 } from '../engine/solveLearning'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
-import { CROSS, crossDone, edgeDone, solveBeginner3 } from '../../smart-solver/nxn/beginner'
+import { CROSS, crossDone, edgeDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
 import { crossEdgeCells, edgeCell } from '../cells'
 import { CROSS_LEVELS, CROSS_PICTURE_SCRAMBLE, LESSON2_PAGES, generateCrossScramble, type CrossLevelId } from '../copy/lesson2'
@@ -178,11 +179,11 @@ export default function CrossLessonView({
     >
       <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)' }}>Đang lắp</div>
       <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--rb-text)', marginTop: '2px' }}>
-        Mặt đáy (D) — màu {colorNames.D}
+        Mặt trên (U) — màu {colorNames.U}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Đây là mặt đối diện mặt {colorNames.U}, không phải mặt trên. Đừng lắp dấu cộng ở mặt {colorNames.U}.
-        {practice && ' Các cạnh đang phát sáng là những cạnh cần đưa về mặt đáy; kéo nền để xoay khối và nhìn thấy mặt đáy.'}
+        Đây là mặt đối diện mặt {colorNames.D}, không phải mặt đáy. Đừng lắp dấu cộng ở mặt {colorNames.D}.
+        {practice && ' Các cạnh đang phát sáng là những cạnh cần đưa về mặt trên; kéo nền để xoay khối và nhìn thấy mặt trên.'}
       </div>
     </div>
   )
@@ -320,8 +321,8 @@ export default function CrossLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp dấu cộng" spotlight={picture.afterSpot} view="below" />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã đúng chỗ (nhìn từ đáy)</div>
+                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp dấu cộng" spotlight={picture.afterSpot} view="front" />
+                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã đúng chỗ (nhìn từ tầng trên)</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>

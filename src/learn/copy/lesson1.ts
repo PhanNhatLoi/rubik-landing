@@ -68,7 +68,8 @@ export const LESSON1_PAGES: readonly Lesson1Page[] = [
     spotlight: { kind: 'edges' },
     body: [
       'Các khối đang phát sáng là cạnh. Cạnh nằm giữa hai tâm và có 2 màu, nối hai mặt kề nhau.',
-      'Khi giải, bạn đưa từng cạnh về đúng chỗ bằng cách ghép hai màu của nó với hai tâm bên cạnh.'
+      'Khi giải, bạn đưa từng cạnh về đúng chỗ bằng cách ghép hai màu của nó với hai tâm bên cạnh.',
+      'Trong lộ trình này, giữ mặt trắng ở trên U, vàng ở đáy D và xanh lá ở trước F: lắp tầng trắng trước, rồi tầng giữa, cuối cùng tầng vàng.'
     ],
     facts: [
       { label: 'Số lượng', value: '12' },

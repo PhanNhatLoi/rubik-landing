@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
-import { MIDDLE, edgeDone, firstLayerDone } from '../../smart-solver/nxn/beginner'
+import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
 import { edgeCell, middleEdgeCells } from '../cells'
 import { MIDDLE_LEVELS, MIDDLE_PICTURE_SCRAMBLE, LESSON4_PAGES, generateMiddleScramble, type MiddleLevelId } from '../copy/lesson4'
@@ -112,7 +112,7 @@ export default function MiddleLessonView({
   const askHint = () => {
     if (!cube) return
     if (!firstLayerDone(cube)) {
-      setMessage('Tầng đầu (dấu cộng và 4 góc ở mặt đáy) đang bị lệch. Hoàn tác nước vừa xoay nhầm, hoặc trả các khối ở đáy về chỗ cũ, rồi bấm Gợi ý lại.')
+      setMessage('Tầng đầu (dấu cộng và 4 góc ở mặt trên) đang bị lệch. Hoàn tác nước vừa xoay nhầm, hoặc trả các khối ở trên về chỗ cũ, rồi bấm Gợi ý lại.')
       return
     }
     const guide = buildMiddleGuide(cube, colorNames)
@@ -189,7 +189,7 @@ export default function MiddleLessonView({
         Tầng giữa — 4 cạnh giữa các mặt bên
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Tầng đầu (mặt đáy {colorNames.D}) đã xong. Cạnh của tầng giữa là cạnh không có màu {colorNames.U} hay {colorNames.D}.
+        Tầng đầu (mặt trên {colorNames.U}) đã xong. Cạnh của tầng giữa là cạnh không có màu {colorNames.U} hay {colorNames.D}.
         {practice && ' Các cạnh đang phát sáng là những cạnh cần đưa vào tầng giữa.'}
       </div>
     </div>

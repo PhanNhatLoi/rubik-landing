@@ -1,6 +1,6 @@
 import type { CubieState } from '../smart-solver/core/types'
 import { EDGE_COLORS } from '../smart-solver/core/facelets'
-import { CROSS, D_CORNERS, MIDDLE } from '../smart-solver/nxn/beginner'
+import { CROSS, FIRST_CORNERS, MIDDLE } from './goals'
 
 /** Position of a piece in the 3x3x3 grid: x right, y up, z towards the front; 0..2 each. */
 export type Cell = [number, number, number]
@@ -33,9 +33,9 @@ const CORNER_CELLS: readonly Cell[] = [
 /** Grid cell of a corner slot (URF UFL ULB UBR DFR DLF DBL DRB). */
 export const cornerCell = (slot: number): Cell => CORNER_CELLS[slot] ?? [1, 1, 1]
 
-/** Where the four bottom-layer corner pieces currently are, wherever they sit. */
-export function bottomCornerCells(state: CubieState): Cell[] {
-  return D_CORNERS.map((piece) => cornerCell(state.cp.indexOf(piece)))
+/** Where the four first-layer (U) corner pieces currently are, wherever they sit. */
+export function firstCornerCells(state: CubieState): Cell[] {
+  return FIRST_CORNERS.map((piece) => cornerCell(state.cp.indexOf(piece)))
 }
 
 /** Where the four middle-layer edge pieces currently are, wherever they sit. */

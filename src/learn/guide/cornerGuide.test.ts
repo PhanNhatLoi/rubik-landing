@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { applyMoves, equals, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
 import { layerTurnToEvent, readOrientation } from '../../smart-solver/adapter/stickerModel'
-import { D_CORNERS, cornerDone, crossDone } from '../../smart-solver/nxn/beginner'
-import { bottomCornerCells, cornerCell } from '../cells'
+import { FIRST_CORNERS, cornerDone, crossDone } from '../goals'
+import { firstCornerCells, cornerCell } from '../cells'
 import { buildCornerGuide, type CornerCase } from './cornerGuide'
 import { applyNotation, findCorner, fromCubie, notationToTurn } from './physical'
 import { CORNER_COLORS } from '../../smart-solver/core/facelets'
@@ -21,11 +21,11 @@ function rng(seed: number) {
 describe('corner cells', () => {
   it('slot cells match where the physical cube puts each corner', () => {
     const p = fromCubie(SOLVED)
-    for (const piece of D_CORNERS) {
+    for (const piece of FIRST_CORNERS) {
       const c = findCorner(p, CORNER_COLORS[piece]!)!
       expect([c.grid.x, c.grid.y, c.grid.z]).toEqual(cornerCell(piece))
     }
-    expect(bottomCornerCells(SOLVED).map((c) => c[1])).toEqual([0, 0, 0, 0])
+    expect(firstCornerCells(SOLVED).map((c) => c[1])).toEqual([2, 2, 2, 2])
   })
 })
 
@@ -39,7 +39,7 @@ describe('buildCornerGuide', () => {
       const state = applyMoves(SOLVED, generateCornerScramble(level, r))
       expect(crossDone(state)).toBe(true)
       const guide = buildCornerGuide(state, NAMES)
-      const todo = D_CORNERS.filter((c) => !cornerDone(state, c))
+      const todo = FIRST_CORNERS.filter((c) => !cornerDone(state, c))
       if (!todo.length) {
         expect(guide).toBeNull()
         continue
@@ -47,7 +47,7 @@ describe('buildCornerGuide', () => {
       expect(guide).not.toBeNull()
       guides += 1
       kinds.add(guide!.kind)
-      const placed = D_CORNERS.filter((c) => cornerDone(state, c))
+      const placed = FIRST_CORNERS.filter((c) => cornerDone(state, c))
       let physical = fromCubie(state)
       let tracked = state
       guide!.steps.forEach((step, k) => {

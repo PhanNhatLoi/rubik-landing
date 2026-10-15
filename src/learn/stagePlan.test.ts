@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyMoves, parseAlgorithm, SOLVED } from '../smart-solver/core/cubie'
-import { solveBeginner3 } from '../smart-solver/nxn/beginner'
+import { solveLearning3 as solveBeginner3 } from './engine/solveLearning'
 import { PRACTICE_SAMPLES, checkPrecondition } from './engine/practice'
 import { findStageRange, firstUndoneFrom, groupStageRanges, stageInProgress } from './engine/stagePlan'
 import { STAGES } from './stages'

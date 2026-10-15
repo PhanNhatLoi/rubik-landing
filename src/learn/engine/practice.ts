@@ -1,13 +1,14 @@
-import { applyMoves, equals, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
+import { parseLearningAlgorithm as parseAlgorithm } from '../orientation'
+import { solveLearning3 as solveBeginner3 } from '../engine/solveLearning'
+import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import type { CubieState, Move } from '../../smart-solver/core/types'
 import {
   CROSS,
-  D_CORNERS,
+  FIRST_CORNERS,
   edgeDone,
   cornerDone,
   MIDDLE,
-  solveBeginner3
-} from '../../smart-solver/nxn/beginner'
+} from '../goals'
 import { getSample } from '../copy/copy'
 import { STAGES, type StageDef, type StageId } from '../stages'
 
@@ -60,7 +61,7 @@ export function stageProgress(stage: StageDef, state: CubieState): { done: numbe
       return { done, total: 4 }
     }
     case 'corners': {
-      const done = D_CORNERS.filter((i) => cornerDone(state, i)).length
+      const done = FIRST_CORNERS.filter((i) => cornerDone(state, i)).length
       return { done, total: 4 }
     }
     case 'middle': {
@@ -68,19 +69,19 @@ export function stageProgress(stage: StageDef, state: CubieState): { done: numbe
       return { done, total: 4 }
     }
     case 'topCross': {
-      const done = [0, 1, 2, 3].filter((i) => state.eo[i] === 0).length
+      const done = [4, 5, 6, 7].filter((i) => state.eo[i] === 0).length
       return { done, total: 4 }
     }
     case 'topFace': {
-      const done = [0, 1, 2, 3].filter((i) => state.co[i] === 0).length
+      const done = [4, 5, 6, 7].filter((i) => state.co[i] === 0).length
       return { done, total: 4 }
     }
     case 'topCorners': {
-      const done = [0, 1, 2, 3].filter((i) => cornerDone(state, i)).length
+      const done = [4, 5, 6, 7].filter((i) => cornerDone(state, i)).length
       return { done, total: 4 }
     }
     case 'topEdges': {
-      const done = [0, 1, 2, 3].filter((i) => edgeDone(state, i)).length
+      const done = [4, 5, 6, 7].filter((i) => edgeDone(state, i)).length
       return { done, total: 4 }
     }
     default:

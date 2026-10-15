@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { CubieState } from '../../smart-solver/core/types'
-import { STAGES, type StageDef, type StageId } from '../stages'
-import { format, getStage } from '../copy/copy'
+import type { StageDef, StageId } from '../stages'
+import { CURRICULUM_STAGES as STAGES, getCurriculumStageCopy as getStage } from '../curriculum'
+import { format } from '../copy/copy'
 
 export interface RoadmapViewProps {
   currentStageId?: StageId | null
@@ -14,6 +15,7 @@ export interface RoadmapViewProps {
   /** Stages that have their own lesson: tapping them opens it instead of expanding. */
   lessonStageIds?: StageId[]
   onOpenLesson?: (stage: StageDef) => void
+  pendingStageIds?: StageId[]
   onClose?: () => void
 }
 
@@ -27,6 +29,7 @@ export default function RoadmapView({
   onOpenNotation,
   lessonStageIds,
   onOpenLesson,
+  pendingStageIds,
   onClose
 }: RoadmapViewProps) {
   const [expandedId, setExpandedId] = useState<StageId | null>(currentStageId ?? 'cross')
@@ -96,10 +99,12 @@ export default function RoadmapView({
       {/* Danh sách 7 giai đoạn */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {STAGES.map((stage, idx) => {
+          const pending = pendingStageIds?.includes(stage.id) ?? false
           const hasLesson = lessonStageIds?.includes(stage.id) ?? false
           const isExpanded = !hasLesson && expandedId === stage.id
           const isCurrent = currentStageId === stage.id
-          const isCompleted = (completedStages?.includes(stage.id) ?? false) || (cubeState ? stage.isDone(cubeState) : false)
+          // Saved last-layer badges use the previous lesson order and goals.
+          const isCompleted = (stage.index < 4 && (completedStages?.includes(stage.id) ?? false)) || (cubeState ? stage.isDone(cubeState) : false)
           const isPracticed = practicedStages?.includes(stage.id) ?? false
           const isDone = isCompleted
           const copy = getStage(stage.id)
@@ -254,7 +259,7 @@ export default function RoadmapView({
                   )}
 
                   {/* Nút hành động */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  {pending ? <div role="note" style={{ fontSize: '13px', color: 'var(--rb-text-muted)' }}>Bài học theo phương pháp mới đang được chuẩn bị.</div> : <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="rb-btn rb-btn--primary"
@@ -273,7 +278,7 @@ export default function RoadmapView({
                         {format('practice')}
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </div>
               )}
             </div>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Move } from '../smart-solver/core/types'
 import { applyMoves, isSolved, parseAlgorithm, SOLVED } from '../smart-solver/core/cubie'
 import { guideReducer, INITIAL_GUIDE_STATE, type GuideEvent, type GuideState } from '../smart-solver/guidance/fsm'
-import { solveBeginner3 } from '../smart-solver/nxn/beginner'
+import { solveLearning3 as solveBeginner3 } from './engine/solveLearning'
 import { STAGES } from './stages'
 import {
   RoadmapView,
@@ -51,7 +51,7 @@ describe('Learn Mode: Beginner Flow, Checkpoints, & Practice (Phases 3, 4, 5)', 
 
     it('correctly reports isDone for stages on solved and scrambled cubes', () => {
       expect(STAGES[0]!.isDone(SOLVED)).toBe(true)
-      const brokenCross = applyMoves(SOLVED, parseAlgorithm('D'))
+      const brokenCross = applyMoves(SOLVED, parseAlgorithm('U'))
       expect(STAGES[0]!.isDone(brokenCross)).toBe(false)
     })
   })

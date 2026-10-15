@@ -1,3 +1,4 @@
+import { f2lDone as upperTwoDone, topCrossDone as bottomCrossDone } from '../goals'
 import type { CubieState, Face, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
@@ -37,6 +38,9 @@ const snapshot = (cube: CubieState) => {
   return {
     facelets,
     upEdges: ['UR', 'UF', 'UL', 'UB'].filter((_, i) => facelets[[5, 7, 3, 1][i]!] === 'U'),
+    downEdges: ['DR', 'DF', 'DL', 'DB'].filter((_, i) => facelets[[32, 28, 30, 34][i]!] === 'D'),
+    upperTwoLayersSolved: upperTwoDone(cube),
+    bottomCrossDone: bottomCrossDone(cube),
     lowerTwoLayersSolved: f2lDone(cube),
     topCrossDone: topCrossDone(cube)
   }

@@ -46,17 +46,17 @@ describe('formula recording', () => {
       setup, priorTurns: history.slice(0, prefixLength), start: guide.states[prefixLength]!,
       turns: history.slice(prefixLength), end, colorNames: NAMES
     }))
-    expect(data.algorithm).toBe("L' B' U B L F U' F'")
+    expect(data.algorithm).toBe("L' F' D F L B D' B'")
     expect(data.setupFromSolved).toEqual(setup)
     expect(data.priorFixedTokens).toEqual(history.slice(0, prefixLength).map((t) => t.token))
     expect(data.start.facelets).toBe(toFacelets(guide.states[prefixLength]!))
-    expect(data.start.upEdges).toEqual(['UR', 'UB'])
-    expect(data.start.lowerTwoLayersSolved).toBe(true)
+    expect(data.start.downEdges).toEqual(['DR', 'DF'])
+    expect(data.start.upperTwoLayersSolved).toBe(true)
     expect(data.steps).toHaveLength(8)
     expect(data.steps.map((s: { fixedToken: string }) => s.fixedToken)).toEqual(notation.slice(prefixLength))
     expect(data.end.facelets).toBe(toFacelets(end))
-    expect(data.end.topCrossDone).toBe(true)
-    expect(data.end.lowerTwoLayersSolved).toBe(true)
+    expect(data.end.bottomCrossDone).toBe(true)
+    expect(data.end.upperTwoLayersSolved).toBe(true)
     expect(data.steps.at(-1).after).toEqual(data.end)
   })
 

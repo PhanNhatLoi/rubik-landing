@@ -40,7 +40,7 @@ describe('ScanSession', () => {
     expect(s.push(detection(CENTER.F!), 100).progress).toBeCloseTo(2 / 3)
     const fb = s.push(detection(CENTER.F!), 100)
     expect(fb.captured).toBe('F')
-    expect(s.currentTarget).toBe('R')
+    expect(s.currentTarget).toBe('L')
     expect(s.faces.F?.labs).toHaveLength(9)
   })
 
@@ -61,7 +61,7 @@ describe('ScanSession', () => {
     const fb = s.push(detection(CENTER.F!), 100)
     expect(fb.phase).toBe('duplicate')
     expect(fb.seenFace).toBe('F')
-    expect(fb.target).toBe('R')
+    expect(fb.target).toBe('L')
   })
 
   it('scans all six faces in the guided order, then allows a rescan', () => {
@@ -111,7 +111,7 @@ describe('ScanSession', () => {
     const s = new ScanSession()
     expect(s.pushStill(detection(CENTER.F!, 0, 5), 100).phase).toBe('searching')
     expect(s.pushStill(detection(CENTER.F!), 100).captured).toBe('F')
-    expect(s.currentTarget).toBe('R')
+    expect(s.currentTarget).toBe('L')
     expect(s.pushStill(detection(CENTER.F!), 100).phase).toBe('duplicate')
   })
 

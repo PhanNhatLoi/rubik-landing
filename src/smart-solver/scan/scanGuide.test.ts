@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { faceletsToStickerMap, gridKey } from '../adapter/stickerModel'
 import { MOVES, SOLVED, applyMoves, toFacelets, type Face, type Move } from '../core'
+import { getEngine } from '../nxn/engine'
 import { FACES } from '../core/types'
 import type { StickerKey } from '../../rubikLogic'
 import { SCAN_STEPS, displayRotation, opposite, rotateCells, slotsFor, toStandard, viewRotation, type Hold } from './scanGuide'
@@ -36,12 +37,10 @@ function scramble(seed: number): string {
 const standardFace = (facelets: string, f: Face) => [...facelets.slice(FACES.indexOf(f) * 9, FACES.indexOf(f) * 9 + 9)]
 
 describe('scan geometry', () => {
-  it('lays out the net as described: green front, yellow up', () => {
-    expect(slotsFor({ front: 'F', top: 'D' })).toEqual({ F: 'center', B: 'back', D: 'top', U: 'bottom', R: 'left', L: 'right' })
-    // Next ring step: red comes forward, green moves to the right.
-    expect(slotsFor({ front: 'R', top: 'D' })).toMatchObject({ R: 'center', F: 'right', B: 'left', L: 'back' })
-    // Orange front: green left, blue right.
-    expect(slotsFor({ front: 'L', top: 'D' })).toMatchObject({ L: 'center', F: 'left', B: 'right' })
+  it('lays out the new hold: white up, green front, red right', () => {
+    expect(slotsFor({ front: 'F', top: 'U' })).toEqual({ F: 'center', B: 'back', U: 'top', D: 'bottom', R: 'right', L: 'left' })
+    expect(SCAN_STEPS.map((step) => step.face)).toEqual(['F', 'L', 'B', 'R', 'U', 'D'])
+    expect(slotsFor({ front: 'L', top: 'U' })).toMatchObject({ L: 'center', F: 'right', B: 'left' })
   })
 
   it('viewRotation matches 3D rendering for every face and up direction', () => {
@@ -56,13 +55,32 @@ describe('scan geometry', () => {
 
   it('each step shows what the user sees, and toStandard undoes it', () => {
     const f = scramble(7)
-    // Physical view per step: sides with yellow up; yellow tilted forward (orange below); white flipped (orange above).
-    const views: Record<Face, [Face, Face]> = { F: ['F', 'D'], R: ['R', 'D'], B: ['B', 'D'], L: ['L', 'D'], D: ['D', 'R'], U: ['U', 'L'] }
+    // Physical view per step: sides with white up, then white tilted forward and yellow flipped.
+    const views: Record<Face, [Face, Face]> = { F: ['F', 'U'], R: ['R', 'U'], B: ['B', 'U'], L: ['L', 'U'], D: ['D', 'R'], U: ['U', 'L'] }
     for (const step of SCAN_STEPS) {
       const [front, up] = views[step.face]
       const seen = renderView(f, front, up)
       expect(rotateCells(standardFace(f, step.face), displayRotation(step.face, step.hold)), step.face).toEqual(seen)
       expect(toStandard(step.face, seen)).toEqual(standardFace(f, step.face))
+    }
+  })
+
+  it.each([2, 3, 4, 5])('round-trips all camera holds independently on a %sx%s cube', (n) => {
+    const engine = getEngine(n)
+    // Give every sticker a unique ID, so even an incorrect rotation on a solid face is detectable.
+    const state = engine.applyAll(Uint8Array.from({ length: engine.stickers }, (_, i) => i), ['R', 'U', "F'"])
+    const h = (n - 1) / 2
+    for (const { face, hold } of SCAN_STEPS) {
+      const right = cross(N[hold.top], N[hold.front])
+      const pixels: number[] = []
+      for (let row = 0; row < n; row += 1) for (let col = 0; col < n; col += 1) {
+        const grid = [0, 1, 2].map((axis) => h + N[face][axis]! * h + right[axis]! * (col - h) + N[hold.top][axis]! * (h - row))
+        const index = engine.position.findIndex((pos, i) => pos.every((v, a) => v === grid[a]) && engine.normal[i]!.every((v, a) => v === N[face][a]))
+        expect(index).toBeGreaterThanOrEqual(0)
+        pixels.push(state[index]!)
+      }
+      const first = FACES.indexOf(face) * n * n
+      expect(toStandard(face, pixels)).toEqual(Array.from(state.slice(first, first + n * n)))
     }
   })
 

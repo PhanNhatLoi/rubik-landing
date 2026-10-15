@@ -7,7 +7,7 @@ import {
   firstLayerDone,
   topCrossDone,
   topFaceDone
-} from '../smart-solver/nxn/beginner'
+} from './goals'
 
 export type StageId = 'cross' | 'corners' | 'middle' | 'topCross' | 'topFace' | 'topCorners' | 'topEdges'
 
@@ -15,7 +15,7 @@ export interface StageDef {
   id: StageId
   index: number // 0..6, hiển thị "Giai đoạn index+1/7"
   prerequisite: StageId | null // giai đoạn phải xong trước (null cho 'cross')
-  isDone(state: CubieState): boolean // dùng các hàm *Done của beginner.ts
+  isDone(state: CubieState): boolean // mục tiêu học: U trước, D cuối (goals.ts)
 }
 
 export const STAGES: readonly StageDef[] = [

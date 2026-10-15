@@ -1,3 +1,4 @@
+import { f2lDone as upperTwoDone, topCrossDone as bottomCrossDone } from '../learn/goals'
 import type { CubeController } from '../smart-solver/adapter/types'
 import { fromFacelets } from '../smart-solver/core/facelets'
 import { f2lDone, topCrossDone } from '../smart-solver/nxn/beginner'
@@ -20,6 +21,9 @@ const describe = (state: FormulaSnapshot) => {
   return {
     ...state,
     upEdges: ['UR', 'UF', 'UL', 'UB'].filter((_, i) => state.facelets[[5, 7, 3, 1][i]!] === 'U'),
+    downEdges: ['DR', 'DF', 'DL', 'DB'].filter((_, i) => state.facelets[[32, 28, 30, 34][i]!] === 'D'),
+    upperTwoLayersSolved: parsed.ok ? upperTwoDone(parsed.state) : null,
+    bottomCrossDone: parsed.ok ? bottomCrossDone(parsed.state) : null,
     lowerTwoLayersSolved: parsed.ok ? f2lDone(parsed.state) : null,
     topCrossDone: parsed.ok ? topCrossDone(parsed.state) : null
   }

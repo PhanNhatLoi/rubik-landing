@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyMoves, SOLVED } from '../smart-solver/core/cubie'
-import { CROSS, edgeDone } from '../smart-solver/nxn/beginner'
+import { CROSS, edgeDone } from './goals'
 import { CROSS_LEVELS, CROSS_PICTURE_SCRAMBLE, generateCrossScramble } from './copy/lesson2'
 import { crossEdgeCells, edgeCell } from './cells'
 
@@ -8,13 +8,13 @@ describe('lesson 2', () => {
   it('places edge slots on the grid', () => {
     expect(edgeCell(5)).toEqual([1, 0, 2]) // DF
     expect(edgeCell(8)).toEqual([2, 1, 2]) // FR
-    expect(crossEdgeCells(SOLVED).map((c) => c[1])).toEqual([0, 0, 0, 0])
+    expect(crossEdgeCells(SOLVED).map((c) => c[1])).toEqual([2, 2, 2, 2])
   })
 
-  it('the picture scramble moves every cross edge off the bottom layer', () => {
+  it('the picture scramble moves every cross edge off the first (top) layer', () => {
     const state = applyMoves(SOLVED, CROSS_PICTURE_SCRAMBLE)
     expect(CROSS.some((e) => edgeDone(state, e))).toBe(false)
-    expect(crossEdgeCells(state).every((c) => c[1] !== 0)).toBe(true)
+    expect(crossEdgeCells(state).every((c) => c[1] !== 2)).toBe(true)
   })
 
   const seeded = (seed: number) => () => {
