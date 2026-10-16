@@ -4,7 +4,7 @@ import { EDGE_COLORS, toFacelets } from '../../smart-solver/core/facelets'
 import type { Face } from '../../smart-solver/core/types'
 import { topCrossDone } from '../goals'
 import { lastEdgesDone, type LastEdgesGuide } from '../guide/lastEdgesGuide'
-import { generateLastEdgesCaseScramble, LAST_EDGES_FINAL_ALIGNMENT_NOTE, LAST_EDGES_EXCHANGE_PICTURE, LAST_EDGES_FORMULA_PICTURES, LESSON6_PAGES } from '../copy/lesson6'
+import { generateLastEdgesCaseScramble, LAST_EDGES_FINAL_ALIGNMENT_NOTE, LAST_EDGES_EXCHANGE_PICTURE, LAST_EDGES_FORMULA_PICTURES, LAST_EDGES_ORDER_CASES, LESSON6_PAGES } from '../copy/lesson6'
 import { locateOnGuide } from '../guide/follow'
 import { notationToTurn } from '../guide/physical'
 import { layerTurnToToken } from '../../smart-solver/adapter/nxnModel'
@@ -86,7 +86,7 @@ export default function LastEdgesLessonView({ faceColors, colorNames, cube, move
     onEnter={(page) => { onSpotlight(null); if (page.id !== 'practice') onPracticeChange(false) }}
     onLeave={() => { onSpotlight(null); onMark(null); onHighlightTurn(null); onPracticeChange(false) }}
     onExit={onExit}
-    practiceFor={(page) => page.id === 'practice' ? { active: practice, onToggle: () => { if (!practice) load(); onPracticeChange(!practice) } } : undefined}
+    practiceFor={(page) => page.id === 'practice' && (practice || LAST_EDGES_ORDER_CASES[selectedCase]!.rounds > 0) ? { active: practice, onToggle: () => { if (!practice) load(); onPracticeChange(!practice) } } : undefined}
     renderPage={(page) => <>
       {banner}
       {practice && page.id === 'practice' ? <>

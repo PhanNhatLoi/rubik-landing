@@ -120,7 +120,7 @@ const SHARED_REASON = [
   'Công thức tác động lên nhóm cạnh. Khi hướng dẫn, chỉ tâm D và một cạnh theo dõi phát sáng để bạn dễ nhìn đường đi.'
 ]
 
-/** No method is preselected: formula explanations and practice appear only after an explicit pick. */
+/** The lesson opens with the one-formula method preselected; the learner can switch on the method page. */
 export function getLesson5Pages(method: TopCrossMethod | null): readonly Lesson5Page[] {
   if (!method) return BASE_PAGES
   return [...BASE_PAGES, {

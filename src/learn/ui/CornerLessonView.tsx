@@ -4,7 +4,7 @@ import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
 import { FIRST_CORNERS, cornerDone, crossDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
-import { firstCornerCells, cornerCell } from '../cells'
+import { firstCornerCells, cornerCell, crossEdgeCells } from '../cells'
 import { CORNER_LEVELS, CORNER_PICTURE_SCRAMBLE, LESSON3_PAGES, generateCornerScramble, type CornerLevelId } from '../copy/lesson3'
 import { buildCornerGuide, type CornerGuide } from '../guide/cornerGuide'
 import { notationToTurn } from '../guide/physical'
@@ -80,11 +80,14 @@ export default function CornerLessonView({
       after = guide.states[guide.states.length - 1]!
     }
     const spot = (state: CubieState) => [{ kind: 'centers' as const }, { kind: 'cells' as const, cells: firstCornerCells(state) }]
+    const keep = (state: CubieState) => ({ kind: 'cells' as const, cells: crossEdgeCells(state) })
     return {
       before: toFacelets(before),
       after: toFacelets(after),
       beforeSpot: spot(before),
-      afterSpot: spot(after)
+      afterSpot: spot(after),
+      beforeKeep: keep(before),
+      afterKeep: keep(after)
     }
   }, [])
 
@@ -317,7 +320,7 @@ export default function CornerLessonView({
             {banner}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp góc" spotlight={picture.beforeSpot} />
+                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp góc" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
@@ -328,12 +331,12 @@ export default function CornerLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp góc" spotlight={picture.afterSpot} view="front" />
+                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp góc" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest view="front" />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng đầu hoàn chỉnh (nhìn từ tầng trên)</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
-              Phần phát sáng: 6 tâm (mốc cố định) và 4 khối góc. Các phần còn lại chưa cần đúng.
+              Phần phát sáng: 6 tâm (mốc cố định) và 4 khối góc. Dấu cộng đã làm ở Bài 2 giữ màu, không phát sáng. Các phần còn lại chưa cần đúng.
             </div>
 
             {page.body.map((text, i) => (

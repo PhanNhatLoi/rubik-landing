@@ -4,7 +4,7 @@ import { applyMoves, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
 import { f2lDone, topCrossDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
-import { edgeCell } from '../cells'
+import { edgeCell, crossEdgeCells, firstCornerCells, middleEdgeCells } from '../cells'
 import { TOP_CROSS_LEVELS, TOP_CROSS_PICTURE_SCRAMBLE, TOP_CROSS_METHODS, getLesson5Pages, topCrossPracticeRoute, generateTopCrossScramble, type TopCrossLevelId } from '../copy/lesson5'
 import { buildTopCrossGuide, topCrossPattern, PATTERN_LABEL, TOP_SLOTS, type TopCrossGuide, type TopCrossMethod } from '../guide/topCrossGuide'
 import { notationToTurn } from '../guide/physical'
@@ -70,7 +70,7 @@ export default function TopCrossLessonView({
   onPracticeChange,
   onExit
 }: TopCrossLessonViewProps) {
-  const [method, setMethod] = useState<TopCrossMethod | null>(null)
+  const [method, setMethod] = useState<TopCrossMethod | null>('single')
   const pages = useMemo(() => getLesson5Pages(method), [method])
 
   // Show the very same cube before and after orienting its top edges; corners remain unfinished.
@@ -83,11 +83,14 @@ export default function TopCrossLessonView({
       after = guide.states[guide.states.length - 1]!
     }
     const spot = () => ({ kind: 'cells' as const, cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] })
+    const keep = (state: CubieState) => [{ kind: 'centers' as const }, { kind: 'cells' as const, cells: [...crossEdgeCells(state), ...firstCornerCells(state), ...middleEdgeCells(state)] }]
     return {
       before: toFacelets(before),
       after: toFacelets(after),
       beforeSpot: spot(),
-      afterSpot: spot()
+      afterSpot: spot(),
+      beforeKeep: keep(before),
+      afterKeep: keep(after)
     }
   }, [method])
 
@@ -212,7 +215,7 @@ export default function TopCrossLessonView({
         Mặt đáy — dấu cộng quanh tâm {colorNames.D}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Hai tầng phía trên đã xong, tầng trắng {colorNames.U} vẫn ở trên. Đưa 4 ô cạnh màu {colorNames.D} hướng xuống; chưa cần khớp màu cạnh bên hay làm các góc.
+        Hai tầng phía trên đã xong, tầng {colorNames.U} vẫn ở trên. Đưa 4 ô cạnh màu {colorNames.D} hướng xuống; chưa cần khớp màu cạnh bên hay làm các góc.
         {practice && ' Các cạnh phát sáng cần được đổi hướng.'}
       </div>
     </div>
@@ -351,7 +354,7 @@ export default function TopCrossLessonView({
             {page.id === 'top-cross' && <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube view="below" facelets={picture.before} faceColors={faceColors} label="Khối trước khi tạo dấu cộng tầng đáy" spotlight={picture.beforeSpot} />
+                <MiniCube view="below" facelets={picture.before} faceColors={faceColors} label="Khối trước khi tạo dấu cộng tầng đáy" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi tạo dấu cộng</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
@@ -362,12 +365,12 @@ export default function TopCrossLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi xoay</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube view="below" facelets={picture.after} faceColors={faceColors} label="Khối sau khi tạo dấu cộng tầng đáy" spotlight={picture.afterSpot} />
+                <MiniCube view="below" facelets={picture.after} faceColors={faceColors} label="Khối sau khi tạo dấu cộng tầng đáy" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã xong</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
-              Phần phát sáng: tâm D và 4 cạnh tầng đáy. Chỉ màu hướng xuống cần khớp tâm; bỏ qua các góc và màu cạnh bên.
+              Phần phát sáng: tâm D và 4 cạnh tầng đáy. Chỉ màu hướng xuống cần khớp tâm; bỏ qua các góc và màu cạnh bên. Hai tầng trên đã làm ở Bài 2–4 giữ màu, không phát sáng.
             </div>
 
             </>}
@@ -376,7 +379,7 @@ export default function TopCrossLessonView({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                 {patterns.map((p) => (
                   <div key={p.label} style={{ minWidth: 0, textAlign: 'center' }}>
-                    <MiniCube view="below" facelets={p.facelets} faceColors={faceColors} label={`Mẫu ${p.label.toLowerCase()} ở mặt đáy`} spotlight={{ kind: 'cells', cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] }} />
+                    <MiniCube view="below" facelets={p.facelets} faceColors={faceColors} label={`Mẫu ${p.label.toLowerCase()} ở mặt đáy`} spotlight={{ kind: 'cells', cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] }} grayRest />
                     <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>{p.label}</div>
                   </div>
                 ))}

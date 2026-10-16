@@ -48,6 +48,7 @@ import {
   markStagePracticed,
   type LearnProgress
 } from '../../learn/engine/storage'
+import { CURRICULUM_STAGES } from '../../learn/curriculum'
 import { findStageRange, firstUndoneFrom, groupStageRanges, stageInProgress } from '../../learn/engine/stagePlan'
 import { SOLVED, applyMoves, invertMove, isSolved } from '../core/cubie'
 import { inverseToken } from '../adapter/nxnModel'
@@ -233,6 +234,19 @@ export default function SmartSolverPanel({
     },
     [get3]
   )
+
+  const LESSON_VIEW_STAGE: Record<StageId, LearnScreen> = {
+    cross: 'lesson_cross', corners: 'lesson_corners', middle: 'lesson_middle', topCross: 'lesson_topCross',
+    topEdges: 'lesson_lastEdges', topCorners: 'lesson_lastCorners', topFace: 'lesson_lastFace'
+  }
+  // Finishing a lesson's practice cube (after at least one move) records the lesson as completed.
+  useEffect(() => {
+    if (!learnView?.startsWith('lesson_') || !practiceCube || !practiceHistory.length) return
+    const stage = CURRICULUM_STAGES.find((s) => LESSON_VIEW_STAGE[s.id] === learnView)
+    if (!stage || !stage.isDone(practiceCube) || progressState.completed.includes(stage.id)) return
+    markStageCompleted(stage.id)
+    setProgressState(getLearnProgress())
+  }, [learnView, practiceCube, practiceHistory, progressState])
 
   const guideRef = useRef(guide)
   guideRef.current = guide

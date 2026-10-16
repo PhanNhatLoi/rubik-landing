@@ -310,7 +310,7 @@ export default function CrossLessonView({
             {banner}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp dấu cộng" spotlight={picture.beforeSpot} />
+                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp dấu cộng" spotlight={picture.beforeSpot} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
@@ -321,7 +321,7 @@ export default function CrossLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp dấu cộng" spotlight={picture.afterSpot} view="front" />
+                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp dấu cộng" spotlight={picture.afterSpot} grayRest view="front" />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã đúng chỗ (nhìn từ tầng trên)</div>
               </div>
             </div>

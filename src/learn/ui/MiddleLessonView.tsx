@@ -4,8 +4,8 @@ import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
 import { toFacelets } from '../../smart-solver/core/facelets'
 import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
-import { edgeCell, middleEdgeCells } from '../cells'
-import { MIDDLE_LEVELS, MIDDLE_PICTURE_SCRAMBLE, LESSON4_PAGES, generateMiddleScramble, type MiddleLevelId } from '../copy/lesson4'
+import { edgeCell, middleEdgeCells, crossEdgeCells, firstCornerCells } from '../cells'
+import { MIDDLE_LEVELS, MIDDLE_PICTURE_SCRAMBLE, LESSON4_PAGES, MIDDLE_FORMULAS, generateMiddleScramble, type MiddleLevelId } from '../copy/lesson4'
 import { buildMiddleGuide, type MiddleGuide } from '../guide/middleGuide'
 import { notationToTurn } from '../guide/physical'
 import { layerTurnToToken } from '../../smart-solver/adapter/nxnModel'
@@ -80,11 +80,14 @@ export default function MiddleLessonView({
       after = guide.states[guide.states.length - 1]!
     }
     const spot = (state: CubieState) => [{ kind: 'centers' as const }, { kind: 'cells' as const, cells: middleEdgeCells(state) }]
+    const keep = (state: CubieState) => ({ kind: 'cells' as const, cells: [...crossEdgeCells(state), ...firstCornerCells(state)] })
     return {
       before: toFacelets(before),
       after: toFacelets(after),
       beforeSpot: spot(before),
-      afterSpot: spot(after)
+      afterSpot: spot(after),
+      beforeKeep: keep(before),
+      afterKeep: keep(after)
     }
   }, [])
 
@@ -312,12 +315,63 @@ export default function MiddleLessonView({
               </>
             )}
           </>
+        ) : page.kind === 'middleFormula' ? (
+          <>
+            {page.body.map((text, i) => (
+              <p key={i} style={{ margin: 0, fontSize: '14px', color: 'var(--rb-text)', lineHeight: 1.5 }}>
+                {text}
+              </p>
+            ))}
+            {MIDDLE_FORMULAS.map((f) => {
+              const moving = (state: CubieState) => ({ kind: 'cells' as const, cells: [[1, 1, 2], edgeCell(state.ep.indexOf(f.edgePiece))] })
+              const view = f.target === 'L' ? 'frontLeft' : 'front'
+              return (
+                <div key={f.id} style={card}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--rb-text)' }}>{f.title}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '6px', lineHeight: 1.6 }}>
+                    <strong>Bước 1:</strong> D hoặc D′ (hoặc D2) để cạnh cùng mặt với tâm cùng màu<br />
+                    <strong>Bước 2:</strong> <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-accent-link)', letterSpacing: '0.5px' }}>{f.moves.join(' ').replace(/'/g, '′')}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
+                    <div style={{ flex: 1, minWidth: 0, maxWidth: '170px', textAlign: 'center' }}>
+                      <MiniCube facelets={toFacelets(f.before)} faceColors={faceColors} view={view} label={`Trước khi ${f.title.toLowerCase()}`} spotlight={moving(f.before)} grayRest />
+                      <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước</div>
+                    </div>
+                    <div style={{ flex: 'none', color: 'var(--rb-accent-link)' }}>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <line x1="4" y1="12" x2="20" y2="12" />
+                        <polyline points="14 6 20 12 14 18" />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, maxWidth: '170px', textAlign: 'center' }}>
+                      <MiniCube facelets={toFacelets(f.after)} faceColors={faceColors} view={view} label={`Sau khi ${f.title.toLowerCase()}`} spotlight={moving(f.after)} grayRest />
+                      <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Sau</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center', marginTop: '6px' }}>
+                    Chỉ tâm mặt F (mặt mốc) và cạnh cần lắp có màu. Các khối khác để xám.
+                  </div>
+                </div>
+              )
+            })}
+            <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>
+              Hai công thức viết khi mặt mốc là mặt {colorNames.F} (F). Nếu mặt mốc là mặt khác, giữ nguyên D và đổi tên các mặt còn lại theo vòng F → R → B → L → F (ví dụ mặt mốc là {colorNames.R}: F thành R, L thành F). Gợi ý trong phần Thực hành tự đổi sẵn cho bạn.
+            </div>
+            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+              <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
+              {page.reason.map((text, i) => (
+                <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>
+                  {text}
+                </p>
+              ))}
+            </div>
+          </>
         ) : (
           <>
             {banner}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp tầng giữa" spotlight={picture.beforeSpot} />
+                <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp tầng giữa" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
@@ -328,12 +382,12 @@ export default function MiddleLessonView({
                 <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
-                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp tầng giữa" spotlight={picture.afterSpot} />
+                <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp tầng giữa" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest />
                 <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng giữa đã đúng chỗ</div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
-              Phần phát sáng: 6 tâm (mốc cố định) và 4 cạnh tầng giữa. Các phần còn lại chưa cần đúng.
+              Phần phát sáng: 6 tâm (mốc cố định) và 4 cạnh tầng giữa. Tầng đầu đã làm ở Bài 2–3 giữ màu, không phát sáng. Các phần còn lại chưa cần đúng.
             </div>
 
             {page.body.map((text, i) => (

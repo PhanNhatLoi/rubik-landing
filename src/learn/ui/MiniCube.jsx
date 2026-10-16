@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { applyNotation, fromFacelets54 } from '../guide/physical'
 
 const CORE = 0x0f1116
+const GRAY = 0x64748b
 /** Material order of a box: +x, -x, +y, -y, +z, -z. */
 const KEYS = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
 
@@ -36,13 +37,16 @@ function lit(spotlight, x, y, z) {
  *   faceColors: Record<string, number>,
  *   label: string,
  *   spotlight?: Target | Target[] | null,
- *   view?: 'front' | 'back' | 'below',
+ *   view?: 'front' | 'frontLeft' | 'back' | 'below',
  *   turns?: string[],
+ *   grayRest?: boolean,
+ *   keep?: Target | Target[] | null,
  * }} props
  */
-export default function MiniCube({ facelets, faceColors, label, spotlight = null, view = 'front', turns = [] }) {
+export default function MiniCube({ facelets, faceColors, label, spotlight = null, view = 'front', turns = [], grayRest = false, keep = null }) {
   const canvasRef = useRef(null)
   const spotlightKey = JSON.stringify(spotlight)
+  const keepKey = JSON.stringify(keep)
   const turnsKey = turns.join(' ')
 
   useEffect(() => {
@@ -68,9 +72,10 @@ export default function MiniCube({ facelets, faceColors, label, spotlight = null
       for (let y = 0; y < 3; y += 1) {
         for (let z = 0; z < 3; z += 1) {
           const faces = stickers.get(`${x},${y},${z}`)
+          const muted = grayRest && spotlight && !lit(spotlight, x, y, z) && !(keep && lit(keep, x, y, z))
           const mats = KEYS.map((key) => {
             const face = faces?.[key]
-            const mat = new THREE.MeshStandardMaterial({ color: face ? faceColors[face] : CORE, roughness: 0.35, metalness: 0.1 })
+            const mat = new THREE.MeshStandardMaterial({ color: face ? (muted ? GRAY : faceColors[face]) : CORE, roughness: 0.35, metalness: 0.1 })
             materials.push(mat)
             return mat
           })
@@ -90,6 +95,7 @@ export default function MiniCube({ facelets, faceColors, label, spotlight = null
     }
     // 'front' shows the front, top and right faces like the main cube; 'back' shows back, bottom and left.
     if (view === 'back') group.rotation.set(-0.45, Math.PI - 0.6, 0)
+    else if (view === 'frontLeft') group.rotation.set(0.45, 0.6, 0)
     else if (view === 'below') group.rotation.set(-0.5, -0.6, 0)
     else group.rotation.set(0.45, -0.6, 0)
     scene.add(group)
@@ -110,7 +116,7 @@ export default function MiniCube({ facelets, faceColors, label, spotlight = null
       materials.forEach((m) => m.dispose())
       renderer.dispose()
     }
-  }, [facelets, faceColors, view, spotlightKey, turnsKey])
+  }, [facelets, faceColors, view, spotlightKey, turnsKey, grayRest, keepKey])
 
   return <canvas ref={canvasRef} role="img" aria-label={label} style={{ width: '100%', aspectRatio: '1', display: 'block' }} />
 }

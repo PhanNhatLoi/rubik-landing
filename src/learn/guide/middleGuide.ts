@@ -1,7 +1,7 @@
 import { EDGE_COLORS } from '../../smart-solver/core/facelets'
 import type { CubieState, Face } from '../../smart-solver/core/types'
 import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
-import { mergeSteps, type ColorNames, type GuideStep } from './crossGuide'
+import type { ColorNames, GuideStep } from './crossGuide'
 import { ALG_VARIANTS, type AlgVariant } from './middleAlgs'
 import { applyNotation, findEdge, fromCubie, toCubie, type Physical } from './physical'
 
@@ -103,24 +103,25 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     ...c.v.seq.map((m, i) => ({ notation: m, why: roleText(c.v, i, piece, kick) }))
   ]
 
-  const plans: { kind: MiddleCase; piece: number; steps: GuideStep[] }[] = []
+  const plans: { kind: MiddleCase; piece: number; steps: GuideStep[]; aligned: boolean }[] = []
   for (const piece of todo) {
     const ed = edgeAt(start, piece)
     if (ed.grid.y === 0) {
       const hit = find(start, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
-      if (hit) plans.push({ kind: 'top', piece, steps: describe(hit, piece, false) })
+      if (hit) plans.push({ kind: 'top', piece, steps: describe(hit, piece, false), aligned: hit.prefix.length > 0 })
     } else if (ed.grid.y === 1) {
       const kick = find(start, (q) => edgeAt(q, piece).grid.y === 0 && safe(q))
       if (!kick || kick.prefix.length) continue
       const lifted = kick.v.seq.reduce(applyNotation, start)
       const hit = find(lifted, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
-      if (hit) plans.push({ kind: 'wrong', piece, steps: [...describe(kick, piece, true), ...describe(hit, piece, false)] })
+      if (hit) plans.push({ kind: 'wrong', piece, steps: [...describe(kick, piece, true), ...describe(hit, piece, false)], aligned: hit.prefix.length > 0 })
     }
   }
   if (!plans.length) return null
   plans.sort((a, b) => (a.kind === b.kind ? MIDDLE.indexOf(a.piece) - MIDDLE.indexOf(b.piece) : a.kind === 'top' ? -1 : 1))
   const best = plans[0]!
-  const steps = mergeSteps(best.steps)
+  // The alignment turn (D, D' or D2) stays its own first step; it is never merged into the formula's first turn.
+  const steps = best.steps
 
   const states: CubieState[] = []
   const halves: CubieState[][] = []
@@ -152,7 +153,7 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     title: best.kind === 'top' ? 'Cạnh ở tầng dưới' : 'Cạnh sai chỗ ở tầng giữa',
     intro:
       best.kind === 'top'
-        ? `Chọn cạnh ${name}: nó đang ở tầng dưới (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). Mình xoay tầng dưới cho khớp màu, rồi dùng công thức trượt nó lên đúng rãnh.`
+        ? `Chọn cạnh ${name}: nó đang ở tầng dưới (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). ${best.aligned ? 'Bước 1: xoay tầng dưới (D hoặc D′) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu. Sau đó dùng công thức trượt nó lên đúng rãnh.' : 'Màu bên hông của nó đã nằm cùng mặt với tâm cùng màu, nên dùng ngay công thức trượt nó lên đúng rãnh.'}`
         : `Chọn cạnh ${name}: nó đã ở tầng giữa nhưng sai chỗ hoặc bị ngược. Mình dùng chính công thức để đẩy nó xuống tầng dưới, rồi lắp lại cho đúng.`,
     steps,
     states,

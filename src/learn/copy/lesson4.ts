@@ -1,11 +1,11 @@
 import { parseLearningAlgorithm as parseAlgorithm } from '../orientation'
-import { applyMoves, parseAlgorithm as parsePhysicalAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
+import { applyMoves, invertMoves, parseAlgorithm as parsePhysicalAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
 import type { Move } from '../../smart-solver/core/types'
 import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import { ALG_VARIANTS } from '../guide/middleAlgs'
 import type { LessonPage } from '../ui/LessonPlayer'
 
-export type Lesson4Page = LessonPage & { kind: 'middleIntro'; body: string[]; reason: string[] }
+export type Lesson4Page = LessonPage & { kind: 'middleIntro' | 'middleFormula'; body: string[]; reason: string[] }
 
 export type MiddleLevelId = 'easy' | 'medium' | 'hard'
 
@@ -75,5 +75,46 @@ export const LESSON4_PAGES: readonly Lesson4Page[] = [
       'Một cạnh nằm ở tầng dưới mà không có màu mặt đáy thì chắc chắn là cạnh của tầng giữa, nên dễ nhận ra cạnh nào cần lắp.',
       'Chỉ cần một công thức (cùng bản đối xứng của nó) cho cả 4 rãnh, và công thức này giữ nguyên tầng đầu, nên ta không phá những gì đã làm.'
     ]
+  },
+  {
+    id: 'formula',
+    section: 'Công thức',
+    title: 'Hai công thức trượt cạnh',
+    kind: 'middleFormula',
+    body: [
+      'Mỗi lần chỉ lắp một cạnh. Cạnh đang nằm ở tầng dưới (tầng vàng) sẽ được trượt lên tầng giữa bằng một trong hai công thức dưới đây: sang trái hoặc sang phải.',
+      'Bước 1, luôn làm trước: xoay D (hoặc D′, đôi khi D2) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu. Mặt đó là mặt mốc F của công thức.',
+      'Bước 2: nhìn màu còn lại của cạnh. Nếu nó trùng tâm mặt bên trái của mặt mốc thì dùng công thức trái; trùng tâm bên phải thì dùng công thức phải.'
+    ],
+    reason: [
+      'Công thức gồm hai nhịp: nhịp đầu đưa góc của tầng đầu xuống đứng cạnh khối cạnh thành một cặp, nhịp sau trượt cả cặp lên đúng rãnh. Tầng đầu được trả về nguyên vẹn.',
+      'Hai công thức là bản đối xứng của nhau, nên chỉ cần nhớ một khuôn và đổi bên.'
+    ]
   }
+]
+
+/** The two formulas, written for the green face (F) as the reference face; the other faces use the same turns relabelled. */
+export interface MiddleFormulaCard {
+  id: 'left' | 'right'
+  title: string
+  /** Face the edge slides towards. */
+  target: 'L' | 'R'
+  moves: Move[]
+  /** Pieces that move: the middle edge and the first-layer corner above its slot (grid cells are read from the cubes). */
+  edgePiece: number
+  cornerPiece: number
+  before: ReturnType<typeof applyMoves>
+  after: ReturnType<typeof applyMoves>
+}
+
+const cardOf = (target: 'L' | 'R', title: string, edgePiece: number, cornerPiece: number): MiddleFormulaCard => {
+  const variant = ALG_VARIANTS.find((v) => v.front === 'F' && v.target === target)!
+  const moves = parsePhysicalAlgorithm(variant.seq.join(' '))
+  const before = applyMoves(SOLVED, invertMoves(moves))
+  return { id: target === 'L' ? 'left' : 'right', title, target, moves, edgePiece, cornerPiece, before, after: applyMoves(before, moves) }
+}
+
+export const MIDDLE_FORMULAS: readonly MiddleFormulaCard[] = [
+  cardOf('L', 'Trượt cạnh sang trái (rãnh F–L)', 9, 1),
+  cardOf('R', 'Trượt cạnh sang phải (rãnh F–R)', 8, 0)
 ]

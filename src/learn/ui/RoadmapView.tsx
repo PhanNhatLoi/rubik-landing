@@ -103,8 +103,7 @@ export default function RoadmapView({
           const hasLesson = lessonStageIds?.includes(stage.id) ?? false
           const isExpanded = !hasLesson && expandedId === stage.id
           const isCurrent = currentStageId === stage.id
-          // Saved last-layer badges use the previous lesson order and goals.
-          const isCompleted = (stage.index < 4 && (completedStages?.includes(stage.id) ?? false)) || (cubeState ? stage.isDone(cubeState) : false)
+          const isCompleted = (completedStages?.includes(stage.id) ?? false) || (cubeState ? stage.isDone(cubeState) : false)
           const isPracticed = practicedStages?.includes(stage.id) ?? false
           const isDone = isCompleted
           const copy = getStage(stage.id)
