@@ -1,5 +1,6 @@
-import { allDone, LAST_CORNERS } from './goals'
+import { allDone } from './goals'
 import { lastEdgesDone } from './guide/lastEdgesGuide'
+import { lastCornersPositionDone } from './guide/lastCornersGuide'
 import { getStage, type StageCopy } from './copy/copy'
 import { STAGES, type StageDef, type StageId } from './stages'
 
@@ -7,7 +8,7 @@ import { STAGES, type StageDef, type StageId } from './stages'
 export const CURRICULUM_STAGES: readonly StageDef[] = [
   ...STAGES.slice(0, 4),
   { id: 'topEdges', index: 4, prerequisite: 'topCross', isDone: lastEdgesDone },
-  { id: 'topCorners', index: 5, prerequisite: 'topEdges', isDone: (s) => lastEdgesDone(s) && LAST_CORNERS.every((i) => s.cp[i] === i) },
+  { id: 'topCorners', index: 5, prerequisite: 'topEdges', isDone: lastCornersPositionDone },
   { id: 'topFace', index: 6, prerequisite: 'topCorners', isDone: allDone }
 ]
 const LAST_COPY: Partial<Record<StageId, StageCopy>> = {

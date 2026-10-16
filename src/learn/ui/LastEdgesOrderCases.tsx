@@ -70,9 +70,8 @@ export default function LastEdgesOrderCases({ faceColors, colorNames, selectedCa
       <strong style={{ color: 'var(--rb-text)' }}>Tổ hợp {caseIndex + 1}: đọc theo vòng F → R → B → L</strong>
       <div>{LAST_EDGE_RING.map((slot) => colorNames[EDGE_COLORS[example.state.ep[slot]!]![1]]).join(' → ')}</div>
       {example.rounds === 0 ? <>
-        <LastEdgesDiagram state={example.state} faceColors={faceColors} colorNames={colorNames} anchor="F" direction="right" label="Tổ hợp 1: giữ cạnh F, ba cạnh còn lại đổi vòng R → L → B → R" />
-        <div>Mũi tên minh hoạ nguyên tắc: giữ cạnh F, ba cạnh R → L → B → R đổi vòng. Không có mũi tên di chuyển cạnh F.</div>
-        <div>Thứ tự vòng ở hình này đã đúng. Nếu đang có thứ tự này, chỉ căn D ở cuối; không cần áp dụng công thức đổi cạnh.</div>
+        <LastEdgesDiagram state={example.state} faceColors={faceColors} colorNames={colorNames} label="Tổ hợp 1: bộ màu đúng thứ tự vòng F → R → B → L" />
+        <div>Đây là thứ tự đúng của bốn cạnh, không cần dùng công thức nào. Chỉ căn D ở cuối để các cạnh về đúng vị trí.</div>
       </> : <OrderChoice key={example.id} state={example.state} faceColors={faceColors} colorNames={colorNames} selectedFrames={selectedFrames} onFrameChange={onFrameChange} />}
     </div>
   </div>

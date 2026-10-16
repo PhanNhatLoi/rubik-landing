@@ -512,3 +512,67 @@ Phần này thay cách nhận diện theo cạnh khớp tâm ở 18.1–18.2. C�
 - Kiểm tra bổ sung 180 lần tải/xáo lại trên đủ sáu tổ hợp: màu cạnh đúng cả bốn vị trí trong ảnh, hai tầng trên và dấu cộng được giữ, không lặp lại nguyên trạng thái trước đó, các lựa chọn mốc/lượt hai từ minh hoạ vẫn hợp lệ và guide dùng đúng chuỗi đã chọn. Test render kiểm tổ hợp và mặt mốc được truyền vào đúng, không thay sáu tổ hợp hay các mũi tên đã chốt.
 
 - Nghiệm thu phần thực hành theo tổ hợp: typecheck, build, diff check đạt; toàn bộ **42 file, 280 test đạt / 1 bỏ qua**. Chưa kiểm tra thao tác trực tiếp trên thiết bị thật.
+
+## 19. Bài 7 — Đưa góc tầng cuối về đúng vị trí
+
+Triển khai theo log mới của chủ dự án; giữ cốt lõi Bài 6 đã chốt. Bài 8 vẫn chờ công thức lật góc của chủ dự án.
+
+### 19.1 Công thức và mẹo nhận diện
+
+- Log `rubik-formula-v2`: **R′ L D′ R D L′ D′ R′ D R**. Giữ góc FR (DFR), đổi **FL → BL → BR → FL**; khớp chính xác facelets cuối log. Bản đối xứng: **L R′ D L′ D′ R D L D′ L′**, giữ FL và đổi **FR → BR → BL → FR**.
+- Bốn góc chỉ được xét **vị trí**, không yêu cầu hướng: so tập ba màu của khối với tập màu ba mặt giao nhau. Góc đúng chỗ vẫn có thể có ô vàng quay sang hông.
+- Khi có đúng một góc đúng chỗ: trong hai góc kề nó, đúng một góc có hai màu chung với vị trí đang đứng (vàng + một màu bên). Đưa góc kề vừa tìm đến vị trí đối diện góc mốc; điều này chọn duy nhất chiều giải trong một lượt. “2/3 màu đúng” không được hiểu là hai ô đang hướng đúng mặt.
+- Với các cạnh đã giải và căn D ở cuối Bài 6, hoán vị góc phải chẵn. Có đúng 12 tổ hợp vị trí: 1 tổ hợp đúng cả bốn, 8 tổ hợp có một góc đúng, 3 tổ hợp không có góc đúng; không có riêng hai hay ba góc đúng.
+- Không có góc đúng: chọn bất kỳ một trong tám biến thể giữ góc/phía áp dụng, làm một lượt sẽ có một góc đúng; lượt cuối theo mẹo trên. Tối đa hai lượt, mỗi lượt 10 nước; không thêm bước căn D riêng làm lệch cạnh.
+- B là mặt sau theo F mốc, nối với cả BR và BL. Khi đổi F mốc, tên các mặt trong công thức được quy đổi sang vị trí cố định để không buộc người học xoay cả khối ảo.
+
+### 19.2 Nội dung, hình và thực hành
+
+- Bốn phần: mục tiêu (đúng vị trí khác đúng hướng) → nhận diện góc và mẹo hai màu chung → công thức hai phía/đường đi → ba trường hợp và luyện theo tổ hợp.
+- `guide/lastCornersGuide.ts`: công thức nguyên bản và đối xứng, bốn hướng F mốc, xác định góc mốc/góc kề, guide từng nước từ khối thực và trace vật lý để theo dõi, Hoàn tác và lệch đường.
+- `copy/lesson7.ts`: catalog trạng thái hợp lệ từ chính các công thức, đủ 12 hoán vị góc. Mỗi mẫu luyện giữ đúng bốn khối góc ở vị trí như hình đã chọn, thay đổi hướng các góc để luyện lại khác khối trước; giữ nguyên các cạnh và hai tầng trên.
+- `LastCornersDiagram.tsx`: bốn khối góc hiện đủ ba ô màu thực theo hướng hiện tại, nền phần không cần nhìn xám, tâm D vàng. Ba ô “Cần” dưới mỗi góc là bộ màu vị trí để đối chiếu; ✓ chỉ xét vị trí. Khung nét đứt là góc giữ lại, viền cam là góc kề có 2/3 màu chung; ba mũi tên đúng chiều hoán đổi.
+- `LastCornersCases.tsx`: ba nhóm 4/1/0 góc đúng, chọn tổ hợp trong nhóm và phía áp dụng cho lượt chuẩn bị. Hình kết quả, mốc và công thức đổi theo lựa chọn; trường hợp một góc đúng tự xác định chiều từ mẹo hai màu chung.
+- `LastCornersLessonView.tsx`: thực hành theo tổ hợp và mốc đã chọn, xáo lại cùng bố trí góc, gợi ý từng nước thực, phát sáng góc theo dõi, dừng khi đúng vị trí dù mặt vàng chưa kín. Không yêu cầu lật góc trong Bài 7.
+- `SmartSolverPanel` mở bài riêng từ Bài 7, theo dõi move/undo và ẩn/hiện khối 3D như bài trước. Chỉ Bài 8 còn thông báo đang chuẩn bị. Điều kiện hoàn thành Bài 7 trên roadmap dùng cùng `lastCornersPositionDone`; solver tự động cũ độc lập giữ nguyên.
+
+### 19.3 Kiểm chứng
+
+- Tái hiện đúng log; xác minh cả tám biến thể giữ nguyên cạnh/tầng trên và góc mốc (vị trí lẫn hướng).
+- Đủ 12 hoán vị × 27 hướng góc hợp lệ: mẹo góc kề hai màu chung, một lượt nếu có góc đúng và tối đa hai lượt nếu chưa có góc đúng, kể cả mọi lựa chọn chuẩn bị.
+- Tái hiện từng nước trên mô hình vật lý, nhận diện nước sai và đường quay lại sau Hoàn tác; 120 lần tải/xáo lại đúng tổ hợp góc và giữ điều kiện Bài 6.
+- Kiểm tra render đủ 12 ô màu góc, đánh dấu đúng vị trí độc lập hướng, mũi tên khớp phép hoán vị của tám biến thể, ba nhóm trường hợp và lựa chọn mốc/lượt hai.
+- Kiểm tra nối Bài 2–7 trên 30 khối ngẫu nhiên, giữ các cạnh Bài 6 qua từng lượt Bài 7. Chưa kiểm thử thao tác trực tiếp trên thiết bị thật.
+
+- Nghiệm thu tự động Bài 7: `pnpm typecheck`, `pnpm build`, `git diff --check` đạt; toàn bộ **44 file, 287 test đạt / 1 bỏ qua**. Chưa commit/push.
+
+### 19.4 Trang tham khảo: ưu tiên mẫu và đề xuất
+
+- Mặc định chỉ hiện ba nhóm trường hợp cùng một mẫu đang xem và cách xử lý đề xuất. Không trải danh sách tổ hợp ra ngay trên trang.
+- Danh sách các mẫu còn lại nằm trong **Xem thêm tổ hợp khác**, mặc định đóng. Chọn mẫu sẽ đóng danh sách để trở lại tập trung vào hình và hướng dẫn. Trường hợp bốn góc đúng chỉ có một mẫu nên không có danh sách thừa.
+- Các mốc chuẩn bị khác cũng nằm trong mục mở rộng **Xem các lựa chọn mốc khác**; trước hết hiện một mốc/phía áp dụng đề xuất.
+- Giữ đủ dữ liệu 12 hoán vị và các lựa chọn để người học tham khảo thêm hoặc luyện khi muốn. Công thức, mẹo nhận diện và logic thực hành không đổi. Typecheck, diff check và 3 test minh hoạ đạt.
+
+## 20. Bài 8 — lật góc theo công thức người dùng
+
+Bài 7 đã chốt, giữ nguyên cốt lõi. Bài 8 dùng log `rubik-formula-v2` người dùng cung cấp ngày 16/10/2026, giữ trắng U, vàng D.
+
+- Bản R′: `R' D2 R D R' D R · L D2 L' D' L D' L'`.
+- Bản L: `L D2 L' D' L D' L' · R' D2 R D R' D R`.
+- Một lượt là đủ cả hai nửa. Nửa đầu còn đổi cạnh; hai nửa hoàn tất trả mọi cạnh và vị trí góc về cũ, chỉ xoắn hai góc cùng phía bắt đầu theo hai chiều ngược nhau. Bản R′ tác động FR–BR; bản L tác động FL–BL, theo F mốc.
+- Mẹo: chọn góc có màu ô dưới khác vàng; lấy mặt có tâm trùng màu đó làm F mốc. Góc ở FR dùng R′, ở FL dùng L. Không xoay D riêng để đổi mốc. Sau mỗi lượt chọn lại bằng màu dưới góc.
+- Trong khối ảo, D2 tách thành hai nước D hoặc D′, tổng 16 nước mỗi lượt; đủ nửa đầu vẫn phải tiếp tục nửa đối diện.
+
+### 20.1. Bố cục và minh họa
+
+Bốn phần: mục tiêu; so màu dưới góc với tâm F; công thức hai nửa; tham khảo và thực hành. Theo phản hồi mới, hình được giản lược thành một khối Rubik tổng quát nhìn từ dưới, thấy F, mặt bên bắt đầu (R hoặc L) và D. Chỉ góc tầng cuối và các tâm nhìn thấy được giữ màu; phần còn lại xám. Hai góc chịu tác động có viền cam; ô dưới dùng so màu với tâm F có dấu chấm. Hình tự đổi góc nhìn theo F mốc và phía bắt đầu, bỏ sơ đồ trải rời và các mũi tên nhiều ô.
+
+Tham khảo chia nhóm 2/3/4 góc cần lật và đã hoàn thành. Nút đang chọn có nền/viền/chữ nhấn cùng dấu ✓. Mặc định chỉ hiện một mẫu và đề xuất mốc; các mẫu khác và lựa chọn mốc khác mở khi cần. Mỗi nút mẫu phụ có bốn ô màu dưới góc để đối chiếu, không mở cả bảng lớn mặc định.
+
+### 20.2. Thực hành và kiểm chứng
+
+Thực hành tải chính xác trạng thái mẫu đang xem, có tải lại, đổi mẫu, Gợi ý từng nước, highlight cặp góc và Hoàn tác. Gợi ý chọn F mốc bằng màu ô dưới và hướng dẫn đủ hai nửa; kiểm tra hoàn thành toàn khối sau lượt. Đã mở Bài 8 từ lộ trình.
+
+Kiểm chứng lại đúng start/end trong log; đủ tám cách áp dụng theo bốn mặt mốc và hai phía; đủ 27 trạng thái xoắn hợp lệ sau Bài 7 (1 hoàn thành, 12 có hai góc sai, 8 có ba góc sai, 6 có bốn góc sai). Mọi lựa chọn đề xuất đều đưa góc chỉ định về đúng mặt, giữ cạnh và vị trí góc sau đủ hai nửa. Kiểm tra từng nước qua mô hình sticker vật lý, lệch hướng/Hoàn tác và giải đủ 27 mẫu bằng mẹo màu dưới–tâm. Chuỗi Bài 2–8 giải hoàn chỉnh 30 khối ngẫu nhiên.
+
+`pnpm typecheck`, `pnpm test` (46 file, 293 đạt, 1 bỏ qua), kiểm tra SSR minh họa/nội dung các trang, `pnpm build`, `git diff --check` đã đạt. Chưa kiểm tra thao tác trực tiếp trong trình duyệt ở lượt này.

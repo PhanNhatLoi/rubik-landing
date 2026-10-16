@@ -12,3 +12,7 @@ export { default as MiddleLessonView, type MiddleLessonViewProps } from './Middl
 export { default as TopCrossLessonView, type TopCrossLessonViewProps } from './TopCrossLessonView'
 
 export { default as LastEdgesLessonView } from './LastEdgesLessonView'
+
+export { default as LastCornersLessonView, type LastCornersLessonViewProps } from './LastCornersLessonView'
+
+export { default as LastFaceLessonView } from './LastFaceLessonView'

@@ -31,7 +31,9 @@ import {
   CornerLessonView,
   MiddleLessonView,
   TopCrossLessonView,
-  LastEdgesLessonView
+  LastEdgesLessonView,
+  LastCornersLessonView,
+  LastFaceLessonView
 } from '../../learn/ui'
 import { STAGES, type StageDef, type StageId } from '../../learn/stages'
 import {
@@ -184,6 +186,8 @@ export default function SmartSolverPanel({
     | 'lesson_middle'
     | 'lesson_topCross'
     | 'lesson_lastEdges'
+    | 'lesson_lastCorners'
+    | 'lesson_lastFace'
     | null
 
   /** Stages of the 3x3 beginner solution, valid while `guide.solution` is that solution. */
@@ -280,7 +284,7 @@ export default function SmartSolverPanel({
     if (vision) vision.gridSize = cubeSize
   }, [vision, cubeSize])
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
-  const stageHidden = open && section === 'learn' && (learnView === 'roadmap' || ((learnView === 'notation' || learnView === 'lesson_cross' || learnView === 'lesson_corners' || learnView === 'lesson_middle' || learnView === 'lesson_topCross' || learnView === 'lesson_lastEdges') && !lessonPractice))
+  const stageHidden = open && section === 'learn' && (learnView === 'roadmap' || ((learnView === 'notation' || learnView === 'lesson_cross' || learnView === 'lesson_corners' || learnView === 'lesson_middle' || learnView === 'lesson_topCross' || learnView === 'lesson_lastEdges' || learnView === 'lesson_lastCorners' || learnView === 'lesson_lastFace') && !lessonPractice))
   const [collapsedSetting, setCollapsed] = useState(false)
   // Only phones can collapse the panel; on desktop it is always expanded.
   // Collapsing only exists to give the 3D cube room, so it's off while the cube is out of the way.
@@ -374,7 +378,7 @@ export default function SmartSolverPanel({
     const controller = get3()
     if (!controller) return
     return controller.onUserMove((event) => {
-      if ((learnViewRef.current === 'practice' || learnViewRef.current === 'lesson_cross' || learnViewRef.current === 'lesson_corners' || learnViewRef.current === 'lesson_middle' || learnViewRef.current === 'lesson_topCross' || learnViewRef.current === 'lesson_lastEdges') && practiceCubeRef.current) {
+      if ((learnViewRef.current === 'practice' || learnViewRef.current === 'lesson_cross' || learnViewRef.current === 'lesson_corners' || learnViewRef.current === 'lesson_middle' || learnViewRef.current === 'lesson_topCross' || learnViewRef.current === 'lesson_lastEdges' || learnViewRef.current === 'lesson_lastCorners' || learnViewRef.current === 'lesson_lastFace') && practiceCubeRef.current) {
         const before = practiceCubeRef.current
         syncFromScene(applyMoves(before, event.moves))
         writeHistory([...practiceHistoryRef.current, { moves: event.moves, before }])
@@ -873,14 +877,16 @@ export default function SmartSolverPanel({
             practicedStages={progressState.practiced}
             onSelectStage={handleLearnFromStage}
             onOpenPractice={handleOpenPractice}
-            lessonStageIds={['cross', 'corners', 'middle', 'topCross', 'topEdges']}
-            pendingStageIds={['topCorners', 'topFace']}
+            lessonStageIds={['cross', 'corners', 'middle', 'topCross', 'topEdges', 'topCorners', 'topFace']}
+            pendingStageIds={[]}
             onOpenLesson={(stage) => {
               if (stage.id === 'cross') setLearnView('lesson_cross')
               if (stage.id === 'corners') setLearnView('lesson_corners')
               if (stage.id === 'middle') setLearnView('lesson_middle')
               if (stage.id === 'topCross') setLearnView('lesson_topCross')
               if (stage.id === 'topEdges') setLearnView('lesson_lastEdges')
+              if (stage.id === 'topCorners') setLearnView('lesson_lastCorners')
+              if (stage.id === 'topFace') setLearnView('lesson_lastFace')
             }}
             onOpenNotation={() => {
               setNotationFrom('roadmap')
@@ -1023,6 +1029,62 @@ export default function SmartSolverPanel({
 
         {solveMode === 'beginner' && learnView === 'lesson_lastEdges' && (
           <LastEdgesLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_lastCorners' && (
+          <LastCornersLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_lastFace' && (
+          <LastFaceLessonView
             faceColors={faceColorsHex}
             cube={practiceCube}
             moveCount={practiceHistory.length}

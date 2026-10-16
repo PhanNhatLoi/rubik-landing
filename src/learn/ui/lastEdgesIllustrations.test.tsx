@@ -45,21 +45,12 @@ it('moves the arrow cycle with the selected anchor and matches the actual formul
   }
 })
 
-it('preserves all six combinations and shows three-edge arrows with F fixed for combination 1', () => {
+it('preserves all six combinations and shows combination 1 as the correct order without arrows or formula', () => {
   const html = renderToStaticMarkup(<LastEdgesOrderCases faceColors={COLORS} colorNames={NAMES} />)
-  const arrows = [...html.matchAll(/data-from="([FRBL])" data-to="([FRBL])"/g)]
-  expect(arrows).toHaveLength(3)
+  expect(html).not.toContain('data-from=')
   expect([...html.matchAll(/Tổ hợp [1-6] ·/g)]).toHaveLength(6)
-  const example = LAST_EDGES_ORDER_CASES[0]!
-  const choice = LAST_EDGES_VARIANTS.find((v) => v.front === 'F' && v.direction === 'right')!
-  const slots: Record<string, number> = { F: 5, R: 4, B: 7, L: 6 }
-  const after = applyMoves(example.state, choice.moves)
-  expect(after.ep[choice.anchor]).toBe(example.state.ep[choice.anchor])
-  for (const [, from, to] of arrows) {
-    expect(from).not.toBe(choice.front)
-    expect(to).not.toBe(choice.front)
-    expect(after.ep[slots[to!]!]).toBe(example.state.ep[slots[from!]!])
-  }
+  expect(LAST_EDGES_ORDER_CASES[0]!.rounds).toBe(0)
+  expect(html).toContain('không cần dùng công thức nào')
 })
 
 it('renders the selected combination and frame supplied by the lesson for practice', () => {

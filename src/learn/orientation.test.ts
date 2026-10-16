@@ -12,6 +12,8 @@ import { buildMiddleGuide } from './guide/middleGuide'
 import { buildTopCrossGuide } from './guide/topCrossGuide'
 import { lastEdgesDone } from './guide/lastEdgesGuide'
 import { buildLastEdgesOrderGuide as buildLastEdgesGuide } from './guide/lastEdgesOrder'
+import { buildLastCornersGuide, lastCornersPositionDone } from './guide/lastCornersGuide'
+import { buildLastFaceGuide, lastFaceDone } from './guide/lastFaceGuide'
 
 const NAMES = { U: 'trắng', D: 'vàng', F: 'xanh lá', B: 'xanh dương', R: 'đỏ', L: 'cam' }
 function random(seed: number) {
@@ -76,7 +78,7 @@ describe('white-top learning curriculum', () => {
     }
   })
 
-  it('chains lessons 2–6 on random cubes: white first, middle, yellow cross, then side-matching edges', () => {
+  it('chains lessons 2–8 on random cubes through a fully solved cube', () => {
     const rng = random(77)
     for (let i = 0; i < 30; i += 1) {
       let state = applyMoves(SOLVED, scramble(rng))
@@ -108,6 +110,22 @@ describe('white-top learning curriculum', () => {
         state = guide.states.at(-1)!
       }
       expect(lastEdgesDone(state)).toBe(true)
+      for (let k = 0; k < 2 && !lastCornersPositionDone(state); k += 1) {
+        const guide = buildLastCornersGuide(state, NAMES)
+        expect(guide).not.toBeNull()
+        if (!guide) throw new Error('Missing last-corner guide')
+        state = guide.states.at(-1)!
+        expect(lastEdgesDone(state)).toBe(true)
+      }
+      expect(lastCornersPositionDone(state)).toBe(true)
+      for (let k = 0; k < 8 && !lastFaceDone(state); k += 1) {
+        const guide = buildLastFaceGuide(state)
+        expect(guide).not.toBeNull()
+        if (!guide) throw new Error('Missing last-face guide')
+        state = guide.states.at(-1)!
+        expect(lastCornersPositionDone(state)).toBe(true)
+      }
+      expect(isSolved(state)).toBe(true)
     }
   })
 })
