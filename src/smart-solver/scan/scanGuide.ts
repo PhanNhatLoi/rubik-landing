@@ -2,8 +2,8 @@ import type { Face } from '../core/types'
 
 /**
  * Geometry of the guided scan. Faces keep their standard names (in the standard scheme
- * U white, D yellow, F green, B blue, R red, L orange); the user holds the cube F to the
- * camera with D on top, so R is on the left and L on the right.
+ * U white, D yellow, F green, B blue, R red, L orange); the user holds F towards the
+ * camera with U (white) on top, R on the right and L on the left.
  */
 
 /** How the cube is held: which face points at the camera and which points up. */
@@ -90,46 +90,29 @@ export interface ScanStep {
   instruction: (name: (f: Face) => string) => string
 }
 
-// Front face first, the scheme's D face up for the whole scan.
-const TOP: Face = 'D'
+// Same physical frame as the lessons: white U up, yellow D down, green F initially forward.
+const TOP: Face = 'U'
 
-/** Around the side ring turning the cube right (left face comes forward), then top and bottom. */
+/** Turn the whole cube right around the side ring, then tilt U and D towards the camera. */
 export const SCAN_STEPS: readonly ScanStep[] = [
-  { face: 'F', hold: { front: 'F', top: TOP }, instruction: (n) => `Hướng mặt ${n('F')} vào camera, mặt ${n('D')} ở trên.` },
-  {
-    face: 'R',
-    hold: { front: 'R', top: TOP },
-    instruction: (n) => `Xoay cả khối sang phải 90°: mặt ${n('R')} (bên trái) ra trước, ${n('D')} vẫn ở trên.`
-  },
-  { face: 'B', hold: { front: 'B', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('B')} ra trước.` },
-  { face: 'L', hold: { front: 'L', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('L')} ra trước.` },
-  {
-    face: 'D',
-    // As the camera sees it: D facing, L at the bottom, F on the left.
-    hold: { front: 'D', top: 'R' },
-    instruction: (n) => `Lật mặt trên về phía camera: mặt ${n('D')} đối diện, ${n('L')} ở dưới, ${n('F')} bên trái.`
-  },
-  {
-    face: 'U',
-    // As the camera sees it: U facing, L on top, F on the left.
-    hold: { front: 'U', top: 'L' },
-    instruction: (n) => `Lật khối 180° (giữ ${n('F')} bên trái): mặt ${n('U')} đối diện, ${n('L')} ở trên.`
-  }
+  { face: 'F', hold: { front: 'F', top: TOP }, instruction: (n) => `Hướng mặt ${n('F')} vào camera, mặt ${n('U')} ở trên, ${n('D')} ở dưới.` },
+  { face: 'L', hold: { front: 'L', top: TOP }, instruction: (n) => `Xoay cả khối sang phải 90°: mặt ${n('L')} (bên trái) ra trước, ${n('U')} vẫn ở trên.` },
+  { face: 'B', hold: { front: 'B', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('B')} ra trước, ${n('U')} vẫn ở trên.` },
+  { face: 'R', hold: { front: 'R', top: TOP }, instruction: (n) => `Tiếp tục xoay sang phải: mặt ${n('R')} ra trước, ${n('U')} vẫn ở trên.` },
+  { face: 'U', hold: { front: 'U', top: 'L' }, instruction: (n) => `Lật mặt trên về phía camera: mặt ${n('U')} đối diện, ${n('R')} ở dưới, ${n('F')} bên trái.` },
+  { face: 'D', hold: { front: 'D', top: 'R' }, instruction: (n) => `Lật khối 180° (giữ ${n('F')} bên trái): mặt ${n('D')} đối diện camera, ${n('R')} ở trên.` }
 ]
 
 export const SCAN_ORDER: readonly Face[] = SCAN_STEPS.map((s) => s.face)
 
-/**
- * The same holds for even cubes, which have no center colors to name the faces by:
- * faces are numbered in scan order.
- */
+/** Even cubes use the same holds; face numbers follow this scan order. */
 export const EVEN_INSTRUCTIONS: Record<Face, string> = {
-  F: 'Cầm khối theo cách bất kỳ: mặt hướng vào camera là mặt 1. Giữ nguyên mặt đang ở trên (mặt 5) ở trên trong các bước 1–4.',
-  R: 'Xoay cả khối sang phải 90°: mặt bên trái (mặt 2) ra trước, mặt 5 vẫn ở trên.',
-  B: 'Tiếp tục xoay sang phải: mặt 3 ra trước.',
-  L: 'Tiếp tục xoay sang phải: mặt 4 ra trước.',
-  D: 'Lật mặt trên (mặt 5) về phía camera: mặt 4 ở dưới, mặt 1 bên trái.',
-  U: 'Lật khối 180° (giữ mặt 1 bên trái): mặt còn lại (mặt 6) đối diện camera, mặt 4 ở trên.'
+  F: 'Cầm khối theo cách bất kỳ: mặt hướng vào camera là mặt 1. Giữ mặt đang ở trên (mặt 5) ở trên trong các bước 1–4.',
+  L: 'Xoay cả khối sang phải 90°: mặt bên trái (mặt 2) ra trước, mặt 5 vẫn ở trên.',
+  B: 'Tiếp tục xoay sang phải: mặt 3 ra trước, mặt 5 vẫn ở trên.',
+  R: 'Tiếp tục xoay sang phải: mặt 4 ra trước, mặt 5 vẫn ở trên.',
+  U: 'Lật mặt trên (mặt 5) về phía camera: mặt 4 ở dưới, mặt 1 bên trái.',
+  D: 'Lật khối 180° (giữ mặt 1 bên trái): mặt còn lại (mặt 6) đối diện camera, mặt 4 ở trên.'
 }
 
 export function stepFor(face: Face): ScanStep {

@@ -476,3 +476,46 @@
   background: rgba(6, 16, 33, 0.45);
   border-color: var(--rb-border-selected);
 }
+
+/* 8. Beginner mode learn views (a11y & 360px responsive safety) */
+.rb-learn-roadmap,
+.rb-learn-notation,
+.rb-learn-step,
+.rb-learn-checkpoint,
+.rb-learn-practice-source,
+.rb-learn-practice,
+.rb-learn-practice-done,
+.rb-learn-precondition {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.rb-learn-roadmap *,
+.rb-learn-notation *,
+.rb-learn-step *,
+.rb-learn-checkpoint *,
+.rb-learn-practice-source *,
+.rb-learn-practice *,
+.rb-learn-practice-done *,
+.rb-learn-precondition * {
+  box-sizing: border-box;
+}
+
+.rb-menu { display: flex; flex-direction: column; gap: 10px; }
+.rb-menu__item {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px;
+  background: var(--rb-surface-2, transparent); border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-r-md); color: var(--rb-text); text-align: left; cursor: pointer; font: inherit;
+}
+.rb-menu__item:hover { border-color: var(--rb-accent-tint-border); }
+.rb-menu__icon {
+  flex: none; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--rb-r-md); background: var(--rb-accent-tint); border: 1px solid var(--rb-accent-tint-border);
+  color: var(--rb-accent-2);
+}
+.rb-menu__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rb-menu__title { font-size: var(--rb-fs-title); font-weight: 600; }
+.rb-menu__desc { font-size: var(--rb-fs-caption); color: var(--rb-text-muted); line-height: 1.4; }
+.rb-menu__chevron { flex: none; font-size: 22px; color: var(--rb-text-subtle); }

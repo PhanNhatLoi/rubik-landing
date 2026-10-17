@@ -146,7 +146,7 @@ export function moveToLayerTurn(move: Move, o: Orientation = IDENTITY_ORIENTATIO
   const axis = AXES.find((_, i) => n[i] !== 0) as Axis
   const positive = dot(n, axisVec(axis)) > 0
   const cw = positive ? -1 : 1
-  return { axis, layer: positive ? MAX : 0, steps: turns === 2 ? 2 : turns === 1 ? cw : -cw }
+  return { axis, layer: positive ? MAX : 0, steps: turns === 2 ? cw * 2 : turns === 1 ? cw : -cw }
 }
 
 // Where facelet (row, col) of each face sits in the grid, in the center-relative frame,

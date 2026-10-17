@@ -33,7 +33,8 @@ export interface CameraPanelProps {
   /** Hidden panels stay mounted so their state survives closing. */
   hidden: boolean
   collapsed: boolean
-  onToggleCollapsed: () => void
+  /** Omitted when the panel can't be collapsed (desktop). */
+  onToggleCollapsed?: () => void
   /** One-line status shown next to the title. */
   summary?: ReactNode
   /** Badge in the top-left corner of the camera frame (e.g. face name). */
@@ -207,23 +208,6 @@ export default function CameraPanel({
     }
   }, [grabRef, cameraEnabled])
 
-  /** Downloads the exact square the detector sees, for debugging detection failures. */
-  const saveFrame = () => {
-    const video = videoRef.current
-    if (!video?.videoWidth) return
-    const { size, roiFraction } = SCHEDULER_OPTIONS
-    const roi = computeRoi(video.videoWidth, video.videoHeight, roiFraction)
-    const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size })
-    canvas.getContext('2d')?.drawImage(video, roi.x, roi.y, roi.side, roi.side, 0, 0, size, size)
-    canvas.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = Object.assign(document.createElement('a'), { href: url, download: `rubik-frame-${Date.now()}.png` })
-      a.click()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  }
-
   const face = stats.inliers > 0
   return (
     <>
@@ -232,17 +216,19 @@ export default function CameraPanel({
         createPortal(
           <div className="camera-header">
             <div className="camera-heading">
-              <span className="camera-title">{title}</span>
+              {title && <span className="camera-title">{title}</span>}
               {summary && <div className="panel-summary">{summary}</div>}
             </div>
-            <button
-              className="panel-toggle"
-              onClick={onToggleCollapsed}
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
-            >
-              {collapsed ? '+' : '−'}
-            </button>
+            {onToggleCollapsed && (
+              <button
+                className="panel-toggle"
+                onClick={onToggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? 'Mở rộng' : 'Thu gọn'}
+              >
+                {collapsed ? '+' : '−'}
+              </button>
+            )}
           </div>,
           headerSlot
         )}
@@ -279,35 +265,7 @@ export default function CameraPanel({
             </div>
           )}
         </div>
-        <details className="camera-details">
-          <summary>Số liệu</summary>
-          {cameraEnabled && (
-            <button className="rb-btn rb-btn--ghost camera-save" onClick={saveFrame} disabled={status !== 'running'}>
-              Lưu khung hình (debug)
-            </button>
-          )}
-          <div className="camera-stats">
-            <Stat label="Camera" value={camera ? `${camera.width}×${camera.height}` : '–'} />
-            <Stat label="UI fps" value={stats.uiFps.toFixed(0)} />
-            <Stat label="Vision fps" value={stats.visionFps.toFixed(1)} />
-            <Stat label="Capture" value={`${stats.captureMs.toFixed(1)} ms`} />
-            <Stat label="Detect" value={`${stats.detectMs.toFixed(1)} ms`} />
-            <Stat label="Blobs" value={String(stats.candidates)} />
-            <Stat label="Sharpness" value={stats.sharpness.toFixed(0)} />
-            <Stat label="Heap" value={stats.heapMb != null ? `${stats.heapMb.toFixed(0)} MB` : '–'} />
-            <Stat label="OpenCV load" value={loadMs != null ? `${(loadMs / 1000).toFixed(1)} s` : '–'} />
-          </div>
-        </details>
       </div>
     </>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="camera-stat">
-      <span className="label">{label}</span>
-      <span className="value">{value}</span>
-    </div>
   )
 }

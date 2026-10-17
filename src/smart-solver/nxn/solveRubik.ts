@@ -1,3 +1,4 @@
+import { solveLearning3 } from '../../learn/engine/solveLearning'
 import { fromFacelets } from '../core/facelets'
 import { buildTables, type Tables } from '../solver/coords'
 import { solve as solveTwoPhase } from '../solver/twophase'
@@ -91,7 +92,7 @@ export async function solveRubik(size: CubeSize, state: CubeState, options: Solv
       steps = r.moves.length ? [{ stage: 'twoPhase', title: 'Lời giải gần tối ưu', moves: r.moves, algorithms: [] }] : []
       algorithm = 'Kociemba two-phase'
     } else {
-      steps = solveBeginner3(parsed.state)
+      steps = solveLearning3(parsed.state)
       algorithm = '3x3 beginner (Cresta)'
     }
   } else {

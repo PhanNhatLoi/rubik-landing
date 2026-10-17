@@ -63,6 +63,7 @@ export interface ScanViewProps {
   schemeSettings: SchemeSettings
   onSchemeSettings: (settings: SchemeSettings) => void
   onSkipScan?: () => void
+  onOpenLearn?: () => void
 }
 
 type Analysis = { status: 'idle' } | { status: 'running' } | { status: 'done'; result: ReconstructResult }
@@ -79,7 +80,8 @@ export default function ScanView({
   onConfirm,
   schemeSettings,
   onSchemeSettings,
-  onSkipScan
+  onSkipScan,
+  onOpenLearn
 }: ScanViewProps) {
   // The identify check reads the current scheme through this ref (the session lives across renders).
   const schemeRef = useRef<Scheme>(buildScheme(schemeSettings))
@@ -619,6 +621,19 @@ export default function ScanView({
         <div style={{ textAlign: 'center', marginTop: '6px' }}>
           <button type="button" className="rb-btn rb-btn--link" onClick={onSkipScan}>
             Bỏ qua quét — giải khối đang hiển thị
+          </button>
+        </div>
+      )}
+
+      {onOpenLearn && (
+        <div style={{ textAlign: 'center', marginTop: '4px' }}>
+          <button
+            type="button"
+            className="rb-btn rb-btn--link"
+            onClick={onOpenLearn}
+            style={{ color: 'var(--rb-accent-link)', fontWeight: 600, fontSize: '13.5px' }}
+          >
+            Chế độ Người mới học (Lộ trình 7 giai đoạn)
           </button>
         </div>
       )}

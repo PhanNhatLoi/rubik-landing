@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import StatsBlock from './StatsBlock'
 import ZoomControl from './ZoomControl'
 import TabBar from './TabBar'
+import MenuList, { SECTION_TITLES } from './MenuList'
 
 export default function PlayShell({
   stageSlotRef,
   solverSlotRef,
   solverPhase,
   solverCollapsed,
+  stageHidden,
   timeMs,
   moves,
   running,
@@ -22,11 +24,11 @@ export default function PlayShell({
   isDesktop,
   activeTab,
   onSelectTab,
-  showSolver,
-  onOpenSolver,
-  onSolveDisplayed,
-  onCloseSolver,
+  section,
+  onOpenSection,
+  onCloseSection,
   sizeTriggerRef,
+  recorderSlot,
 }) {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -58,6 +60,8 @@ export default function PlayShell({
                 Reset
               </button>
             </div>
+
+            {recorderSlot}
 
             <div>
               <div className="rb-overline" style={{ marginBottom: '8px' }}>Kích thước</div>
@@ -99,21 +103,18 @@ export default function PlayShell({
           </main>
 
           {/* Panel phải (360px khi đóng / 440px khi mở) */}
-          {showSolver ? (
+          {section ? (
             <aside className="rb-shell__right rb-shell__right--open">
               <div className="rb-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div style={{ fontSize: 'var(--rb-fs-title)', fontWeight: 600 }}>Smart Solver</div>
+                  <div style={{ fontSize: 'var(--rb-fs-title)', fontWeight: 600 }}>{SECTION_TITLES[section]}</div>
                   <button
                     type="button"
-                    className="rb-icon-btn"
-                    onClick={onCloseSolver}
-                    aria-label="Đóng Smart Solver"
+                    className="rb-btn rb-btn--ghost"
+                    style={{ height: '36px', padding: '0 12px' }}
+                    onClick={onCloseSection}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    ‹ Menu
                   </button>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -124,57 +125,8 @@ export default function PlayShell({
           ) : (
             <aside className="rb-shell__right">
               <div className="rb-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: 'var(--rb-r-md)',
-                        background: 'var(--rb-accent-tint)',
-                        border: '1px solid var(--rb-accent-tint-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--rb-accent-2)',
-                      }}
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                        <circle cx="12" cy="13" r="4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 'var(--rb-fs-title)', fontWeight: 600 }}>Smart Solver</div>
-                      <div style={{ fontSize: 'var(--rb-fs-caption)', color: 'var(--rb-text-muted)' }}>Giải khối Rubik</div>
-                    </div>
-                  </div>
-                  <div className="rb-chip">
-                    <span className="rb-chip__dot" />
-                    <span>Đang tắt</span>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: 'var(--rb-fs-body)', color: 'var(--rb-text-muted)', lineHeight: 1.5, margin: '0 0 24px' }}>
-                  Tự động nhận diện trạng thái Rubik qua webcam hoặc ảnh chụp, tính lời giải tối ưu và hướng dẫn từng bước trực quan.
-                </p>
-
-                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <button
-                    type="button"
-                    className="rb-btn rb-btn--primary rb-btn--block"
-                    onClick={onOpenSolver}
-                  >
-                    Bật Smart Solver
-                  </button>
-                  <button
-                    type="button"
-                    className="rb-btn rb-btn--ghost rb-btn--block"
-                    onClick={onSolveDisplayed}
-                  >
-                    Giải khối 3D đang hiển thị
-                  </button>
-                </div>
+                <div style={{ fontSize: 'var(--rb-fs-title)', fontWeight: 600, marginBottom: '14px' }}>Menu</div>
+                <MenuList onOpenSection={onOpenSection} />
               </div>
               <div hidden style={{ display: 'none' }}>
                 <div className="rb-solver-slot" ref={solverSlotRef} />
@@ -231,21 +183,40 @@ export default function PlayShell({
           </div>
         )}
 
-        {/* Tab "Giải khối" trên mobile */}
-        {activeTab === 'solver' ? (
+        {/* Tab "Menu" trên mobile */}
+        {activeTab === 'menu' && !section ? (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <header className="rb-header" style={{ flex: 'none' }}>
               <div>
-                <div className="rb-header__title">Smart Solver</div>
-                <div className="rb-header__subtitle">Giải khối Rubik</div>
+                <div className="rb-header__title">Menu</div>
+                <div className="rb-header__subtitle">Học, quét và giải Rubik</div>
               </div>
+            </header>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingTop: '8px' }}>
+              <MenuList onOpenSection={onOpenSection} />
+              <div hidden style={{ display: 'none' }}>
+                <div className="rb-solver-slot" ref={solverSlotRef} />
+              </div>
+            </div>
+            <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />
+          </div>
+        ) : activeTab === 'menu' ? (
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <header className="rb-header" style={{ flex: 'none' }}>
+              <div>
+                <div className="rb-header__title">{SECTION_TITLES[section]}</div>
+                <div className="rb-header__subtitle">Menu</div>
+              </div>
+              <button type="button" className="rb-btn rb-btn--ghost" style={{ height: '36px', padding: '0 12px' }} onClick={onCloseSection}>
+                ‹ Menu
+              </button>
             </header>
 
             {/* Sân khấu 3D cho solver: ẩn khi quét để nhường chỗ cho camera, hiện khi review và guide.
                 Khi thu gọn panel (camera đã tắt) khối 3D chiếm phần còn lại của màn hình. */}
             <div
               style={{
-                display: solverPhase === 'SCANNING' && !solverCollapsed ? 'none' : 'flex',
+                display: stageHidden || (solverPhase === 'SCANNING' && !solverCollapsed) ? 'none' : 'flex',
                 flex: solverCollapsed ? '1 1 0' : '0 0 38%',
                 minHeight: '180px',
                 maxHeight: solverCollapsed ? 'none' : '280px',
@@ -351,6 +322,8 @@ export default function PlayShell({
                 Xáo trộn
               </button>
             </div>
+
+            <div style={{ flexShrink: 0, paddingBottom: '8px', maxHeight: '30dvh', overflowY: 'auto' }}>{recorderSlot}</div>
 
             {/* Thanh Tab bar */}
             <TabBar activeTab={activeTab} onSelectTab={onSelectTab} />

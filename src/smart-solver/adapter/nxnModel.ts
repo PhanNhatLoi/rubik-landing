@@ -41,14 +41,14 @@ export function tokenToLayerTurn(token: string, n: number): MultiLayerTurn {
   if ('rotation' in parsed) {
     const axis = (['x', 'y', 'z'] as const)[parsed.rotation]
     // x, y, z follow R, U, F: clockwise seen from the positive face.
-    return { axis, layers: all, steps: parsed.turns === 2 ? 2 : parsed.turns === 1 ? -1 : 1 }
+    return { axis, layers: all, steps: parsed.turns === 2 ? -2 : parsed.turns === 1 ? -1 : 1 }
   }
   const { axis, positive } = FACE_AXIS[parsed.face]
   const layers: number[] = []
   for (let d = parsed.from; d <= parsed.to; d += 1) layers.push(positive ? n - d : d - 1)
   // Clockwise seen from the face is -90° about its outward normal.
   const cw = positive ? -1 : 1
-  return { axis, layers, steps: parsed.turns === 2 ? 2 : parsed.turns === 1 ? cw : -cw }
+  return { axis, layers, steps: parsed.turns === 2 ? cw * 2 : parsed.turns === 1 ? cw : -cw }
 }
 
 /** Token for one dragged layer, named from the nearer face (5x5 middle layer from R, U, F). */
@@ -93,3 +93,7 @@ export function stickersToScene(stickers: Uint8Array, n: number): Map<string, St
   }
   return map
 }
+
+/** The token that turns the same layer back: R ↔ R', R2 stays. */
+export const inverseToken = (token: string): string =>
+  token.endsWith("'") ? token.slice(0, -1) : token.endsWith('2') ? token : `${token}'`

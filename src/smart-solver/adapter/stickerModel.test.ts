@@ -119,6 +119,27 @@ describe('move ↔ layer turn', () => {
     expect(moveToLayerTurn('L')).toEqual({ axis: 'x', layer: 0, steps: 1 })
   })
 
+  it('maps F and B on the z axis', () => {
+    expect(moveToLayerTurn('F')).toEqual({ axis: 'z', layer: 2, steps: -1 })
+    expect(moveToLayerTurn("F'")).toEqual({ axis: 'z', layer: 2, steps: 1 })
+    expect(moveToLayerTurn('F2')).toEqual({ axis: 'z', layer: 2, steps: -2 })
+    expect(moveToLayerTurn('B')).toEqual({ axis: 'z', layer: 0, steps: 1 })
+    expect(moveToLayerTurn("B'")).toEqual({ axis: 'z', layer: 0, steps: -1 })
+    expect(moveToLayerTurn('B2')).toEqual({ axis: 'z', layer: 0, steps: 2 })
+  })
+
+  it('half turns rotate 180° in the same direction as single clockwise turns', () => {
+    const faces: Face[] = ['U', 'D', 'L', 'R', 'F', 'B']
+    for (const f of faces) {
+      const single = moveToLayerTurn(f)
+      const double = moveToLayerTurn(`${f}2` as Move)
+      expect(double.axis).toBe(single.axis)
+      expect(double.layer).toBe(single.layer)
+      expect(double.steps).toBe(single.steps * 2)
+      expect(Math.sign(double.steps)).toBe(Math.sign(single.steps))
+    }
+  })
+
   it('reports slices with their notation and equivalent face moves', () => {
     expect(layerTurnToEvent({ axis: 'y', layer: 1, steps: 1 })).toEqual({ notation: 'E', moves: ['U', "D'"] })
     expect(layerTurnToEvent({ axis: 'y', layer: 1, steps: -1 })).toEqual({ notation: "E'", moves: ["U'", 'D'] })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { CubeController, NxnController } from '../adapter/types'
 import type { ScheduledResult } from '../camera/FrameScheduler'
 import { fromFacelets, toFacelets } from '../core/facelets'
@@ -11,12 +11,49 @@ import type { CubeState } from '../nxn/state'
 import { SolverClient } from '../solver/SolverClient'
 import { VisionClient } from '../vision/VisionClient'
 import CameraPanel from './CameraPanel'
-import GuideView, { type BeginnerStage, type OptimalStatus } from './GuideView'
+import GuideView, { type OptimalStatus } from './GuideView'
 import NxnGuideView from './NxnGuideView'
 import NxnScanView from './NxnScanView'
 import { buildScheme, duplicateColors, loadSchemeSettings, saveSchemeSettings, schemeHex, type Scheme, type SchemeSettings } from './palette'
+import { DESKTOP_QUERY, useMediaQuery } from '../../ui/useMediaQuery'
 import ScanView, { type ScanMode } from './ScanView'
 import { useNxnGuide } from './useNxnGuide'
+import {
+  RoadmapView,
+  NotationView,
+  StepView,
+  CheckpointView,
+  PracticeSourceView,
+  PracticeView,
+  PracticeDoneView,
+  PreconditionView,
+  CrossLessonView,
+  CornerLessonView,
+  MiddleLessonView,
+  TopCrossLessonView,
+  LastEdgesLessonView,
+  LastCornersLessonView,
+  LastFaceLessonView
+} from '../../learn/ui'
+import { STAGES, type StageDef, type StageId } from '../../learn/stages'
+import {
+  PRACTICE_SAMPLES,
+  buildPracticeState,
+  checkPrecondition,
+  type PracticeSample
+} from '../../learn/engine/practice'
+import {
+  getLearnProgress,
+  markStageCompleted,
+  markStagePracticed,
+  type LearnProgress
+} from '../../learn/engine/storage'
+import { CURRICULUM_STAGES } from '../../learn/curriculum'
+import { firstUndoneFrom } from '../../learn/engine/stagePlan'
+import { basicStageInProgress, planBasicStage } from '../../learn/engine/basicSolve'
+import { SOLVED, applyMoves, invertMove, isSolved } from '../core/cubie'
+import { inverseToken } from '../adapter/nxnModel'
+import type { CubieState } from '../core/types'
 
 const PHASE_SUMMARY: Record<GuidePhase, string> = {
   IDLE: 'Sẵn sàng',
@@ -93,8 +130,13 @@ export interface SmartSolverPanelProps {
   resetVersion: number
   onRequestSize: (size: number) => void
   onPhaseChange?: (phase: string) => void
-  /** Bumped to ask for "solve the cube shown in 3D" without scanning (handled once per value). */
-  solveRequest?: number
+  /** Menu entry on screen: only 'scan' (and a practice scan inside 'learn') switches the camera on. */
+  section: 'learn' | 'scan' | 'solve'
+  onSelectSection: (section: 'learn' | 'scan' | 'solve') => void
+  /** Back to the menu list. */
+  onCloseSection: () => void
+  /** True while the lesson wants the 3D cube out of the way (phones only use this). */
+  onStageHiddenChange?: (hidden: boolean) => void
   /** Reports the collapsed/expanded state so the host layout can give the space back to the 3D cube. */
   onCollapsedChange?: (collapsed: boolean) => void
 }
@@ -109,7 +151,10 @@ export default function SmartSolverPanel({
   resetVersion,
   onRequestSize,
   onPhaseChange,
-  solveRequest = 0,
+  section,
+  onSelectSection,
+  onCloseSection,
+  onStageHiddenChange,
   onCollapsedChange
 }: SmartSolverPanelProps) {
   const [guide, dispatch] = useReducer(guideReducer, { ...INITIAL_GUIDE_STATE, phase: 'SCANNING' })
@@ -121,7 +166,7 @@ export default function SmartSolverPanel({
   }, [getController])
   const [solveModeSetting, setSolveMode] = useState<SolveMode>(loadSolveMode)
   useEffect(() => saveSetting(SOLVE_MODE_KEY, solveModeSetting), [solveModeSetting])
-  const solveMode: SolveMode = sizeOk ? solveModeSetting : 'beginner'
+  const solveMode: SolveMode = sizeOk && section !== 'learn' ? solveModeSetting : 'beginner'
   const [nxnSolver, setNxnSolver] = useState<NxnSolverClient | null>(null)
   useEffect(() => {
     const client = new NxnSolverClient()
@@ -129,8 +174,81 @@ export default function SmartSolverPanel({
     return () => client.dispose()
   }, [])
   const nxn = useNxnGuide(cubeSize, !sizeOk, getController, sceneVersion, nxnSolver)
-  /** Stages of the 3x3 beginner solution, valid while `guide.solution` is that solution. */
-  const [beginnerPlan, setBeginnerPlan] = useState<{ solution: Move[]; stages: BeginnerStage[] } | null>(null)
+  type LearnScreen =
+    | 'guide'
+    | 'roadmap'
+    | 'notation'
+    | 'checkpoint'
+    | 'practice_source'
+    | 'practice'
+    | 'practice_done'
+    | 'precondition'
+    | 'lesson_cross'
+    | 'lesson_corners'
+    | 'lesson_middle'
+    | 'lesson_topCross'
+    | 'lesson_lastEdges'
+    | 'lesson_lastCorners'
+    | 'lesson_lastFace'
+    | null
+
+  /** The big step being guided in the basic 3x3 solve, valid while `guide.solution` is that plan's moves. */
+  const [beginnerPlan, setBeginnerPlan] = useState<{ solution: Move[]; stage: StageDef; whys: string[] } | null>(null)
+  const [lessonPractice, setLessonPractice] = useState(false)
+  const [learnView, setLearnView] = useState<LearnScreen>(section === 'learn' ? 'roadmap' : null)
+  const [notationFrom, setNotationFrom] = useState<LearnScreen>('roadmap')
+  const [activeStageId, setActiveStageId] = useState<StageId>('cross')
+  const [progressState, setProgressState] = useState<LearnProgress>(getLearnProgress)
+
+  // Practice session state
+  const [practiceStage, setPracticeStage] = useState<StageDef | null>(null)
+  const [practiceSample, setPracticeSample] = useState<PracticeSample | null>(null)
+  const [practiceCube, setPracticeCube] = useState<CubieState | null>(null)
+  // One entry per turn the learner made (a slice turn is one entry of two moves), with the cube before it.
+  const [practiceHistory, setPracticeHistory] = useState<{ moves: Move[]; before: CubieState; token?: string }[]>([])
+  /** Set when a turn was just recorded, until the 3D cube reports which layer it was (same drag). */
+  const awaitingTurnToken = useRef(false)
+  const [practiceStats, setPracticeStats] = useState<{ moves: number; seconds: number; hints: number } | null>(null)
+  const [missingStages, setMissingStages] = useState<StageId[]>([])
+  const [scanModeForPractice, setScanModeForPractice] = useState(false)
+
+  const learnViewRef = useRef(learnView)
+  learnViewRef.current = learnView
+  const practiceCubeRef = useRef(practiceCube)
+  practiceCubeRef.current = practiceCube
+  const practiceHistoryRef = useRef(practiceHistory)
+  practiceHistoryRef.current = practiceHistory
+  /** Updates the history now (not on the next render), so quick turns or taps never see a stale list. */
+  const writeHistory = (next: typeof practiceHistory) => {
+    practiceHistoryRef.current = next
+    setPracticeHistory(next)
+  }
+
+  /** The tracked practice cube, read from what the 3D cube really shows (`fallback` if it can't be read). */
+  const syncFromScene = useCallback(
+    (fallback: CubieState) => {
+      const facelets = get3()?.getFacelets()
+      const parsed = facelets ? fromFacelets(facelets) : null
+      const next = parsed?.ok ? parsed.state : fallback
+      practiceCubeRef.current = next
+      setPracticeCube(next)
+    },
+    [get3]
+  )
+
+  const LESSON_VIEW_STAGE: Record<StageId, LearnScreen> = {
+    cross: 'lesson_cross', corners: 'lesson_corners', middle: 'lesson_middle', topCross: 'lesson_topCross',
+    topEdges: 'lesson_lastEdges', topCorners: 'lesson_lastCorners', topFace: 'lesson_lastFace'
+  }
+  // Finishing a lesson's practice cube (after at least one move) records the lesson as completed.
+  useEffect(() => {
+    if (!learnView?.startsWith('lesson_') || !practiceCube || !practiceHistory.length) return
+    const stage = CURRICULUM_STAGES.find((s) => LESSON_VIEW_STAGE[s.id] === learnView)
+    if (!stage || !stage.isDone(practiceCube) || progressState.completed.includes(stage.id)) return
+    markStageCompleted(stage.id)
+    setProgressState(getLearnProgress())
+  }, [learnView, practiceCube, practiceHistory, progressState])
+
   const guideRef = useRef(guide)
   guideRef.current = guide
 
@@ -180,7 +298,13 @@ export default function SmartSolverPanel({
   useEffect(() => {
     if (vision) vision.gridSize = cubeSize
   }, [vision, cubeSize])
-  const [collapsed, setCollapsed] = useState(false)
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
+  const stageHidden = open && section === 'learn' && (learnView === 'roadmap' || ((learnView === 'notation' || learnView === 'lesson_cross' || learnView === 'lesson_corners' || learnView === 'lesson_middle' || learnView === 'lesson_topCross' || learnView === 'lesson_lastEdges' || learnView === 'lesson_lastCorners' || learnView === 'lesson_lastFace') && !lessonPractice))
+  const [collapsedSetting, setCollapsed] = useState(false)
+  // Only phones can collapse the panel; on desktop it is always expanded.
+  // Collapsing only exists to give the 3D cube room, so it's off while the cube is out of the way.
+  const canCollapse = !isDesktop && !stageHidden
+  const collapsed = collapsedSetting && canCollapse
   const [scanMode, setScanMode] = useState<ScanMode>(loadScanMode)
   useEffect(() => saveSetting(SCAN_MODE_KEY, scanMode), [scanMode])
   /** Last proven-shortest search: which step it was for, and how it went. */
@@ -209,22 +333,15 @@ export default function SmartSolverPanel({
       if (e instanceof Error && e.message === 'solver disposed') return
       dispatch({ type: 'SOLVE_FAILED', epoch, message: e instanceof Error ? e.message : String(e) })
     }
-    if (solveMode === 'beginner' && nxnSolver) {
-      nxnSolver
-        .solve(3, faceletsToCubeState(toFacelets(guide.cube)), { mode: 'beginner' })
-        .then((r) => {
-          if (!r.moves.every((m) => MOVE_TOKEN.test(m))) throw new Error('lời giải có phép xoay không phải mặt ngoài')
-          const moves = r.moves as Move[]
-          let at = 0
-          const stages = r.steps.map((st, i) => {
-            const stage = { title: st.title, algorithms: st.algorithms, start: at, end: at + st.moves.length, index: i, count: r.steps.length }
-            at = stage.end
-            return stage
-          })
-          setBeginnerPlan({ solution: moves, stages })
-          dispatch({ type: 'SOLVED', epoch, moves, ms: r.executionTimeMs })
-        })
-        .catch(fail)
+    if (solveMode === 'beginner') {
+      // Basic solve: only the big step the cube is in is planned, with the lesson guides (never the whole solution).
+      const plan = planBasicStage(guide.cube, Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>)
+      if (!plan) {
+        fail(new Error('không lập được hướng dẫn cho bước này'))
+        return
+      }
+      setBeginnerPlan({ solution: plan.moves, stage: plan.stage, whys: plan.whys })
+      dispatch({ type: 'SOLVED', epoch, moves: plan.moves, ms: 0 })
       return
     }
     solverRef.current
@@ -268,7 +385,28 @@ export default function SmartSolverPanel({
   useEffect(() => {
     const controller = get3()
     if (!controller) return
-    return controller.onUserMove((event) => dispatch({ type: 'MOVES_DONE', moves: event.moves }))
+    return controller.onUserMove((event) => {
+      if ((learnViewRef.current === 'practice' || learnViewRef.current === 'lesson_cross' || learnViewRef.current === 'lesson_corners' || learnViewRef.current === 'lesson_middle' || learnViewRef.current === 'lesson_topCross' || learnViewRef.current === 'lesson_lastEdges' || learnViewRef.current === 'lesson_lastCorners' || learnViewRef.current === 'lesson_lastFace') && practiceCubeRef.current) {
+        const before = practiceCubeRef.current
+        syncFromScene(applyMoves(before, event.moves))
+        writeHistory([...practiceHistoryRef.current, { moves: event.moves, before }])
+        awaitingTurnToken.current = true
+        return
+      }
+      dispatch({ type: 'MOVES_DONE', moves: event.moves })
+    })
+  }, [get3, sceneVersion])
+
+  // The same drag, named by the fixed layer it turned: undo turns that exact layer back.
+  useEffect(() => {
+    const controller = get3()
+    if (!controller) return
+    return controller.onUserTurn((token) => {
+      if (!awaitingTurnToken.current) return
+      awaitingTurnToken.current = false
+      const prev = practiceHistoryRef.current
+      writeHistory(prev.map((t, i) => (i === prev.length - 1 && !t.token ? { ...t, token } : t)))
+    })
   }, [get3, sceneVersion])
 
   const onResult = useCallback((r: ScheduledResult) => frameHandlerRef.current?.(r), [])
@@ -295,6 +433,21 @@ export default function SmartSolverPanel({
   const confirmReview = () => {
     // Drags while reviewing may have turned layers on the 3D cube: restore the scanned state.
     if (guide.cube) get3()?.setFacelets(toFacelets(guide.cube))
+    if (scanModeForPractice && solveMode === 'beginner' && !learnView && practiceStage && guide.cube) {
+      const precond = checkPrecondition(practiceStage, guide.cube)
+      if (precond.ok) {
+        setPracticeCube(guide.cube)
+        setPracticeHistory([])
+        setScanModeForPractice(false)
+        setLearnView('practice')
+        return
+      } else {
+        setMissingStages(precond.missing)
+        setScanModeForPractice(false)
+        setLearnView('precondition')
+        return
+      }
+    }
     dispatch({ type: 'CONFIRM_REVIEW' })
   }
 
@@ -327,13 +480,14 @@ export default function SmartSolverPanel({
     onCollapsedChange?.(collapsed)
   }, [collapsed, onCollapsedChange])
 
-  const handledSolveRequest = useRef(0)
-  useEffect(() => {
-    if (!solveRequest || solveRequest === handledSolveRequest.current) return
-    handledSolveRequest.current = solveRequest
-    startSolving()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solveRequest])
+  // The tutorial opens on its roadmap; other sections never show tutorial screens. Adjusted while
+  // rendering (not in an effect) so the camera never starts for a frame on the way in.
+  const [seenSection, setSeenSection] = useState(section)
+  if (seenSection !== section) {
+    setSeenSection(section)
+    setLearnView((v) => (section === 'learn' ? (v ?? 'roadmap') : null))
+    setScanModeForPractice(false)
+  }
 
   // "Xáo trộn": guidance for the previous cube no longer applies. Nothing is solved until the
   // user asks (they may want to solve it themselves); a scan in progress is kept.
@@ -364,19 +518,168 @@ export default function SmartSolverPanel({
     dispatch({ type: 'RESOLVE' })
   }, [solveModeSetting])
 
-  const beginnerStage: BeginnerStage | null =
-    solveMode === 'beginner' && beginnerPlan?.solution === guide.solution
-      ? (beginnerPlan.stages.find((st) => guide.index >= st.start && guide.index < st.end) ?? null)
-      : null
+  /** Why the current move is made, while the guide still follows the plan (not an undo of a wrong turn). */
+  const moveWhy = beginnerPlan?.solution === guide.solution ? beginnerPlan.whys[guide.index] : undefined
+
+  const learnOverlay = learnView !== null && learnView !== 'guide'
+  const guidingNow = guide.phase === 'GUIDING' || guide.phase === 'RECOVERING'
+  const activeStageDef: StageDef = CURRICULUM_STAGES.find((s) => s.id === activeStageId) ?? CURRICULUM_STAGES[0]!
+  // While guiding, the big step is the one the plan was made for. The cube cannot tell: a formula
+  // temporarily undoes earlier steps, so reading it from the cube would flip back and forth.
+  const currentStageDef: StageDef =
+    learnView !== 'checkpoint' && guidingNow && guide.cube
+      ? (beginnerPlan?.stage ?? basicStageInProgress(guide.cube) ?? CURRICULUM_STAGES[CURRICULUM_STAGES.length - 1]!)
+      : activeStageDef
+
+  const nextStageDef: StageDef | null = CURRICULUM_STAGES[currentStageDef.index + 1] ?? null
+
+  // Open the checkpoint when the moves of the big step are used up (or the cube is finished).
+  const lastStageRef = useRef<StageDef | null>(null)
+  useEffect(() => {
+    if (solveMode !== 'beginner' || (learnView && learnView !== 'guide')) return
+    const last = lastStageRef.current
+    if (guidingNow && guide.cube) {
+      const now = beginnerPlan?.stage ?? last
+      if (now) {
+        lastStageRef.current = now
+        setActiveStageId(now.id)
+        if (guide.phase === 'GUIDING' && guide.index >= guide.solution.length) setLearnView('checkpoint')
+      }
+    } else if (guide.phase === 'VERIFYING' && last) {
+      lastStageRef.current = null
+      setActiveStageId(last.id)
+      setLearnView('checkpoint')
+    } else if (guide.phase !== 'VERIFYING') {
+      lastStageRef.current = null
+    }
+  }, [solveMode, learnView, guidingNow, guide.phase, guide.cube, guide.index, guide.solution, beginnerPlan])
+
+  const handleLearnFromStage = (stage: StageDef) => {
+    const controller = get3()
+    if (!controller) return
+
+    const facelets = controller.getFacelets()
+    const parsed = facelets ? fromFacelets(facelets) : null
+    let cube = parsed?.ok ? parsed.state : (guide.cube ?? SOLVED)
+
+    const pre = checkPrecondition(stage, cube)
+    if (!pre.ok) {
+      setPracticeStage(stage)
+      setMissingStages(pre.missing)
+      setLearnView('precondition')
+      return
+    }
+
+    const target = firstUndoneFrom(stage, cube)
+    if (!target) {
+      // Fully solved cube (nothing of the user's to lose): load a sample so there is something to learn.
+      if (!isSolved(cube)) return
+      cube = buildPracticeState(stage.id, (PRACTICE_SAMPLES[stage.id] ?? PRACTICE_SAMPLES.cross)[0]!)
+      applyFaceletsSafely(toFacelets(cube))
+    }
+
+    lastStageRef.current = null
+    setScanModeForPractice(false)
+    setActiveStageId((target ?? stage).id)
+    // The solver effect computes the solution (and `beginnerPlan`) for the confirmed cube.
+    dispatch({ type: 'START_SCAN', purpose: 'initial' })
+    dispatch({ type: 'SCANNED', cube })
+    dispatch({ type: 'CONFIRM_REVIEW' })
+    setLearnView('guide')
+  }
+
+  const applyFaceletsSafely = useCallback((facelets: Facelets, callback?: () => void) => {
+    let tries = 0
+    let timer = 0
+    const apply = () => {
+      const r = get3()?.setFacelets(facelets)
+      if (r && !r.ok && r.reason === 'busy' && tries++ < 10) {
+        timer = window.setTimeout(apply, 200)
+      } else if (callback) {
+        callback()
+      }
+    }
+    apply()
+    return () => window.clearTimeout(timer)
+  }, [get3])
+
+  const handleCheckpointMatch = () => {
+    markStageCompleted(currentStageDef.id)
+    setProgressState(getLearnProgress())
+    if (nextStageDef) {
+      // The next big step is planned only now, from the cube as it is.
+      setLearnView(null)
+      dispatch({ type: 'RESOLVE' })
+    } else {
+      dispatch({ type: 'SKIP_VERIFY' })
+      setLearnView(null)
+    }
+  }
+
+  const handleCheckpointNeedFix = () => {
+    setScanModeForPractice(false)
+    setLearnView(null)
+    dispatch({ type: 'START_SCAN', purpose: 'initial' })
+  }
+
+  const handleOpenPractice = (stage: StageDef) => {
+    setPracticeStage(stage)
+    setLearnView('practice_source')
+  }
+
+  const handleStartPracticeSample = (stage: StageDef, sample: PracticeSample) => {
+    const cube = buildPracticeState(stage.id, sample)
+    const facelets = toFacelets(cube)
+    setPracticeStage(stage)
+    setPracticeSample(sample)
+    setPracticeCube(cube)
+    setPracticeHistory([])
+    applyFaceletsSafely(facelets, () => {
+      setLearnView('practice')
+    })
+  }
+
+  const handleUndoPractice = () => {
+    const history = practiceHistoryRef.current
+    if (!history.length || !practiceCubeRef.current) return
+    const last = history[history.length - 1]!
+    writeHistory(history.slice(0, -1))
+    // The tracked cube is read back from the 3D cube once the undo has finished, so it can't drift from it.
+    const settle = () => syncFromScene(last.before)
+    if (last.token) {
+      // Turn the very same layer back (a face or a middle slice), animated.
+      get3()?.playTurn(inverseToken(last.token)).then(settle, () => {})
+    } else if (last.moves.length === 1) {
+      get3()?.playMove(invertMove(last.moves[0]!)).then(settle, () => {})
+    } else {
+      applyFaceletsSafely(toFacelets(last.before), settle)
+    }
+  }
+
+  const handlePracticeStageComplete = (stats: { moves: number; seconds: number; hints: number }) => {
+    if (practiceStage) {
+      markStagePracticed(practiceStage.id)
+      setProgressState(getLearnProgress())
+    }
+    setPracticeStats(stats)
+    setLearnView('practice_done')
+  }
   const nxnGuiding = !sizeOk && nxn.guide.phase === 'GUIDING' && nxn.expected
 
   const scanning = guide.phase === 'SCANNING'
   const guiding = guide.phase === 'GUIDING' || guide.phase === 'RECOVERING'
 
   const currentPhase = sizeOk ? guide.phase : nxn.guide.phase
+  /** The scan screen (camera or photo) is on screen; elsewhere "SCANNING" just means nothing is being solved yet. */
+  const cameraSection = section === 'scan' || (section === 'learn' && !learnOverlay)
+  const faceColorsHex = useMemo(() => schemeHex(colors), [colors])
   useEffect(() => {
-    onPhaseChange?.(currentPhase)
-  }, [currentPhase, onPhaseChange])
+    onStageHiddenChange?.(stageHidden)
+  }, [stageHidden, onStageHiddenChange])
+  const reportedPhase = currentPhase === 'SCANNING' && !cameraSection ? 'IDLE' : currentPhase
+  useEffect(() => {
+    onPhaseChange?.(reportedPhase)
+  }, [reportedPhase, onPhaseChange])
 
   const summary = nxnGuiding ? (
     <>
@@ -398,7 +701,8 @@ export default function SmartSolverPanel({
   ) : guiding && expected ? (
     <>
       <span className="panel-summary-text">
-        Bước {guide.index + 1}/{guide.solution.length}: <strong>{expected}</strong>
+        {solveMode === 'beginner' ? `Giai đoạn ${currentStageDef.index + 1}/7 · nước ${guide.index + 1}: ` : `Bước ${guide.index + 1}/${guide.solution.length}: `}
+        <strong>{expected}</strong>
       </span>
       {collapsed && (
         <button
@@ -414,20 +718,41 @@ export default function SmartSolverPanel({
     <span className="panel-summary-text">{PHASE_SUMMARY[guide.phase]}</span>
   )
 
+  const startCard =
+    section === 'solve' && !learnOverlay && (sizeOk ? scanning : nxn.guide.phase === 'SCANNING') ? (
+      <div className="scan">
+        {notice && <div className="rb-alert">{notice}</div>}
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Giải khối 3D đang hiển thị</div>
+        <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>
+          Chọn cách giải ở trên rồi bấm bắt đầu. Muốn giải khối thật? Hãy quét nó trước.
+        </div>
+        <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={startSolving}>
+          Bắt đầu giải
+        </button>
+        <div style={{ textAlign: 'center', marginTop: '6px' }}>
+          <button type="button" className="rb-btn rb-btn--link" onClick={() => onSelectSection('scan')}>
+            Quét khối thật
+          </button>
+        </div>
+      </div>
+    ) : null
+
   return (
     <CameraPanel
-      title="Smart Solver"
+      title=""
       headerSlot={headerSlot}
       vision={vision}
-      cameraEnabled={open && !collapsed && (sizeOk ? scanning : nxn.guide.phase === 'SCANNING') && (scanMode === 'webcam' || canShutter)}
+      cameraEnabled={open && cameraSection && !collapsed && (sizeOk ? scanning : nxn.guide.phase === 'SCANNING') && (scanMode === 'webcam' || canShutter)}
       hidden={!open}
       collapsed={collapsed}
-      onToggleCollapsed={() => setCollapsed((v) => !v)}
-      summary={summary}
+      onToggleCollapsed={!canCollapse ? undefined : () => setCollapsed((v) => !v)}
+      // "Đang quét các mặt" makes no sense in the lessons; only the guided steps (with "Đã xoay") belong there.
+      summary={section === 'learn' && !guiding ? undefined : summary}
       overlay={overlay}
       grabRef={grabStillRef}
       onResult={onResult}
     >
+      {section !== 'learn' && (
       <div className="rb-seg" role="tablist" aria-label="Phương pháp giải">
         {(['fast', 'beginner'] as const).map((m) => (
           <button
@@ -436,20 +761,36 @@ export default function SmartSolverPanel({
             role="tab"
             aria-selected={solveMode === m}
             className="rb-seg__item"
+            style={{ minHeight: '40px', height: '40px' }}
             disabled={!sizeOk && m === 'fast'}
             title={!sizeOk && m === 'fast' ? `Khối ${cubeSize}x${cubeSize} chỉ có cách giải cho người mới học` : undefined}
-            onClick={() => setSolveMode(m)}
+            onClick={() => {
+              setSolveMode(m)
+            }}
           >
-            {m === 'fast' ? 'Giải nhanh' : 'Người mới học'}
+            {m === 'fast' ? 'Giải nhanh' : 'Cơ bản'}
           </button>
         ))}
       </div>
+      )}
 
-      {!sizeOk && (
+      {startCard}
+
+      {section === 'learn' && !sizeOk && (
+        <div className="scan">
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Bài học dùng khối 3x3</div>
+          <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>Hãy chuyển khối 3D về 3x3 để học và luyện tập.</div>
+          <button type="button" className="rb-btn rb-btn--primary" style={{ width: '100%', height: '48px', marginTop: '12px' }} onClick={() => onRequestSize(3)}>
+            Chuyển sang 3x3
+          </button>
+        </div>
+      )}
+
+      {!sizeOk && section !== 'learn' && (
         <div className="scan">
           {/* Kept mounted while reviewing so "Quay lại" returns to the same faces and edits. */}
           {(nxn.guide.phase === 'SCANNING' || nxn.guide.phase === 'REVIEWING') && (
-            <div className="scan" hidden={nxn.guide.phase !== 'SCANNING'}>
+            <div className="scan" hidden={nxn.guide.phase !== 'SCANNING' || section !== 'scan'}>
               {notice && <div className="rb-alert">{notice}</div>}
               <NxnScanView
                 key={`${cubeSize}-${nxn.guide.scanId}`}
@@ -467,7 +808,6 @@ export default function SmartSolverPanel({
                 }}
                 schemeSettings={schemeSettings}
                 onSchemeSettings={changeScheme}
-                onSkipScan={startSolving}
               />
             </div>
           )}
@@ -534,9 +874,345 @@ export default function SmartSolverPanel({
       <div className="scan" hidden={!sizeOk}>
         {notice && <div className="rb-alert">{notice}</div>}
 
+        {/* Beginner mode views: Roadmap, Notation, Checkpoint, and Practice views */}
+        {solveMode === 'beginner' && learnView === 'roadmap' && (
+          <RoadmapView
+            currentStageId={guidingNow ? currentStageDef.id : undefined}
+            cubeState={guide.cube}
+            completedStages={progressState.completed}
+            practicedStages={progressState.practiced}
+            onSelectStage={handleLearnFromStage}
+            onOpenPractice={handleOpenPractice}
+            lessonStageIds={['cross', 'corners', 'middle', 'topCross', 'topEdges', 'topCorners', 'topFace']}
+            pendingStageIds={[]}
+            onOpenLesson={(stage) => {
+              if (stage.id === 'cross') setLearnView('lesson_cross')
+              if (stage.id === 'corners') setLearnView('lesson_corners')
+              if (stage.id === 'middle') setLearnView('lesson_middle')
+              if (stage.id === 'topCross') setLearnView('lesson_topCross')
+              if (stage.id === 'topEdges') setLearnView('lesson_lastEdges')
+              if (stage.id === 'topCorners') setLearnView('lesson_lastCorners')
+              if (stage.id === 'topFace') setLearnView('lesson_lastFace')
+            }}
+            onOpenNotation={() => {
+              setNotationFrom('roadmap')
+              setLearnView('notation')
+            }}
+            onClose={() => {
+              if (guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') {
+                setLearnView('guide')
+              } else {
+                onCloseSection()
+              }
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'notation' && (
+          <NotationView
+            onBack={() => setLearnView(notationFrom)}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            faceColors={faceColorsHex}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_cross' && (
+          <CrossLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_corners' && (
+          <CornerLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_middle' && (
+          <MiddleLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_topCross' && (
+          <TopCrossLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_lastEdges' && (
+          <LastEdgesLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_lastCorners' && (
+          <LastCornersLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'lesson_lastFace' && (
+          <LastFaceLessonView
+            faceColors={faceColorsHex}
+            cube={practiceCube}
+            moveCount={practiceHistory.length}
+            onUndo={handleUndoPractice}
+            onLoadSetup={(setup) => {
+              const cube = applyMoves(SOLVED, setup)
+              setPracticeCube(cube)
+              writeHistory([])
+              applyFaceletsSafely(toFacelets(cube), () => syncFromScene(cube))
+            }}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onHighlightTurn={(t) => get3()?.highlightTurn(t)}
+            onSpotlight={(t) => get3()?.spotlight(t)}
+            onMark={(c) => get3()?.mark(c)}
+            colorNames={Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>}
+            practice={lessonPractice}
+            onPracticeChange={setLessonPractice}
+            onExit={() => {
+              get3()?.highlight(null)
+              setPracticeCube(null)
+              writeHistory([])
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'checkpoint' && (
+          <CheckpointView
+            stage={currentStageDef}
+            cubeState={guide.cube}
+            nextStage={nextStageDef}
+            onMatch={handleCheckpointMatch}
+            onNeedFix={handleCheckpointNeedFix}
+            onOpenRoadmap={() => setLearnView('roadmap')}
+            onOpenNotation={() => {
+              setNotationFrom('checkpoint')
+              setLearnView('notation')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'practice_source' && practiceStage && (
+          <PracticeSourceView
+            stage={practiceStage}
+            onSelectSample={(sample) => handleStartPracticeSample(practiceStage, sample)}
+            onStartScan={() => {
+              setScanModeForPractice(true)
+              dispatch({ type: 'START_SCAN', purpose: 'initial' })
+              setLearnView(null)
+            }}
+            onBack={() => setLearnView('roadmap')}
+            onOpenNotation={() => {
+              setNotationFrom('practice_source')
+              setLearnView('notation')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'practice' && practiceStage && practiceCube && (
+          <PracticeView
+            stage={practiceStage}
+            cubeState={practiceCube}
+            onHighlightMove={(m) => get3()?.highlight(m)}
+            onUndo={handleUndoPractice}
+            canUndo={practiceHistory.length > 0}
+            moveHistory={practiceHistory.flatMap((t) => t.moves)}
+            onStageComplete={handlePracticeStageComplete}
+            onQuit={() => {
+              get3()?.highlight(null)
+              setLearnView('practice_source')
+            }}
+            onOpenNotation={() => {
+              setNotationFrom('practice')
+              setLearnView('notation')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'practice_done' && practiceStage && practiceStats && (
+          <PracticeDoneView
+            stage={practiceStage}
+            stats={practiceStats}
+            nextStage={STAGES[practiceStage.index + 1] ?? null}
+            onNextStage={() => {
+              const next = STAGES[practiceStage.index + 1]
+              if (next) handleOpenPractice(next)
+            }}
+            onPracticeAgain={() => {
+              if (practiceSample) {
+                handleStartPracticeSample(practiceStage, practiceSample)
+              } else {
+                setLearnView('practice_source')
+              }
+            }}
+            onBackToRoadmap={() => {
+              get3()?.highlight(null)
+              setLearnView('roadmap')
+            }}
+          />
+        )}
+
+        {solveMode === 'beginner' && learnView === 'precondition' && practiceStage && (
+          <PreconditionView
+            stage={practiceStage}
+            missingStages={missingStages}
+            onLearnMissingStage={(missingId) => {
+              const missingDef = STAGES.find((s) => s.id === missingId)
+              if (missingDef) handleLearnFromStage(missingDef)
+            }}
+            onUsePresetSample={() => setLearnView('practice_source')}
+            onRescan={() => {
+              setScanModeForPractice(true)
+              dispatch({ type: 'START_SCAN', purpose: 'initial' })
+              setLearnView(null)
+            }}
+            onBack={() => setLearnView('practice_source')}
+          />
+        )}
+
         {/* Kept mounted while reviewing so "Sửa lại" returns to the same faces and edits. */}
         {sizeOk && (scanning || guide.phase === 'REVIEWING') && (
-          <div hidden={!scanning}>
+          <div hidden={!scanning || learnOverlay || section === 'solve'}>
             <ScanView
               key={guide.scanId}
               mode={scanMode}
@@ -550,12 +1226,12 @@ export default function SmartSolverPanel({
               onConfirm={onScanned}
               schemeSettings={schemeSettings}
               onSchemeSettings={changeScheme}
-              onSkipScan={startSolving}
+              onOpenLearn={() => onSelectSection('learn')}
             />
           </div>
         )}
 
-        {guide.phase === 'REVIEWING' && (
+        {!learnOverlay && guide.phase === 'REVIEWING' && (
           <div className="scan">
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--rb-text)' }}>Kiểm tra trên khối 3D</div>
             <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '4px' }}>
@@ -572,18 +1248,40 @@ export default function SmartSolverPanel({
           </div>
         )}
 
-        {guide.phase === 'SOLVING' && <div className="rb-alert" style={{ marginTop: '8px' }}>Đang tính lời giải...</div>}
+        {(!learnView || learnView === 'guide') && guide.phase === 'SOLVING' && (
+          <div className="rb-alert" style={{ marginTop: '8px' }}>Đang tính lời giải...</div>
+        )}
 
-        {(guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
-          <GuideView
-            guide={guide}
-            colors={colors}
-            optimalStatus={optimalStatus}
-            beginnerStage={solveMode === 'beginner' ? beginnerStage : undefined}
-            onDone={() => turnNow && report(turnNow)}
-            onWrong={report}
-            onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
-          />
+        {(!learnView || learnView === 'guide') && (guide.phase === 'GUIDING' || guide.phase === 'RECOVERING') && (
+          solveMode === 'beginner' ? (
+            <StepView
+              guide={guide}
+              colors={colors}
+              currentStage={currentStageDef}
+              bigSteps
+              moveWhy={moveWhy}
+              onDone={() => turnNow && report(turnNow)}
+              onWrong={report}
+              onOpenRoadmap={() => setLearnView('roadmap')}
+              onOpenNotation={() => {
+                setNotationFrom('guide')
+                setLearnView('notation')
+              }}
+              onCheckStage={() => setLearnView('checkpoint')}
+              onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
+              onAutoPlay={turnNow ? () => report(turnNow) : undefined}
+            />
+          ) : (
+            <GuideView
+              guide={guide}
+              colors={colors}
+              optimalStatus={optimalStatus}
+              beginnerStage={undefined}
+              onDone={() => turnNow && report(turnNow)}
+              onWrong={report}
+              onRescan={() => dispatch({ type: 'START_SCAN', purpose: 'initial' })}
+            />
+          )
         )}
 
         {guide.phase === 'VERIFYING' && (
