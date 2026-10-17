@@ -8,8 +8,8 @@ import { applyNotation, fromCubie, toCubie } from './physical'
 
 export type TopCrossMethod = 'single' | 'dual'
 
-/** User's formula: target cross on D, correctly facing down at DF–DR. */
-export const BOTTOM_CROSS_L_ALG = parseAlgorithm("L' F' D F L B D' B'")
+/** User's formula: with the L of face-down edges at DL–DB (back-left) it makes the cross on D. */
+export const BOTTOM_CROSS_L_ALG = parseAlgorithm("R' B' D B R F D' F'")
 /** Stage id stays topCross for compatibility; the last layer is physically D now. */
 export const TOP_CROSS_L_ALG: Move[] = [...BOTTOM_CROSS_L_ALG]
 export const TOP_CROSS_ALG = parseAlgorithm("B R D R' D' B'")
@@ -56,7 +56,7 @@ export function buildTopCrossGuide(state: CubieState, names: ColorNames, method:
   // Align using D only; the learner keeps the cube facing forward.
   const prefix = PREFIXES.find((p) => {
     const aligned = applyMoves(state, p)
-    if (kind === 'elbow' && ![4, 5].every((slot) => aligned.eo[slot] === 0)) return false
+    if (kind === 'elbow' && ![6, 7].every((slot) => aligned.eo[slot] === 0)) return false
     if (kind === 'line' && ![4, 6].every((slot) => aligned.eo[slot] === 0)) return false
     const end = applyMoves(aligned, algorithm)
     return f2lDone(end) && topCrossPattern(end) === expected
@@ -70,18 +70,18 @@ export function buildTopCrossGuide(state: CubieState, names: ColorNames, method:
   const pair = EDGE_COLORS[piece]!
   const edge = `${names[pair[0]]}–${names[pair[1]]}`
   const align = kind === 'line'
-    ? 'Đặt hai cạnh đang hướng xuống thành hàng trái–phải (DL và DR), nhìn theo mặt trước F.'
-    : 'Đặt hai cạnh đang hướng xuống ở phía trước và bên phải (DF và DR): chữ L ở trước–phải.'
+    ? 'Đặt hai cạnh đang hướng xuống thành hàng ngang trái–phải, nhìn theo mặt trước F.'
+    : 'Đặt hai cạnh đang hướng xuống ở phía sau và bên trái: chữ L ở sau–trái.'
   const finish = `Hai tầng phía trên được khôi phục. Nhìn mặt đáy: từ ${PATTERN_LABEL[kind].toLowerCase()} đã thành ${PATTERN_LABEL[next].toLowerCase()}. Dừng ở đây để quan sát.`
   const explanations = useL ? [
-    `Mở mặt trái bằng L′ (${names.L}) để tạo đường đi cho các cạnh. Một phần hai tầng phía trên đi theo tạm thời; mình sẽ trả mặt trái bằng L.`,
-    `Xoay mặt trước F′ (${names.F}) để bắt đầu nhịp F′ D F, phối hợp mặt trước và tầng đáy.`,
-    'Xoay tầng đáy D để đưa nhóm cạnh sang vị trí mới trước khi trả mặt trước về.',
-    'Trả mặt trước bằng F. Vì tầng đáy đã xoay ở giữa nên F đưa một nhóm khối khác trở lại, không đơn giản huỷ F′ ban đầu.',
-    'Trả mặt trái bằng L. Chưa dừng: còn nhịp B D′ B′ để hoàn thiện và khôi phục đủ hai tầng phía trên.',
-    `Xoay mặt sau B (${names.B}) để mở đường cho nhịp cuối B D′ B′.`,
-    'Xoay tầng đáy ngược lại bằng D′ để đưa nhóm cạnh về đường đi đóng mặt sau.',
-    `Trả mặt sau bằng B′. ${finish}`
+    `Mở mặt phải bằng R′ (${names.R}) để tạo đường đi cho các cạnh. Một phần hai tầng phía trên đi theo tạm thời; mình sẽ trả mặt phải bằng R.`,
+    `Xoay mặt sau B′ (${names.B}) để bắt đầu nhịp B′ D B, phối hợp mặt sau và tầng đáy.`,
+    'Xoay tầng đáy D để đưa nhóm cạnh sang vị trí mới trước khi trả mặt sau về.',
+    'Trả mặt sau bằng B. Vì tầng đáy đã xoay ở giữa nên B đưa một nhóm khối khác trở lại, không đơn giản huỷ B′ ban đầu.',
+    'Trả mặt phải bằng R. Chưa dừng: còn nhịp F D′ F′ để hoàn thiện và khôi phục đủ hai tầng phía trên.',
+    `Xoay mặt trước F (${names.F}) để mở đường cho nhịp cuối F D′ F′.`,
+    'Xoay tầng đáy ngược lại bằng D′ để đưa nhóm cạnh về đường đi đóng mặt trước.',
+    `Trả mặt trước bằng F′. ${finish}`
   ] : [
     `Xoay mặt sau B (${names.B}) để mở đường cho cạnh ${edge} đổi hướng. Mình sẽ trả mặt sau ở cuối công thức.`,
     `Xoay mặt phải R (${names.R}) để bắt đầu nhịp R D R′ D′. Các khối tầng trên ở mặt này đi theo tạm thời.`,

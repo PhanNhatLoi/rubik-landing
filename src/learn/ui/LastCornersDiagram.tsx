@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { CORNER_COLORS, CORNER_FACELETS, toFacelets } from '../../smart-solver/core/facelets'
 import type { CubieState, Face } from '../../smart-solver/core/types'
-import { LAST_CORNER_LABEL, type LastCornersVariant, type lastCornerClue } from '../guide/lastCornersGuide'
+import { LAST_CORNER_LABEL, cornerName, type LastCornersVariant, type lastCornerClue } from '../guide/lastCornersGuide'
 
 const POS: Record<number, { x: number; y: number }> = { 4: { x: 220, y: 8 }, 5: { x: 20, y: 8 }, 6: { x: 20, y: 222 }, 7: { x: 220, y: 222 } }
 const hex = (v: number) => `#${v.toString(16).padStart(6, '0')}`
@@ -39,8 +39,9 @@ export default function LastCornersDiagram({ state, faceColors, colorNames, labe
       return <g key={slot} transform={`translate(${p.x} ${p.y})`} data-corner={LAST_CORNER_LABEL[slot]} data-position-correct={correct}>
         {variant?.anchor === slot && <rect x="0" y="0" width="120" height="140" rx="8" fill="none" stroke="var(--rb-accent-link)" strokeWidth="2" strokeDasharray="5 3" />}
         {clue?.neighbor === slot && <rect x="2" y="2" width="116" height="136" rx="8" fill="none" stroke="#f59e0b" strokeWidth="2" />}
-        <text x="60" y="16" fontSize="12" textAnchor="middle" fill="var(--rb-text)">{LAST_CORNER_LABEL[slot]}{correct ? ' ✓ đúng chỗ' : clue?.neighbor === slot ? ' · 2/3 màu' : ''}</text>
-        <svg x="16" y="21" width="88" height="82" viewBox="0 0 88 84" role="img" aria-label={`Góc ${LAST_CORNER_LABEL[slot]}, bộ màu ${CORNER_COLORS[state.cp[slot]!]!.map((f) => colorNames[f]).join(', ')}${correct ? ', đúng vị trí dù có thể chưa đúng hướng' : ''}`}>
+        <text x="60" y="9" fontSize="9" textAnchor="middle" fill="var(--rb-text)">{cornerName(slot, colorNames)}</text>
+        <text x="60" y="19" fontSize="9" textAnchor="middle" fill={correct ? 'var(--rb-success-text, var(--rb-text))' : '#f59e0b'}>{correct ? '✓ đúng chỗ' : clue?.neighbor === slot ? '2/3 màu' : ''}</text>
+        <svg x="16" y="21" width="88" height="82" viewBox="0 0 88 84" role="img" aria-label={`Góc ${cornerName(slot, colorNames)}, bộ màu ${CORNER_COLORS[state.cp[slot]!]!.map((f) => colorNames[f]).join(', ')}${correct ? ', đúng vị trí dù có thể chưa đúng hướng' : ''}`}>
           {colors.map((f, i) => <g key={i}><polygon points={SHAPES[i]} fill={hex(faceColors[f])} stroke="#0f172a" strokeWidth="1.5" /><text x={TEXT_POS[i]![0]} y={TEXT_POS[i]![1]} textAnchor="middle" fontSize="10" fill={ink(faceColors[f])}>{expected[i]}</text></g>)}
         </svg>
         <text x="8" y="119" fontSize="10" fill="var(--rb-text-muted)">Cần:</text>

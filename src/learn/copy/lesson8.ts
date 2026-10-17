@@ -1,29 +1,51 @@
-import { LAST_FACE_SAMPLES } from '../guide/lastFaceGuide'
+import { applyMoves, invertMoves, SOLVED } from '../../smart-solver/core/cubie'
+import { LAST_FACE_SAMPLES, LAST_FACE_VARIANTS } from '../guide/lastFaceGuide'
 import type { LessonPage } from '../ui/LessonPlayer'
+
 export const LAST_FACE_CASES = [
- { wrong: 2, label: '2 góc cần lật' }, { wrong: 3, label: '3 góc cần lật' }, { wrong: 4, label: '4 góc cần lật' }, { wrong: 0, label: 'Đã hoàn thành' }
+  { wrong: 2, label: '2 góc cần lật' }, { wrong: 3, label: '3 góc cần lật' }, { wrong: 4, label: '4 góc cần lật' }, { wrong: 0, label: 'Đã hoàn thành' }
 ] as const
-export const LAST_FACE_DEFAULT = LAST_FACE_SAMPLES.findIndex((s)=>s.wrong===2)
-export const LESSON8_PAGES: readonly (LessonPage & {body: string[]; reason: string})[] = [
- {id:'goal',section:'Mục tiêu',title:'Lật góc để hoàn thành Rubik',body:[
-  'Sau Bài 7, mọi khối đã đúng vị trí. Bài 8 chỉ xoắn các góc tầng đáy để vàng hướng xuống D, các màu bên trùng với tâm.',
-  'Một lượt gồm hai nửa từ Bài 6: làm bên này rồi làm bên đối diện. Nửa đầu còn đổi vị trí cạnh; đủ cả hai nửa thì các cạnh trở về, chỉ hai góc bên bắt đầu bị xoắn ngược chiều nhau.'
- ],reason:'Góc không thể lật như cạnh: mỗi góc xoắn 120°. Hai góc xoắn ngược chiều giữ tổng độ xoắn hợp lệ và giữ nguyên vị trí mọi khối.'},
- {id:'recognize',section:'Chọn mặt bắt đầu',title:'So màu dưới góc với tâm F',body:[
-  'Nhìn ô đang hướng xuống D của một góc chưa đúng mặt. Chọn mặt bên có tâm trùng màu ô đó làm F mốc.',
-  'Nếu góc ấy nằm trước–phải (FR) theo F mốc, bắt đầu bằng bản R′. Nếu nằm trước–trái (FL), bắt đầu bằng bản L. B là mặt đối diện F mốc.',
-  'Hình tổng quát là một khối Rubik nhìn từ dưới, thấy mặt F, mặt bên bắt đầu và mặt D. Chỉ các góc tầng cuối và tâm được giữ màu. Hai góc viền cam là cặp sẽ xoắn; ô có chấm tròn có màu trùng tâm F mốc.',
-  'Đổi mặt mốc bằng cách nhìn khối từ phía khác; không xoay D riêng. Sau mỗi lượt đủ hai nửa, quan sát lại và chọn mốc mới.'
- ],reason:'Khi màu dưới góc trùng tâm F mốc, bản đúng phía đưa ô đó lên đúng mặt F. Góc cùng phía ở phía sau cũng xoắn; vì vậy cần quan sát lại cả bốn góc sau mỗi lượt.'},
- {id:'formula',section:'Công thức hai nửa',title:'Làm liền hai bên, rồi mới quan sát',body:[
-  'Bản R′: R′ D2 R D R′ D R · L D2 L′ D′ L D′ L′.',
-  'Bản L: L D2 L′ D′ L D′ L′ · R′ D2 R D R′ D R.',
-  'D2 là xoay đáy nửa vòng. Dấu · chỉ chỗ nối hai nửa, không phải điểm dừng. Trên khối ảo, app chia D2 thành hai nước D hoặc D′ để theo dõi từng lần xoay.',
-  'Đủ cả hai nửa: giữ vị trí tất cả các khối, chỉ đổi hướng hai góc bên bắt đầu. Không dừng để sửa các cạnh giữa công thức.'
- ],reason:'Hai nửa đổi vòng cạnh theo hai chiều ngược nhau nên triệt tiêu phần đổi cạnh. Làm từ R′ tác động cặp FR–BR; làm từ L tác động cặp FL–BL, tính theo F mốc.'},
- {id:'practice',section:'Tham khảo và thực hành',title:'Xem màu dưới góc, chọn mốc, làm đủ một lượt',body:[
-  'Có thể còn 2, 3 hoặc 4 góc cần lật; cũng có thể Rubik đã hoàn thành. Không có trường hợp hợp lệ chỉ một góc bị xoắn.',
-  'Chọn nhóm để xem một mẫu và hướng xử lý đề xuất. Các mẫu khác chỉ hiện khi bạn mở danh sách. Thực hành tải đúng mẫu đang xem.',
-  'Mỗi lần Gợi ý sẽ chọn F mốc theo màu dưới góc và hướng dẫn đủ hai nửa. Làm xong rồi xem lại; lặp cho tới khi bốn góc khớp tâm và khối hoàn thành.'
- ],reason:'Chỉ đếm số góc chưa đúng mặt chưa đủ quyết định công thức. Màu ô dưới và vị trí của góc so với F mốc mới xác định phía bắt đầu.'}
+export const LAST_FACE_DEFAULT = LAST_FACE_SAMPLES.findIndex((sample) => sample.wrong === 2)
+export const LAST_FACE_FORMULA_PICTURES = (['right', 'left'] as const).map((side) => {
+  const variant = LAST_FACE_VARIANTS.find((v) => v.front === 'F' && v.side === side)!
+  const before = applyMoves(SOLVED, invertMoves(variant.moves))
+  return { variant, before, after: applyMoves(before, variant.moves) }
+})
+export const LAST_FACE_GOAL_PICTURE = LAST_FACE_FORMULA_PICTURES[0]!
+
+export const LESSON8_PAGES: readonly (LessonPage & { body: string[]; reason: string })[] = [
+  {
+    id: 'goal', section: 'Mục tiêu', title: 'Lật góc để hoàn thành Rubik',
+    body: [
+      'Sau Bài 7, bốn góc vàng đã ở đúng vị trí nhưng màu vàng có thể còn quay sang bên hông. Bài này sẽ đưa màu vàng xuống D và các màu bên hông về khớp tâm.',
+      'Học xong, bạn sẽ biết cách chọn cặp góc cần xoắn và làm đủ một lượt để hoàn thành Rubik. Các cạnh và hai tầng phía trên được giữ nguyên sau cả lượt.'
+    ],
+    reason: 'Đúng vị trí chưa có nghĩa là đúng mặt màu. Góc có thể đứng đúng chỗ nhưng vẫn cần xoắn để ba màu cùng khớp với ba tâm.'
+  },
+  {
+    id: 'recognize', section: 'Chọn mặt bắt đầu', title: 'So màu dưới góc với tâm mặt bên',
+    body: [
+      'Chọn một góc chưa có màu vàng hướng xuống. Nhìn màu của ô đang nằm dưới góc đó, rồi tìm tâm mặt bên cùng màu để làm F mốc.',
+      'Nhìn từ mặt mốc: góc ở phía trước bên phải thì dùng bản bắt đầu từ phải; góc ở phía trước bên trái thì dùng bản bắt đầu từ trái. B là mặt phía sau, đối diện F mốc.',
+      'Hình giữ màu các góc và tâm để bạn so sánh. Hai góc sáng là cặp cùng bị xoắn. Đổi mặt mốc bằng cách nhìn khối từ phía khác, không xoay D riêng.'
+    ],
+    reason: 'Khi màu dưới góc trùng tâm F mốc, công thức đúng phía sẽ đưa màu đó lên mặt F. Góc còn lại của cặp cũng xoắn, nên sau một lượt cần quan sát lại cả bốn góc.'
+  },
+  {
+    id: 'formula', section: 'Công thức hai nửa', title: 'Làm đủ hai nửa trong một lượt',
+    body: [
+      'Đây là công thức đổi cạnh của Bài 6, ghép hai bên đối diện. Bắt đầu bên phải hoặc bên trái theo góc vừa chọn, rồi làm ngay nửa còn lại.',
+      'D2 là xoay đáy nửa vòng. D2′ cũng là nửa vòng, nhưng đi theo chiều D′; khi thực hành, app tách thành hai nước cùng chiều để bạn dễ theo dõi.',
+      'Chưa dừng sau nửa đầu: các cạnh lúc này có thể còn lệch. Làm đủ cả hai nửa để các cạnh trở về; sau đó quan sát màu dưới góc và chọn lượt tiếp theo nếu cần.'
+    ],
+    reason: 'Hai nửa đổi vòng cạnh theo hai chiều ngược nhau nên trả các cạnh về chỗ cũ. Kết quả cả lượt chỉ xoắn hai góc bên bắt đầu, giữ nguyên vị trí các khối.'
+  },
+  {
+    id: 'practice', section: 'Tham khảo và thực hành', title: 'Chọn mẫu, tìm mốc và lật góc',
+    body: [
+      'Chọn số góc chưa có màu vàng hướng xuống để xem một mẫu. Chỉ cần làm theo đề xuất trước; các mẫu và cách chọn mốc khác được mở khi bạn muốn tham khảo.',
+      'Làm đủ hai nửa, quan sát lại rồi chọn mốc cho lượt tiếp theo. Bấm Thực hành để luyện trên đúng mẫu đang xem; Gợi ý đi theo mốc bạn đã chọn.'
+    ],
+    reason: 'Khối hợp lệ có thể còn 2, 3 hoặc 4 góc cần lật; không có trường hợp chỉ một góc bị xoắn. Chọn công thức bằng màu dưới góc và tâm mốc, không chỉ bằng số góc sai.'
+  }
 ]

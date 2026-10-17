@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyMoves, equals, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
+import { applyMoves, equals, invertMoves, parseAlgorithm, SOLVED } from '../../smart-solver/core/cubie'
 import { f2lDone, topCrossDone } from '../goals'
 import { layerTurnToEvent, readOrientation } from '../../smart-solver/adapter/stickerModel'
 import { generateTopCrossScramble, getLesson5Pages, topCrossPracticeRoute, TOP_CROSS_LEVELS, TOP_CROSS_PICTURE_SCRAMBLE } from '../copy/lesson5'
@@ -62,7 +62,7 @@ describe('lesson 5 top cross', () => {
         expect(guide.next).toBe(guide.kind === 'dot' || (guide.kind === 'line' && method === 'single') ? 'elbow' : 'cross')
         const aligned = guide.steps.length > algorithm.length ? guide.states[1]! : state
         if (guide.kind === 'line') expect([4, 6].every((slot) => aligned.eo[slot] === 0)).toBe(true)
-        if (guide.kind === 'elbow') expect([4, 5].every((slot) => aligned.eo[slot] === 0)).toBe(true)
+        if (guide.kind === 'elbow') expect([6, 7].every((slot) => aligned.eo[slot] === 0)).toBe(true)
         expect(guide.steps.length).toBeLessThanOrEqual(algorithm.length + 1)
         let physical = fromCubie(state)
         let tracked = state
@@ -96,8 +96,8 @@ describe('lesson 5 top cross', () => {
     expect(getLesson5Pages(null).some((p) => p.id === 'formula')).toBe(false)
     const single = getLesson5Pages('single').find((p) => p.id === 'formula')!
     const dual = getLesson5Pages('dual').find((p) => p.id === 'formula')!
-    expect(single.formulas?.map((f) => f.formula)).toEqual(['L′ F′ D F L B D′ B′'])
-    expect(dual.formulas?.map((f) => f.formula)).toEqual(['B R D R′ D′ B′', 'L′ F′ D F L B D′ B′'])
+    expect(single.formulas?.map((f) => f.formula)).toEqual(['R′ B′ D B R F D′ F′'])
+    expect(dual.formulas?.map((f) => f.formula)).toEqual(['B R D R′ D′ B′', 'R′ B′ D B R F D′ F′'])
     expect(single.body.join(' ')).toContain('Tổng cộng 2 lượt')
     expect(dual.body.join(' ')).toContain('Tổng cộng 2 lượt')
     expect(topCrossPracticeRoute('easy', 'single')).toBe('Hai cạnh đối → chữ L → dấu cộng · 2 lượt')
@@ -109,19 +109,23 @@ describe('lesson 5 top cross', () => {
   })
 
   it('uses the user formula as a proper whole-cube reorientation, with no change to the line formula', () => {
-    expect(BOTTOM_CROSS_L_ALG).toEqual(["L'", "F'", 'D', 'F', 'L', 'B', "D'", "B'"])
+    expect(BOTTOM_CROSS_L_ALG).toEqual(["R'", "B'", 'D', 'B', 'R', 'F', "D'", "F'"])
     expect(TOP_CROSS_ALG).toEqual(['B', 'R', 'D', "R'", "D'", "B'"])
     const engine = getEngine(3)
     const flipped = engine.applyAll(engine.solved(), TOP_CROSS_L_ALG)
     expect(Array.from(flipped, (n) => FACES[n]).join('')).toBe(toFacelets(applyMoves(SOLVED, TOP_CROSS_L_ALG)))
     const card = getLesson5Pages('dual').find((p) => p.id === 'formula')!.formulas![1]!
-    expect(card.formula).toBe('L′ F′ D F L B D′ B′')
-    expect(card.alignment).toContain('DF và DR')
+    expect(card.formula).toBe('R′ B′ D B R F D′ F′')
+    expect(card.alignment).toContain('phía sau và bên trái')
   })
 
   it('replays the supplied bottom-face log and keeps its two completed upper layers', () => {
-    const start = fromFacelets('UUUUUUUUURRRRRRFBBFFFFFFFLLRDDFDDRRDLLLLLLDDDBBBBBBLDB')
+    // The supplied log: from a solved cube the formula leaves face-down edges at DR and DF only.
+    expect(toFacelets(applyMoves(SOLVED, BOTTOM_CROSS_L_ALG))).toBe('UUUUUUUUURRRRRRFBBFFFFFFFLLRDDFDDRRDLLLLLLDDDBBBBBBLDB')
+    // So the formula starts from the L at DL–DB (back-left) and finishes the cross.
+    const start = fromFacelets(toFacelets(applyMoves(SOLVED, invertMoves(BOTTOM_CROSS_L_ALG))))
     if (!start.ok) throw new Error('Invalid supplied cube')
+    expect([4, 5, 6, 7].filter((slot) => start.state.eo[slot] === 0)).toEqual([6, 7])
     const end = applyMoves(start.state, BOTTOM_CROSS_L_ALG)
     expect(equals(end, SOLVED)).toBe(true)
     const upperTwo = (state: typeof SOLVED) => [0, 1, 2, 3].every((i) => state.cp[i] === i && state.co[i] === 0 && state.ep[i] === i && state.eo[i] === 0) && [8, 9, 10, 11].every((i) => state.ep[i] === i && state.eo[i] === 0)

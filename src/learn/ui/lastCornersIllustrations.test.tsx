@@ -40,5 +40,5 @@ it('keeps all three cases and follows the selected preparation frame in the illu
   for (const label of ['4 góc đúng', '1 góc đúng', '0 góc đúng']) expect(html).toContain(label)
   expect(html).toContain(variant.moves.join(' ').replaceAll("'", '′'))
   expect(html).toContain('Lượt 2:')
-  expect(html).toContain('có hai màu thuộc vị trí hiện tại')
+  expect(html).toContain('có hai màu thuộc vị trí này')
 })

@@ -1,3 +1,5 @@
+import { formulaPreviewBefore } from '../copy/formulaPreviews'
+import FormulaPreview from './FormulaPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, SOLVED } from '../../smart-solver/core/cubie'
@@ -13,6 +15,7 @@ import { locateOnGuide } from '../guide/follow'
 import LessonPlayer from './LessonPlayer'
 import MiniCube from './MiniCube'
 import TopCrossMethodPreview from './TopCrossMethodPreview'
+import TopCrossWorkedExamples from './TopCrossWorkedExamples'
 
 export interface TopCrossLessonViewProps {
   faceColors: Record<Face, number>
@@ -156,6 +159,8 @@ export default function TopCrossLessonView({
   useEffect(() => {
     if (seenCube.current === cube) return
     seenCube.current = cube
+    // A status message belongs to the cube it was shown for: any later move or undo clears it.
+    if (!plan) setMessage(null)
     if (!plan || !cube) return
     const { guide } = plan
     const where = locateOnGuide(guide, cube)
@@ -206,7 +211,7 @@ export default function TopCrossLessonView({
   }, [practice, plan, onHighlightTurn])
 
   const banner = (
-    <div
+    <div data-no-typing
       role="note"
       style={{ ...card, borderColor: 'var(--rb-accent-tint-border)', background: 'var(--rb-accent-tint)' }}
     >
@@ -243,13 +248,13 @@ export default function TopCrossLessonView({
         practice && method && page.id === 'formula' ? (
           <>
             {banner}
-            <div style={{ ...card, fontSize: '13px', color: 'var(--rb-accent-link)' }}>
+            <div data-no-typing style={{ ...card, fontSize: '13px', color: 'var(--rb-accent-link)' }}>
               Cách học: {TOP_CROSS_METHODS.find((m) => m.id === method)!.title}. Gợi ý sẽ theo cách này.
             </div>
             <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>
-              Chọn một mức độ: khối 3D sẽ được xáo theo mức đó. Hãy tự thử trước, cần thì bấm Gợi ý.
+              Chọn một trường hợp: khối 3D sẽ được xáo theo trường hợp đó. Hãy tự thử trước, cần thì bấm Gợi ý.
             </p>
-            <div className="rb-seg" role="tablist" aria-label="Mức độ">
+            <div className="rb-seg" role="tablist" aria-label="Trường hợp">
               {TOP_CROSS_LEVELS.map((l) => (
                 <button
                   key={l.id}
@@ -266,7 +271,7 @@ export default function TopCrossLessonView({
             </div>
             {level && (
               <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)' }}>
-                {topCrossPracticeRoute(level, method)} · chạm lại mức này để xáo ngẫu nhiên lại
+                {topCrossPracticeRoute(level, method)} · chạm lại trường hợp này để xáo ngẫu nhiên lại
               </div>
             )}
 
@@ -276,15 +281,15 @@ export default function TopCrossLessonView({
                   {plan ? `Đang làm lượt: ${plan.guide.title}` : f2lDone(cube) ? `Hình hiện tại: ${PATTERN_LABEL[topCrossPattern(cube)]}` : 'Hãy khôi phục hai tầng phía trên trước khi xin gợi ý.'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Cạnh hướng xuống</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{done}/4</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Nước đi</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{moveCount}</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Gợi ý</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{hints}</div>
                   </div>
@@ -292,7 +297,7 @@ export default function TopCrossLessonView({
 
                 {solved && (
                   <div role="status" className="rb-alert" style={{ fontSize: '13px' }}>
-                    Đã tạo dấu cộng tầng đáy! Màu cạnh bên và các góc sẽ học ở bài sau. Chạm lại mức độ để xáo lại ngẫu nhiên, hoặc chọn mức khó hơn.
+                    Đã tạo dấu cộng tầng đáy! Màu cạnh bên và các góc sẽ học ở bài sau. Chạm lại trường hợp này để xáo lại ngẫu nhiên, hoặc chọn trường hợp khác.
                   </div>
                 )}
 
@@ -305,7 +310,7 @@ export default function TopCrossLessonView({
                   >
                     <div>
                       <div className="rb-overline" style={{ fontSize: '10px', color: 'var(--rb-accent-2)' }}>
-                        {plan.guide.title} · theo dõi cạnh {plan.guide.edge}
+                        {plan.guide.title} · theo dõi cạnh đang phát sáng
                       </div>
                       <div style={{ marginTop: '4px', fontSize: '13px', color: 'var(--rb-text)' }}>{plan.guide.formula}</div>
                       {plan.index === 0 && (
@@ -355,21 +360,21 @@ export default function TopCrossLessonView({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube view="below" facelets={picture.before} faceColors={faceColors} label="Khối trước khi tạo dấu cộng tầng đáy" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi tạo dấu cộng</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi tạo dấu cộng</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="4" y1="12" x2="20" y2="12" />
                   <polyline points="14 6 20 12 14 18" />
                 </svg>
-                <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi xoay</div>
+                <div data-no-typing style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi xoay</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube view="below" facelets={picture.after} faceColors={faceColors} label="Khối sau khi tạo dấu cộng tầng đáy" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã xong</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã xong</div>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
+            <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
               Phần phát sáng: tâm D và 4 cạnh tầng đáy. Chỉ màu hướng xuống cần khớp tâm; bỏ qua các góc và màu cạnh bên. Hai tầng trên đã làm ở Bài 2–4 giữ màu, không phát sáng.
             </div>
 
@@ -380,7 +385,7 @@ export default function TopCrossLessonView({
                 {patterns.map((p) => (
                   <div key={p.label} style={{ minWidth: 0, textAlign: 'center' }}>
                     <MiniCube view="below" facelets={p.facelets} faceColors={faceColors} label={`Mẫu ${p.label.toLowerCase()} ở mặt đáy`} spotlight={{ kind: 'cells', cells: [[1, 0, 1], ...TOP_SLOTS.map(edgeCell)] }} grayRest />
-                    <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>{p.label}</div>
+                    <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>{p.label}</div>
                   </div>
                 ))}
               </div>
@@ -395,7 +400,7 @@ export default function TopCrossLessonView({
               <>
                 <div role="radiogroup" aria-label="Cách học dấu cộng tầng đáy" style={{ display: 'grid', gap: '10px' }}>
                   {TOP_CROSS_METHODS.map((option) => (
-                    <div key={option.id} style={{ ...card, display: 'grid', gap: '10px', borderColor: method === option.id ? 'var(--rb-accent-link)' : 'var(--rb-border)' }}>
+                    <div data-no-typing key={option.id} style={{ ...card, display: 'grid', gap: '10px', borderColor: method === option.id ? 'var(--rb-accent-link)' : 'var(--rb-border)' }}>
                     <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', minHeight: '44px', cursor: 'pointer' }}>
                       <input type="radio" name="top-cross-method" value={option.id} checked={method === option.id} onChange={() => chooseMethod(option.id)} aria-controls={`top-cross-preview-${option.id}`} style={{ marginTop: '4px', accentColor: 'var(--rb-accent-link)' }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
@@ -417,24 +422,27 @@ export default function TopCrossLessonView({
             )}
 
             {page.formulas?.map((formula) => (
-              <div key={formula.title} style={{ ...card, display: 'grid', gap: '8px' }}>
+              <div data-no-typing key={formula.title} style={{ ...card, display: 'grid', gap: '8px' }}>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--rb-text)' }}>{formula.title}</div>
                 <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>{formula.alignment}</div>
                 <div aria-label={`Công thức: ${formula.formula}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'stretch' }}>
                   {formula.phases.map(([label, notation]) => (
                     <div key={label} style={{ padding: '8px', borderRadius: 'var(--rb-r-sm)', background: 'var(--rb-surface-2)' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>{label}</div>
+                      <div data-no-typing style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>{label}</div>
                       <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-accent-link)', marginTop: '3px' }}>{notation}</div>
                     </div>
                   ))}
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: 'var(--rb-text-muted)' }}>{formula.explanation}</p>
+                <FormulaPreview state={formulaPreviewBefore(formula.formula)} moves={formula.formula} faceColors={faceColors} label={formula.title} view="below" cells={TOP_SLOTS.map(edgeCell)} result="Đã tạo dấu cộng vàng ở D. Tiếp tục bỏ qua các góc và màu bên hông ở bước này." />
                 {formula.source && <p style={{ margin: 0, fontSize: '12.5px', lineHeight: 1.5, color: 'var(--rb-text-muted)' }}>{formula.source}</p>}
                 <div style={{ fontSize: '13px', color: 'var(--rb-accent-link)' }}>{formula.result}</div>
               </div>
             ))}
 
-            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+            {page.id === 'formula' && method && <TopCrossWorkedExamples method={method} faceColors={faceColors} colorNames={colorNames} />}
+
+            <div data-no-typing style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
               <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
               {page.reason.map((text, i) => (
                 <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>

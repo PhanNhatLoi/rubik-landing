@@ -30,7 +30,7 @@ export const TOP_CROSS_METHODS: readonly { id: TopCrossMethod; title: string; de
 
 export const TOP_CROSS_LINE_CARD: FormulaCard = {
   title: 'Hai cạnh đối — công thức đường thẳng',
-  alignment: 'Mặt vàng cần lắp ở đáy D. Xoay D để hai cạnh đúng màu hướng xuống nằm trái–phải (DL và DR). Giữ trắng ở trên, xanh lá trước mặt.',
+  alignment: 'Mặt vàng cần lắp ở đáy D. Xoay D để hai cạnh đúng màu hướng xuống nằm ngang hàng trái–phải. Giữ trắng ở trên, xanh lá trước mặt.',
   formula: 'B R D R′ D′ B′',
   phases: [['Mở mặt sau', 'B'], ['Đổi chỗ', 'R D R′ D′'], ['Đóng mặt sau', 'B′']],
   explanation: 'Đây là công thức hai cạnh đối trước đây, được quy đổi theo hướng cầm mới: mặt cần lắp ở đáy. Mở bằng B, cho cạnh đi đường vòng rồi đóng bằng B′ để khôi phục hai tầng phía trên.',
@@ -38,10 +38,10 @@ export const TOP_CROSS_LINE_CARD: FormulaCard = {
 }
 export const TOP_CROSS_L_CARD: FormulaCard = {
   title: 'Hai cạnh kề nhau — công thức chữ L',
-  alignment: 'Giữ trắng ở trên, vàng ở đáy D, xanh lá trước mặt. Xoay D để chữ L nằm trước–phải (DF và DR).',
-  formula: 'L′ F′ D F L B D′ B′',
-  phases: [['Mở mặt trái', 'L′'], ['Đổi đường qua mặt trước', 'F′ D F'], ['Trả mặt trái', 'L'], ['Hoàn thiện qua mặt sau', 'B D′ B′']],
-  explanation: 'Mở mặt trái bằng L′, phối hợp mặt trước và tầng đáy bằng F′ D F, trả mặt trái bằng L. Nhịp B D′ B′ tiếp tục đổi đường đi của các cạnh và khôi phục hai tầng phía trên. Làm hết 8 nước rồi quan sát.',
+  alignment: 'Giữ trắng ở trên, vàng ở đáy D, xanh lá trước mặt. Xoay D để chữ L nằm ở phía sau và bên trái.',
+  formula: 'R′ B′ D B R F D′ F′',
+  phases: [['Mở mặt phải', 'R′'], ['Đổi đường qua mặt sau', 'B′ D B'], ['Trả mặt phải', 'R'], ['Hoàn thiện qua mặt trước', 'F D′ F′']],
+  explanation: 'Mở mặt phải bằng R′, phối hợp mặt sau và tầng đáy bằng B′ D B, trả mặt phải bằng R. Nhịp F D′ F′ tiếp tục đổi đường đi của các cạnh và khôi phục hai tầng phía trên. Làm hết 8 nước rồi quan sát.',
   result: 'Chữ L → dấu cộng trong 1 lượt. Chấm hoặc hai cạnh đối → chữ L → dấu cộng trong 2 lượt.'
 }
 
@@ -51,9 +51,9 @@ export function topCrossPracticeRoute(level: TopCrossLevelId, method: TopCrossMe
 }
 export type TopCrossLevelId = 'easy' | 'medium' | 'hard'
 export const TOP_CROSS_LEVELS = [
-  { id: 'easy', label: 'Dễ', desc: 'Hai cạnh đối', pattern: 'line' },
-  { id: 'medium', label: 'Trung bình', desc: 'Hai cạnh kề nhau (chữ L)', pattern: 'elbow' },
-  { id: 'hard', label: 'Khó', desc: 'Chưa có cạnh nào hướng xuống (chấm)', pattern: 'dot' }
+  { id: 'easy', label: 'Hai cạnh đối', desc: 'Hai cạnh hướng xuống nằm đối diện nhau', pattern: 'line' },
+  { id: 'medium', label: 'Chữ L', desc: 'Hai cạnh hướng xuống nằm kề nhau', pattern: 'elbow' },
+  { id: 'hard', label: 'Chấm', desc: 'Chưa có cạnh nào hướng xuống', pattern: 'dot' }
 ] as const
 
 // A small checked catalog built from inverses of the lesson's own formula; no solver or search at play time.
@@ -130,11 +130,11 @@ export function getLesson5Pages(method: TopCrossMethod | null): readonly Lesson5
     body: method === 'dual' ? [
       'Công thức đối vẫn là phương pháp 6 nước, quy đổi sang mặt đích ở đáy D. Công thức chữ L dùng nguyên chuỗi 8 nước với mặt đích ở đáy.',
       'Chữ L hoặc hai cạnh đối: căn đúng hình rồi dùng công thức tương ứng, một lượt là có dấu cộng.',
-      'Chưa có cạnh nào hướng xuống: dùng công thức chữ L một lượt, được chữ L ở trước–phải. Lặp lại chính công thức đó một lượt nữa để có dấu cộng, không cần căn D giữa hai lượt. Tổng cộng 2 lượt.'
+      'Chưa có cạnh nào hướng xuống: dùng công thức chữ L một lượt, được chữ L ở sau–trái. Lặp lại chính công thức đó một lượt nữa để có dấu cộng, không cần căn D giữa hai lượt. Tổng cộng 2 lượt.'
     ] : [
-      'Bạn chỉ cần nhớ công thức chữ L: L′ F′ D F L B D′ B′. Giữ trắng ở trên, vàng ở đáy D và xanh lá trước mặt.',
-      'Chữ L: căn trước–phải (DF và DR), làm một lượt sẽ có dấu cộng. Hai cạnh đối: căn trái–phải (DL và DR), làm một lượt sẽ thành chữ L; xoay D để căn chữ L trước–phải rồi lặp cùng công thức. Tổng cộng 2 lượt.',
-      'Chưa có cạnh nào hướng xuống: làm một lượt để có chữ L ở trước–phải, rồi lặp lại cùng công thức, không cần căn D giữa hai lượt. Lộ trình: chấm → chữ L → dấu cộng. Tổng cộng 2 lượt.'
+      'Bạn chỉ cần nhớ công thức chữ L: R′ B′ D B R F D′ F′. Giữ trắng ở trên, vàng ở đáy D và xanh lá trước mặt.',
+      'Chữ L: căn ở phía sau và bên trái, làm một lượt sẽ có dấu cộng. Hai cạnh đối: căn ngang hàng trái–phải, làm một lượt sẽ thành chữ L; xoay D để căn chữ L ở sau–trái rồi lặp cùng công thức. Tổng cộng 2 lượt.',
+      'Chưa có cạnh nào hướng xuống: làm một lượt để có chữ L ở sau–trái, rồi lặp lại cùng công thức, không cần căn D giữa hai lượt. Lộ trình: chấm → chữ L → dấu cộng. Tổng cộng 2 lượt.'
     ],
     reason: [...SHARED_REASON,
       'Dừng quan sát sau mỗi lượt, căn lại D nếu cần. Hai tầng phía trên có thể lệch tạm thời trong lượt: làm hết công thức để chúng trở lại. Nếu xoay nhầm, bấm Hoàn tác rồi tiếp tục hướng dẫn.'

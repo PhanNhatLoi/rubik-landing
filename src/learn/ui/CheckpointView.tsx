@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { CubieState } from '../../smart-solver/core/types'
 import type { StageDef } from '../stages'
-import { format, getStage } from '../copy/copy'
+import { format } from '../copy/copy'
+import { getCurriculumStageCopy } from '../curriculum'
 
 export interface CheckpointViewProps {
   stage: StageDef
@@ -23,8 +24,8 @@ export default function CheckpointView({
   onOpenNotation
 }: CheckpointViewProps) {
   const autoDone = cubeState ? stage.isDone(cubeState) : false
-  const stageCopy = getStage(stage.id)
-  const nextStageCopy = nextStage ? getStage(nextStage.id) : null
+  const stageCopy = getCurriculumStageCopy(stage.id)
+  const nextStageCopy = nextStage ? getCurriculumStageCopy(nextStage.id) : null
 
   const [checkedItems, setCheckedItems] = useState<boolean[]>(() =>
     stageCopy.check.map(() => autoDone)

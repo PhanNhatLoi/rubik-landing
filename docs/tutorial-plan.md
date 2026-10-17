@@ -344,6 +344,8 @@ Bài 2 (dấu cộng ở mặt đáy D; "mặt vàng" là mặt đang lắp): 4 
 
 ## 12. Bài 2 — Dấu cộng ở tầng đầu (ĐÃ CHỐT)
 
+**Cập nhật theo yêu cầu mới:** phương pháp và bố cục Bài 2 đã được thay bằng mục 21 bên dưới. Phần công thức lớp giữa ở mục 11 là lịch sử của phương pháp cũ.
+
 UI, gợi ý (`src/learn/guide/crossGuide.ts`), mức độ Dễ/Trung bình/Khó với xáo ngẫu nhiên (`generateCrossScramble` trong `src/learn/copy/lesson2.ts`) và cách xử lý nước nửa vòng (xoay lần 1/2 không bị coi là sai) đã được duyệt. Không sửa nếu chưa được yêu cầu. Mẫu cho các bài sau: `CrossLessonView.tsx` + `LessonPlayer.tsx` + `guide/physical.ts`.
 
 ## 13. Bài 3 — Lắp các khối góc (ĐÃ CHỐT)
@@ -406,7 +408,7 @@ Bài 1–4 đã chốt, không sửa nếu chủ dự án chưa yêu cầu. Ch�
 Cài đặt: `guide/topCrossGuide.ts`, `copy/lesson5.ts`, `ui/TopCrossLessonView.tsx`. Tên file và stage id `topCross` được giữ để tương thích, nhưng mặt đích hiện là **D vàng ở đáy**. Cần tầng trắng U và tầng giữa xong trước (`learn/goals.ts`).
 
 - Lộ trình: mục tiêu/khối trước-sau → nhận diện chữ L/hai cạnh đối/chấm → chọn cách học → công thức và thực hành. Không chọn sẵn phương pháp.
-- Công thức chữ L nguyên bản chủ dự án: **L′ F′ D F L B D′ B′**; căn chữ L ở **DF–DR (trước–phải)**. Hình chấm dùng hai lượt liên tiếp, không cần căn giữa hai lượt.
+- Công thức chữ L (cập nhật 2026-10-16 theo log mới của chủ dự án, thay bản cũ L′ F′ D F L B D′ B′ vốn lệch 180° quanh trục đứng): **R′ B′ D B R F D′ F′**; căn chữ L ở **DL–DB (sau–trái)**. Từ khối đã giải, công thức để lại hai cạnh hướng xuống ở DR và DF (khớp log). Hình chấm dùng hai lượt liên tiếp, không cần căn giữa hai lượt.
 - Công thức đối là bản quy đổi của phương pháp 6 nước cũ sang đích D: **B R D R′ D′ B′**; căn hai cạnh ở **DL–DR**. Nếu dùng riêng công thức này cho chữ L, căn L ở **DF–DL** rồi chuyển qua hai cạnh đối.
 - Cách **một công thức** dùng công thức L gốc cho mọi trường hợp: mức Dễ/Trung bình/Khó (đối/L/chấm) cần 2/1/2 lượt. Đối → L (căn lại D) → cộng; chấm → L → cộng không cần căn giữa hai lượt. Cách **hai công thức** dùng L gốc và công thức đối, cần 1/1/2 lượt. Hình minh hoạ, công thức và gợi ý thực hành theo cùng lựa chọn này.
 - Đếm nước, lời giải thích, gợi ý, căn D, mũi tên, phát sáng, nhận diện nước nửa vòng và Hoàn tác theo khối thật. Chỉ tâm D và một cạnh được theo dõi khi bật Gợi ý. Hai tầng phía trên phải được khôi phục sau mỗi lượt.
@@ -576,3 +578,121 @@ Thực hành tải chính xác trạng thái mẫu đang xem, có tải lại, �
 Kiểm chứng lại đúng start/end trong log; đủ tám cách áp dụng theo bốn mặt mốc và hai phía; đủ 27 trạng thái xoắn hợp lệ sau Bài 7 (1 hoàn thành, 12 có hai góc sai, 8 có ba góc sai, 6 có bốn góc sai). Mọi lựa chọn đề xuất đều đưa góc chỉ định về đúng mặt, giữ cạnh và vị trí góc sau đủ hai nửa. Kiểm tra từng nước qua mô hình sticker vật lý, lệch hướng/Hoàn tác và giải đủ 27 mẫu bằng mẹo màu dưới–tâm. Chuỗi Bài 2–8 giải hoàn chỉnh 30 khối ngẫu nhiên.
 
 `pnpm typecheck`, `pnpm test` (46 file, 293 đạt, 1 bỏ qua), kiểm tra SSR minh họa/nội dung các trang, `pnpm build`, `git diff --check` đã đạt. Chưa kiểm tra thao tác trực tiếp trong trình duyệt ở lượt này.
+
+
+## 21. Bài 2 — đưa về tầng giữa, căn U, lắp lên, trả U
+
+Theo yêu cầu mới của chủ dự án, thay phương pháp lớp giữa và nhánh dự phòng bằng một nguyên tắc chung. Giữ U trắng, D vàng, F xanh lá.
+
+1. Cạnh đúng vị trí và đúng hướng: bỏ qua.
+2. Mọi cạnh chưa đúng được đưa về tầng giữa (không thuộc U hoặc D). Nếu cạnh ở U, xoay một mặt bên để hạ xuống tầng giữa. Nếu ở D, có thể căn D và tạm căn U để chừa ô chưa đúng, đưa cạnh lên tầng giữa rồi trả U; các cạnh đã đúng phải được bảo toàn khi kết thúc giai đoạn chuẩn bị.
+3. Từ tầng giữa, chọn mặt bên và chiều xoay sao cho ô trắng đi lên U. Cạnh ở giao F–R có hai đường lên: R hoặc F′. Hướng của ô trắng quyết định đường đúng, không chỉ vị trí của cạnh.
+4. Xác định ô đích trên U theo tâm trùng màu bên hông. Nếu cần, tạm xoay U để ô đích tới đường đưa cạnh lên, xoay mặt bên đã chọn, rồi trả U. Nếu đã trùng đường đi thì chỉ xoay mặt bên, không căn/trả U.
+
+`crossGuide.ts` chỉ xét các khuôn chuẩn bị và lắp của quy trình này, không còn M/S hay tìm chuỗi xoay mặt ngắn tuỳ ý. Mỗi gợi ý xử lý một cạnh, kiểm tra cạnh đích và các cạnh đã đúng sau giai đoạn chuẩn bị lẫn sau lắp. Giữ trace vật lý từng nước, nước nửa vòng và hỗ trợ nhận diện Hoàn tác. Tiện ích `mergeSteps` dùng chung với các bài khác giữ nguyên; Bài 2 không gộp bước qua ranh giới chuẩn bị/lắp để lời giải thích rõ ràng.
+
+Bốn phần: mục tiêu; đưa cạnh về tầng giữa; hai ví dụ so sánh R/F′ chỉ bằng hình và mũi tên; căn U và thực hành. Hình cố định nhìn thấy F/R/U (cạnh minh hoạ nằm giữa F–R), chỉ tô màu tâm và cạnh theo dõi, phần còn lại xám. Hai ví dụ dùng hai hướng ô trắng khác nhau tại cùng vị trí. Mỗi nhánh là một kết quả độc lập, không xoay nối tiếp. Ví dụ căn U dùng U′ → R → U; dấu ◎ theo ô đích từ UF sang UR rồi trở lại UF, phân biệt đưa lên đúng mặt với về đúng vị trí. Thực hành dùng cùng guide mới, hiện tên giai đoạn đang làm và chỉ mở ở phần cuối.
+
+Kiểm chứng: 600 trạng thái kiểm từng nước qua mô hình sticker vật lý; cạnh đi qua tầng giữa trước lắp; các cạnh đã đúng giữ nguyên sau chuẩn bị và sau kết thúc; nhánh lắp chỉ gồm một mặt bên cùng cặp căn/trả U nếu cần; không có lớp giữa. Kiểm tra hai hướng cạnh trong hình: cả R/F′ đều đưa lên tầng trên nhưng chỉ một nhánh trắng hướng U; kiểm chứng ví dụ căn U; test nhận diện lệch đường/Hoàn tác và nối Bài 2–8 trên 30 khối ngẫu nhiên. Đã xem các trang minh hoạ và thử tải mức Khó + Gợi ý trên Safari.
+
+`pnpm typecheck`, toàn bộ test (48 file, 299 đạt, 1 bỏ qua), `pnpm build` và `git diff --check` đạt. Chưa commit/push.
+
+
+### 21.1. Minh hoạ 3D và mô phỏng xoay theo yêu cầu tiếp theo
+
+Thay toàn bộ hình chiếu SVG của Bài 2 bằng `MiniCube`/Three.js sẵn có để các ô và tỷ lệ khối nhất quán. `MiniCube` nhận chuyển động tuỳ chọn cho một nước: xoay đúng lớp quanh trục của `notationToTurn`, chạy chậm 1,3 giây rồi chốt về mô hình sticker vật lý. Các nơi dùng ảnh tĩnh giữ cách hoạt động cũ. Cạnh theo dõi giữ màu và phát sáng suốt chuyển động, các khối không cần nhìn xám; tâm vẫn có màu. Vòng tròn ô đích đi theo U khi căn/trả và đứng ở ô U trong lúc đưa cạnh lên bằng mặt bên.
+
+Phần 2/4 rút ngắn thành hai đoạn đơn giản, đặt trước mô phỏng. Chọn “Cạnh ở tầng trên U” hoặc “Cạnh ở tầng đáy D”; mỗi lần chỉ hiện một khối lớn. “Xem xoay” phát đúng nước R′ hoặc R, dừng ở hàng giữa; “Xem lại” và “Về đầu” cho quan sát lại. Chuyển ví dụ bắt đầu lại độc lập, không có vòng lặp tự chạy gây khó theo dõi.
+
+Phần 3/4 có nút phát R/F′ độc lập cho hai ví dụ. Phần 4/4 phát chuỗi U′ → R → U và báo từng giai đoạn. Bố cục điều khiển giữ nút tối thiểu 44px. Không đổi phương pháp hay guide của bài.
+
+Đã xem trực tiếp trên Safari: chuyển U/D, phát xoay, quan sát trạng thái đang xoay và kết quả ở hàng giữa. Các trạng thái đầu/cuối hai ví dụ được kiểm chứng bằng mô hình vật lý trong test.
+
+Kiểm tra bổ sung sau khi thay renderer: `pnpm typecheck`, 48 file test (300 đạt, 1 bỏ qua), build và kiểm tra diff đạt. Trên Safari đã xác nhận cả ví dụ U/D về đúng hàng giữa, nút Về đầu khôi phục trạng thái ban đầu, và mô phỏng đủ chuỗi U′ → R → U kết thúc cạnh trắng–xanh lá khớp tâm F.
+
+## 22. Xem trước công thức trên khối 3D — Bài 3–8
+
+Mỗi công thức có khối mẫu riêng cùng nút **Chạy thử**, chạy chậm từng nước rồi dừng ở kết quả. Có **Chạy lại** và **Về đầu**; không tự phát hay lặp. Mỗi phần tư vòng kéo dài 1,2 giây; D2/D2′ được chia thành hai lần xoay cùng chiều, vẫn đánh dấu cùng một ký hiệu trong chuỗi công thức. Các khối cần theo dõi giữ màu và phát sáng theo đúng chuyển động, tâm giữ màu, phần khác xám.
+
+Dùng chung `FormulaPreview` với renderer `MiniCube` hiện có. Trạng thái từng nước được tính từ mô hình sticker vật lý. Mô phỏng độc lập với khối thực hành. Bài 3 có hai hướng lắp góc; Bài 4 có công thức và ví dụ mở rộng; Bài 5 theo lựa chọn một/hai công thức; Bài 6–7 có bản công thức và bản theo mặt mốc/tổ hợp đang chọn; Bài 8 chạy đủ hai nửa theo mốc hoặc bản công thức đang xem. Đổi công thức hoặc mẫu sẽ đặt bản xem trước về đầu. Giữ nguyên các công thức, quy tắc chọn tổ hợp và luồng thực hành.
+
+Kiểm chứng công thức chuẩn hoá dấu prime, nửa vòng và trạng thái cuối của các mẫu Bài 3–8; kiểm tra màu/phát sáng đi theo đúng khối qua từng nước của đủ tám bản Bài 8; kiểm tra render và điều khiển xem trước trên cả sáu bài. `pnpm typecheck`, 50 file test (309 đạt, 1 bỏ qua), `pnpm build` và `git diff --check` đạt. Trên Safari đã chạy công thức ngắn Bài 3, xác nhận dừng ở kết quả và Về đầu khôi phục mẫu; đã kiểm tra chuyển động công thức đủ hai nửa theo mốc chọn ở Bài 8.
+
+## 23. Bản thử lời dẫn gõ chữ và chuyển động — Bài 2
+
+Từ Bài 2–8, lần đầu mở mỗi trang trong phiên xem sẽ gõ nhanh tiêu đề, thẻ thông tin và lời dẫn (khoảng 9 ms/ký tự). Quay lại trang đã mở thì hiện ngay. Nút **Hiện ngay** kết thúc hiệu ứng; chế độ giảm chuyển động của hệ thống cũng hiện ngay. Điều khiển và nội dung thực hành không gõ chữ. Giữ chỗ theo độ dài đoạn đầy đủ để chữ xuất hiện không làm nhảy bố cục.
+
+Phần 2 Bài 2 dùng một khối mẫu hợp lệ với một cạnh đúng ở UF, một cạnh sai hướng ở UR, một cạnh ở DR và một cạnh ở FR. Lời dẫn hiện từng đoạn trên cùng khối: cạnh đúng phát sáng một nhịp; ba cạnh sai cùng phát sáng một nhịp; chọn cạnh ở U rồi tự xoay R′ xuống hàng giữa. Màu tâm và bốn cạnh cần lắp được giữ, các khối khác xám. Kết quả giữ nguyên cạnh đúng ban đầu. Khối mẫu độc lập với khối thực hành. Đây là bản thử trình tự cho phần 2; chưa mở rộng diễn giải chuyển động tự động sang các phần khác.
+
+Phần 3 giữ một ví dụ R/F′; dấu ✕ đỏ và ✓ xanh chồng lên góc trên vùng mô phỏng tương ứng. Lời dẫn đã đổi sang số ít cho khớp hình.
+
+Kiểm chứng trạng thái mẫu hợp lệ, đúng phân bố U/D/tầng giữa và kết quả R′ giữ cạnh đúng. Toàn bộ test: 51 file, 311 đạt, 1 bỏ qua. Typecheck, build và kiểm tra diff đạt. Trên Safari đã quan sát gõ chữ, tự xoay tới kết quả và quay lại phần đã xem để xác nhận không phát lại.
+
+### 23.1. Sửa theo phản hồi: phần tĩnh, nội dung nối thêm và vòng khoanh
+
+Tiêu đề, nhãn phần, thẻ “Đang lắp”, tiêu đề phụ và nhãn hình minh hoạ là phần tĩnh, hiện ngay; chỉ nội dung lời dẫn gõ chữ. Các đoạn trong diễn giải Bài 2 phần 2 được nối thêm theo thời gian, giữ nguyên toàn bộ đoạn trước và đoạn kết để đọc lại. Khối mẫu nằm trong vùng giữ trên khi cuộn qua lời dẫn.
+
+Loại toàn bộ thẻ “Vì sao?” (cả tiêu đề lẫn nội dung) và các chú thích ảnh khỏi typing trên Bài 2–8, gồm các dòng “Phần phát sáng: …”, nhãn trước/sau và nhãn mẫu.
+
+Thêm vòng khoanh xanh lá quanh cạnh đúng, cam quanh ba cạnh sai, xanh dương quanh cạnh được chọn để xoay. Vòng khoanh có viền tối cho tương phản, bám theo tâm khối thực qua từng khung hình chuyển động R′. Giữ hiệu ứng phát sáng một nhịp.
+
+Test hồi quy kiểm tra phần tĩnh không chiếm thời gian gõ chữ và đủ các đoạn lời dẫn ở trạng thái cuối. 13 test liên quan, typecheck, build và kiểm tra diff đạt. Đã xem trên Safari: tiêu đề/thẻ hiện ngay, ba vòng cam hiển thị rõ và các đoạn trước vẫn còn khi đoạn mới xuất hiện.
+
+Phản hồi tiếp theo: bỏ hoàn toàn vòng khoanh. Dùng nhịp phát sáng chậm 2,8 giây; dừng 3,5 giây sau cạnh đúng, 4 giây sau ba cạnh sai và 3 giây trước khi xoay cạnh được chọn. Cả cạnh được chọn trước xoay cũng có một nhịp sáng riêng. Giữ typing và nội dung nối thêm.
+
+Điều chỉnh tiếp: ba cạnh sai sáng lần lượt theo thứ tự U → D → hàng giữa, mỗi cạnh có 3,5 giây riêng (nhịp sáng 2,8 giây). Khi nhấn một cạnh, toàn bộ khối khác giảm độ sáng, gồm cả tâm và các cạnh còn lại. Trước khi xoay vẫn nhấn riêng cạnh ở U. Đã kiểm tra thứ tự/thời lượng bằng test và độ tương phản trên Safari.
+
+Nhịp mới: mỗi cạnh có 3 giây (sáng 2,8 giây, nghỉ 0,2 giây). Chỉ nhấn sáng/làm tối trong cửa sổ nhịp; hết nhịp thì trả các màu về bình thường. Sau chuyển động cuối và khi xem lại/Hiện ngay, bỏ toàn bộ nhấn sáng và làm tối, giữ bảng màu cơ bản của khối mẫu. Test kiểm tra hết nhịp, khoảng nghỉ và trạng thái cuối.
+
+Tinh chỉnh đã chốt sau đó: nhịp sáng giảm còn 1 giây. Ba cạnh sai chuyển liên tục U → D → hàng giữa, giữ nền tối suốt ba nhịp rồi mới trả màu cơ bản. Khi tới bước xoay, làm tối và nhấn cạnh ở U, giữ tập trung cả trong chuyển động R′, chỉ trả màu khi callback báo xoay xong. Nhịp cạnh đúng vẫn trả màu sau một lần sáng; khoảng nghỉ riêng còn 0,1 giây. Test kiểm tra các ranh giới đổi cạnh, trả màu giữa hai giai đoạn và giữ tập trung suốt nước xoay.
+
+Phần 3–4 nối tiếp đúng trạng thái cuối phần 2, cùng cạnh trắng–xanh dương. Phần 3 so sánh R/F′; dấu ✕/✓ chỉ hiện sau khi chạy xong nhánh. Phần 4 dùng U2 → F′ → U2 để căn ô đích UB qua UF, lắp bằng F′ rồi trả U2. Giữ màu tâm và bốn cạnh cần lắp, cùng khối mẫu. Đã kiểm chứng cạnh trắng–xanh dương đúng chỗ và cạnh trắng–xanh lá ban đầu vẫn đúng sau chuỗi. Phần 2 bổ sung quy tắc kiểm tra ô cạnh trên U của mặt bên sắp xoay, chọn ô đang sai để tránh đưa cạnh đúng ra khỏi chỗ; gợi ý thực hành vẫn có bước căn/trả U bảo toàn cạnh đã lắp.
+
+## 24. Thu gọn Bài 4 và sửa điều hướng
+
+Bài 1–3 giữ theo bản đã chốt. Bài 4 còn hai phần: mục tiêu tầng giữa và hai công thức; nút Thực hành chỉ nằm ở phần 2. Bỏ trang ví dụ riêng. Phần 2 thêm một ví dụ gọn: cạnh đỏ–xanh lá bị ngược trong rãnh F–R. Chạy đúng công thức sang phải đã giới thiệu để đưa nó xuống D, sau đó căn D và dùng một trong hai công thức để lắp lại. Bản xem trước dừng sau đủ tám nước, bảo toàn tầng trắng và các cạnh giữa đã đúng.
+
+Câu nhắc cách cầm cố định chỉ còn trong nội dung Bài 2, đã bỏ khỏi Bài 3–8. Khi chuyển trang bằng Tiếp theo/Quay lại, `LessonPlayer` đặt vùng cuộn chứa hướng dẫn về đầu ngay trước khi vẽ trang mới, không kéo vùng chơi xung quanh.
+
+Typing áp dụng cho toàn bộ đoạn văn bài giảng (`p`) hoặc phần lời dẫn được đánh dấu rõ, kể cả công thức nằm trong đoạn văn. Mọi chữ trong khung công thức/ví dụ, tiêu đề và chú thích hình hiện sẵn; phần tĩnh không chiếm thời gian trong trình tự hiệu ứng. Phân biệt theo vùng hiển thị, không nhận diện rồi loại công thức ra khỏi lời giảng.
+
+Đã kiểm tra Safari: cuộn cuối Bài 4 phần 1 rồi chuyển phần 2, tiêu đề phần mới hiện ở đầu; ví dụ mới có hình và nút Chạy thử. Kiểm chứng trạng thái mẫu, đủ công thức đưa cạnh xuống D và bảo toàn các phần đã lắp. Toàn bộ test: 52 file, 315 đạt, 1 bỏ qua. Typecheck, build và kiểm tra diff đạt; sau khi chọn công thức sang phải nguyên bản cho ví dụ, test Bài 4 và render bản xem trước cũng đạt.
+
+## 25. Hai ví dụ bổ sung ở Bài 5 phần 4/4
+
+Sau các thẻ công thức, thêm hai khối mẫu cố định: hai cạnh đối đã căn ngang trái–phải và chấm. Mỗi ví dụ hiện lộ trình, công thức từng lượt, bước căn D nếu cần và nút Chạy thử toàn chuỗi. Nội dung trong khung hiện sẵn, không typing. Trạng thái và các nước lấy từ cùng guide với thực hành, thay đổi theo phương pháp đang chọn: hai cạnh đối dùng một lượt công thức đối ở phương pháp hai công thức, hoặc hai lượt chữ L ở phương pháp một công thức; chấm dùng hai lượt chữ L ở cả hai phương pháp.
+
+Kiểm chứng mẫu ban đầu đúng hình, số lượt và công thức theo phương pháp, căn D, trạng thái cuối dấu cộng và giữ hai tầng trên sau từng lượt. 17 test liên quan, typecheck, build và kiểm tra diff đạt.
+
+## 26. Đồng bộ thiết kế Bài 8
+
+Giữ bốn phần nhưng rút gọn lời dẫn và phân vai rõ: mục tiêu với hình góc chưa đúng mặt → Rubik hoàn thành; so ô dưới góc với tâm mốc; công thức đủ hai nửa; chọn mẫu và thực hành. Các đoạn bài giảng typing lần đầu, chữ trong khung và chú thích hiện sẵn.
+
+Thay hình SVG cũ bằng renderer 3D vật lý `MiniCube`, nhìn từ dưới và hướng về đúng mặt mốc/phía đang chọn. Chỉ các góc tầng cuối và tâm giữ màu; hai góc tác động sáng lên. Bổ sung hai ô màu nhỏ đối chiếu ô dưới góc và tâm mốc. Hình mục tiêu trước/sau cùng một khối, kết quả thật đã giải xong. Hai mẫu công thức phải/trái đều được tạo từ nghịch đảo công thức, chạy đủ hai nửa sẽ hoàn thành khối.
+
+Mỗi thẻ công thức chia nửa 1/2 và 2/2, có đúng một bản chạy thử cả lượt; bỏ các bản chạy thử lặp ở phần nhận diện, tham khảo và thực hành. Nhóm mẫu 2/3/4 góc và đã hoàn thành vẫn có trạng thái chọn rõ; một đề xuất chính, các mẫu và mốc khác mở khi cần. Giữ nguyên bộ công thức, cách tải mẫu, chọn mốc, gợi ý 16 nước và Hoàn tác. Các bài 1–7 giữ nguyên nội dung.
+
+Kiểm chứng đủ các mặt mốc hợp lệ trên 27 trạng thái góc, màu ô dưới/tâm trùng khớp, mẫu trước/sau thực sự giải xong và chỉ trang công thức có hai bản chạy thử. Toàn bộ test: 53 file, 320 đạt, 1 bỏ qua. Typecheck, build và kiểm tra diff đạt. Chưa kiểm tra trực quan bản mới do công cụ điều khiển trình duyệt không khởi động được.
+
+## 26. Bài 8 — đồng bộ với thiết kế hiện tại
+
+Bài 7 giữ nguyên. Bài 8 vẫn bốn phần (mục tiêu trước/sau, so màu dưới góc với tâm mốc, hai công thức có chạy thử, tham khảo và thực hành); công thức, quy tắc chọn mốc và luồng thực hành không đổi. Chạy thử 3D chỉ đặt ở phần công thức.
+
+- Thẻ nhắc đầu trang có tiêu đề và dòng phụ như Bài 7 ("Chỉ lật hướng góc, giữ nguyên vị trí các khối"). Thẻ đang luyện, ba ô số liệu (góc đúng mặt, nước đi, gợi ý) và thẻ “Vì sao?” theo cùng kiểu.
+- Hình trước/sau ở phần mục tiêu dùng `MiniCube` xám các khối khác, chỉ giữ màu tâm, bốn góc tầng cuối và làm sáng cặp góc sẽ xoắn.
+- Thẻ gợi ý hiển thị công thức đã gộp `D2` / `D2′` (`formulaTokens` trong `lastFaceGuide.ts`) và đếm theo nước đọc được ("Nửa 1/2 · Nước 1/14") thay cho 16 lần xoay; nước nửa vòng ghi rõ "xoay hai lần cùng chiều (1/2)". Việc theo dõi vẫn theo từng phần tư vòng.
+- Thông báo trạng thái ("Đã đủ hai nửa…") bị xoá khi người học xoay tiếp hoặc Hoàn tác, như Bài 2–7.
+- `LastFaceLessonView.tsx` viết lại theo cùng bố cục mã như các bài trước (nhiều dòng, tách khối), không đổi logic.
+
+## 27. Giải 3×3: giải nhanh và giải cơ bản
+
+Hướng dẫn 3×3 trong mục **Giải** có hai dạng.
+
+- **Giải nhanh:** giữ nguyên (bộ giải ngắn nhất, đếm bước như cũ).
+- **Giải cơ bản:** bảy bước lớn đúng thứ tự bài 2–8 (`CURRICULUM_STAGES`). Không tính trước toàn bộ lời giải và không đếm số nước bên trong. Khi một bước lớn bắt đầu, `planBasicStage` (`learn/engine/basicSolve.ts`) chạy chính các guide của bài học (`crossGuide`, `cornerGuide`, `middleGuide`, `topCrossGuide` với một công thức, `lastEdgesOrder`, `lastCornersGuide`, `lastFaceGuide`) từng khối một cho tới khi mục tiêu của bước đó (`isDone`) đạt, rồi trả danh sách nước kèm lý do từng nước.
+
+Luồng: quét/chọn khối → lập kế hoạch cho bước lớn đang ở → người học làm từng nước (thẻ hiện lý do lấy từ guide bài học, "Nước n", "Giai đoạn k/7") → hết nước của bước đó thì mở màn kiểm tra → "Giống rồi" mới lập kế hoạch cho bước kế từ khối thật lúc đó (`RESOLVE`). Xoay sai vẫn dùng cơ chế hoàn tác sẵn có của FSM; kế hoạch được lập lại cho bước hiện tại.
+
+Bước lớn hiện tại lấy từ kế hoạch, không đọc từ khối: công thức tạm làm lệch các bước trước nên đọc từ khối sẽ nhảy lùi. Tiến độ ✓ trên lộ trình lấy từ màn kiểm tra như trước. Màn kiểm tra và thẻ bước dùng chữ lộ trình mới (`getCurriculumStageCopy`).
+
+Kiểm chứng: 40 khối xáo ngẫu nhiên giải xong qua tối đa bảy bước, đúng thứ tự, không lặp bước, chỉ dùng nước mặt ngoài (`basicSolve.test.ts`). Đã chạy luồng giải cơ bản trên trình duyệt đủ bảy bước tới "Hoàn thành!", không còn chữ "Bước x/y" ở chế độ này.

@@ -9,6 +9,10 @@ import { applyNotation, fromCubie, toCubie } from './physical'
 export const LAST_CORNERS_RIGHT = parseAlgorithm("R' L D' R D L' D' R' D R")
 export const LAST_CORNERS_LEFT = parseAlgorithm("L R' D L' D' R D L D' L'")
 export const LAST_CORNER_LABEL: Record<number, string> = { 4: 'FR', 5: 'FL', 6: 'BL', 7: 'BR' }
+const CORNER_SLOT_FACES: Record<number, readonly Face[]> = { 4: ['D', 'F', 'R'], 5: ['D', 'F', 'L'], 6: ['D', 'B', 'L'], 7: ['D', 'B', 'R'] }
+/** A last-layer corner slot named by the three center colors it touches, e.g. "vàng–xanh lá–đỏ". */
+export const cornerPlace = (slot: number, names: ColorNames): string => `góc đang ở giữa ba tâm ${cornerName(slot, names)}`
+export const cornerName = (slot: number, names: ColorNames): string => CORNER_SLOT_FACES[slot]!.map((f) => names[f]).join('–')
 const SIDES: Face[] = ['F', 'R', 'B', 'L']
 export const correctLastCorners = (s: CubieState) => LAST_CORNERS.filter((i) => s.cp[i] === i)
 export const lastCornersPositionDone = (s: CubieState) => lastEdgesDone(s) && correctLastCorners(s).length === 4
@@ -68,11 +72,10 @@ export function buildLastCornersGuide(state: CubieState, names: ColorNames, pref
   const kind = correctLastCorners(state).length === 0 ? 'prepare' : 'cycle'
   const clue = lastCornerClue(state)
   const piece = state.cp[clue?.neighbor ?? variant.cycle[0]!]!
-  const route = [...variant.cycle, variant.cycle[0]!].map((i) => LAST_CORNER_LABEL[i]).join(' → ')
   const title = kind === 'prepare' ? 'Một lượt chuẩn bị để có góc đúng vị trí' : 'Giữ góc đúng, đổi vòng ba góc còn lại'
   const intro = kind === 'prepare'
-    ? `Chưa có góc đúng chỗ. Chọn giữ góc ${LAST_CORNER_LABEL[variant.anchor]} cho lượt chuẩn bị; vòng góc ${route}. Sau cả lượt sẽ có một góc đúng vị trí để làm mốc.`
-    : `Góc ${LAST_CORNER_LABEL[variant.anchor]} đúng vị trí theo đủ ba màu. Góc bên cạnh ${LAST_CORNER_LABEL[clue!.neighbor]} có hai màu thuộc vị trí hiện tại: ${clue!.shared.map((f) => names[f]).join(' và ')}. Đưa góc này sang ${LAST_CORNER_LABEL[clue!.destination]}; vòng góc ${route}. Chưa cần lật mặt vàng xuống.`
+    ? `Chưa có góc nào đúng chỗ. Chọn giữ ${cornerPlace(variant.anchor, names)} (khung nét đứt trong hình) cho lượt chuẩn bị; ba góc còn lại đi vòng theo mũi tên. Sau cả lượt sẽ có một góc đúng vị trí để làm mốc.`
+    : `Giữ ${cornerPlace(variant.anchor, names)} (khung nét đứt trong hình): khối này đang đúng vị trí. Xét ${cornerPlace(clue!.neighbor, names)} (viền cam): khối đang đứng đó có hai màu thuộc vị trí này: ${clue!.shared.map((f) => names[f]).join(' và ')}. Đưa khối đó sang vị trí giữa ba tâm ${cornerName(clue!.destination, names)}; ba góc đi vòng theo mũi tên. Chưa cần lật mặt vàng xuống.`
   const why = [
     'Mở mặt bên thứ nhất theo phía đã chọn, bắt đầu đường đi của nhóm góc.',
     'Mở mặt bên còn lại. Chỉ dừng quan sát sau khi hoàn tất cả công thức.',

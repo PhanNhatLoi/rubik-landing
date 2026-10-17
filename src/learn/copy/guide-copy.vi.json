@@ -146,6 +146,8 @@
   ],
   "situations": {
     "stepCounter": "Bước {step}/{total}",
+    "moveNumber": "Nước {step}",
+    "moveCardAria": "Nước {step}: {title}",
     "moveCounter": "{count} nước đi",
     "timeSpent": "Thời gian: {time}",
     "hintUsed": "{count} gợi ý",

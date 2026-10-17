@@ -11,7 +11,7 @@ import type { CubeState } from '../nxn/state'
 import { SolverClient } from '../solver/SolverClient'
 import { VisionClient } from '../vision/VisionClient'
 import CameraPanel from './CameraPanel'
-import GuideView, { type BeginnerStage, type OptimalStatus } from './GuideView'
+import GuideView, { type OptimalStatus } from './GuideView'
 import NxnGuideView from './NxnGuideView'
 import NxnScanView from './NxnScanView'
 import { buildScheme, duplicateColors, loadSchemeSettings, saveSchemeSettings, schemeHex, type Scheme, type SchemeSettings } from './palette'
@@ -49,7 +49,8 @@ import {
   type LearnProgress
 } from '../../learn/engine/storage'
 import { CURRICULUM_STAGES } from '../../learn/curriculum'
-import { findStageRange, firstUndoneFrom, groupStageRanges, stageInProgress } from '../../learn/engine/stagePlan'
+import { firstUndoneFrom } from '../../learn/engine/stagePlan'
+import { basicStageInProgress, planBasicStage } from '../../learn/engine/basicSolve'
 import { SOLVED, applyMoves, invertMove, isSolved } from '../core/cubie'
 import { inverseToken } from '../adapter/nxnModel'
 import type { CubieState } from '../core/types'
@@ -191,8 +192,8 @@ export default function SmartSolverPanel({
     | 'lesson_lastFace'
     | null
 
-  /** Stages of the 3x3 beginner solution, valid while `guide.solution` is that solution. */
-  const [beginnerPlan, setBeginnerPlan] = useState<{ solution: Move[]; stages: (BeginnerStage & { stageId?: string })[] } | null>(null)
+  /** The big step being guided in the basic 3x3 solve, valid while `guide.solution` is that plan's moves. */
+  const [beginnerPlan, setBeginnerPlan] = useState<{ solution: Move[]; stage: StageDef; whys: string[] } | null>(null)
   const [lessonPractice, setLessonPractice] = useState(false)
   const [learnView, setLearnView] = useState<LearnScreen>(section === 'learn' ? 'roadmap' : null)
   const [notationFrom, setNotationFrom] = useState<LearnScreen>('roadmap')
@@ -332,22 +333,15 @@ export default function SmartSolverPanel({
       if (e instanceof Error && e.message === 'solver disposed') return
       dispatch({ type: 'SOLVE_FAILED', epoch, message: e instanceof Error ? e.message : String(e) })
     }
-    if (solveMode === 'beginner' && nxnSolver) {
-      nxnSolver
-        .solve(3, faceletsToCubeState(toFacelets(guide.cube)), { mode: 'beginner' })
-        .then((r) => {
-          if (!r.moves.every((m) => MOVE_TOKEN.test(m))) throw new Error('lời giải có phép xoay không phải mặt ngoài')
-          const moves = r.moves as Move[]
-          let at = 0
-          const stages = r.steps.map((st, i) => {
-            const stage = { stageId: (st as { stage?: string }).stage, title: st.title, algorithms: st.algorithms, start: at, end: at + st.moves.length, index: i, count: r.steps.length }
-            at = stage.end
-            return stage
-          })
-          setBeginnerPlan({ solution: moves, stages })
-          dispatch({ type: 'SOLVED', epoch, moves, ms: r.executionTimeMs })
-        })
-        .catch(fail)
+    if (solveMode === 'beginner') {
+      // Basic solve: only the big step the cube is in is planned, with the lesson guides (never the whole solution).
+      const plan = planBasicStage(guide.cube, Object.fromEntries(FACES.map((f) => [f, colors[f].label])) as Record<Face, string>)
+      if (!plan) {
+        fail(new Error('không lập được hướng dẫn cho bước này'))
+        return
+      }
+      setBeginnerPlan({ solution: plan.moves, stage: plan.stage, whys: plan.whys })
+      dispatch({ type: 'SOLVED', epoch, moves: plan.moves, ms: 0 })
       return
     }
     solverRef.current
@@ -524,37 +518,32 @@ export default function SmartSolverPanel({
     dispatch({ type: 'RESOLVE' })
   }, [solveModeSetting])
 
-  const beginnerStage =
-    solveMode === 'beginner' && beginnerPlan?.solution === guide.solution
-      ? (beginnerPlan.stages.find((st) => guide.index >= st.start && guide.index < st.end) ?? null)
-      : null
+  /** Why the current move is made, while the guide still follows the plan (not an undo of a wrong turn). */
+  const moveWhy = beginnerPlan?.solution === guide.solution ? beginnerPlan.whys[guide.index] : undefined
 
   const learnOverlay = learnView !== null && learnView !== 'guide'
   const guidingNow = guide.phase === 'GUIDING' || guide.phase === 'RECOVERING'
-  const activeStageDef: StageDef = STAGES.find((s) => s.id === activeStageId) ?? STAGES[0]!
-  // While guiding, the stage is read from the cube itself; the plan only supplies step ranges.
+  const activeStageDef: StageDef = CURRICULUM_STAGES.find((s) => s.id === activeStageId) ?? CURRICULUM_STAGES[0]!
+  // While guiding, the big step is the one the plan was made for. The cube cannot tell: a formula
+  // temporarily undoes earlier steps, so reading it from the cube would flip back and forth.
   const currentStageDef: StageDef =
-    learnView !== 'checkpoint' && guidingNow && guide.cube ? stageInProgress(guide.cube) : activeStageDef
+    learnView !== 'checkpoint' && guidingNow && guide.cube
+      ? (beginnerPlan?.stage ?? basicStageInProgress(guide.cube) ?? CURRICULUM_STAGES[CURRICULUM_STAGES.length - 1]!)
+      : activeStageDef
 
-  const nextStageDef: StageDef | null = STAGES[currentStageDef.index + 1] ?? null
+  const nextStageDef: StageDef | null = CURRICULUM_STAGES[currentStageDef.index + 1] ?? null
 
-  const stageRanges =
-    solveMode === 'beginner' && beginnerPlan?.solution === guide.solution ? groupStageRanges(beginnerPlan.stages) : []
-  const stageRange = findStageRange(stageRanges, guide.index)
-
-  // Open the checkpoint when the stage in progress moves on (or the cube is finished).
+  // Open the checkpoint when the moves of the big step are used up (or the cube is finished).
   const lastStageRef = useRef<StageDef | null>(null)
   useEffect(() => {
     if (solveMode !== 'beginner' || (learnView && learnView !== 'guide')) return
     const last = lastStageRef.current
     if (guidingNow && guide.cube) {
-      const now = stageInProgress(guide.cube)
-      lastStageRef.current = now
-      if (last && now.index > last.index) {
-        setActiveStageId(last.id)
-        setLearnView('checkpoint')
-      } else {
+      const now = beginnerPlan?.stage ?? last
+      if (now) {
+        lastStageRef.current = now
         setActiveStageId(now.id)
+        if (guide.phase === 'GUIDING' && guide.index >= guide.solution.length) setLearnView('checkpoint')
       }
     } else if (guide.phase === 'VERIFYING' && last) {
       lastStageRef.current = null
@@ -563,7 +552,7 @@ export default function SmartSolverPanel({
     } else if (guide.phase !== 'VERIFYING') {
       lastStageRef.current = null
     }
-  }, [solveMode, learnView, guidingNow, guide.phase, guide.cube])
+  }, [solveMode, learnView, guidingNow, guide.phase, guide.cube, guide.index, guide.solution, beginnerPlan])
 
   const handleLearnFromStage = (stage: StageDef) => {
     const controller = get3()
@@ -618,7 +607,9 @@ export default function SmartSolverPanel({
     markStageCompleted(currentStageDef.id)
     setProgressState(getLearnProgress())
     if (nextStageDef) {
-      handleLearnFromStage(nextStageDef)
+      // The next big step is planned only now, from the cube as it is.
+      setLearnView(null)
+      dispatch({ type: 'RESOLVE' })
     } else {
       dispatch({ type: 'SKIP_VERIFY' })
       setLearnView(null)
@@ -710,7 +701,8 @@ export default function SmartSolverPanel({
   ) : guiding && expected ? (
     <>
       <span className="panel-summary-text">
-        Bước {guide.index + 1}/{guide.solution.length}: <strong>{expected}</strong>
+        {solveMode === 'beginner' ? `Giai đoạn ${currentStageDef.index + 1}/7 · nước ${guide.index + 1}: ` : `Bước ${guide.index + 1}/${guide.solution.length}: `}
+        <strong>{expected}</strong>
       </span>
       {collapsed && (
         <button
@@ -1266,9 +1258,8 @@ export default function SmartSolverPanel({
               guide={guide}
               colors={colors}
               currentStage={currentStageDef}
-              algorithms={beginnerStage?.algorithms}
-              stageStartIndex={stageRange?.start}
-              stageEndIndex={stageRange?.end}
+              bigSteps
+              moveWhy={moveWhy}
               onDone={() => turnNow && report(turnNow)}
               onWrong={report}
               onOpenRoadmap={() => setLearnView('roadmap')}

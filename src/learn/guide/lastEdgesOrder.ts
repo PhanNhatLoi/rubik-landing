@@ -38,7 +38,7 @@ export function buildLastEdgesOrderGuide(state: CubieState, names: ColorNames, f
   const title = ordered ? 'Thứ tự đã đúng — căn D lần cuối' : kind === 'prepare' ? 'Đổi vòng một lượt để tạo tổ hợp giải được' : 'Giữ cạnh mốc, đưa bốn cạnh về đúng thứ tự'
   const intro = ordered
     ? 'Bốn cạnh đã đúng thứ tự quanh đáy. Bây giờ chỉ căn D để chúng về đúng vị trí trên khối; không cần thêm lượt công thức.'
-    : `Giữ cạnh ${names[EDGE_COLORS[state.ep[variant!.anchor]!]![1]]} ở vị trí ${variant!.front} làm F mốc, không chọn theo màu tâm. Dùng bản ${variant!.direction === 'right' ? 'R′' : 'L'} theo mốc này. Chuỗi bên dưới đã đổi sang các vị trí cố định của khối ảo. ${kind === 'prepare' ? 'Sau lượt này, quan sát thứ tự mới để chọn mốc cho lượt cuối.' : 'Sau lượt này, thứ tự sẽ đúng; nếu cần thì căn D ở cuối.'}`
+    : `Giữ cạnh ${names[EDGE_COLORS[state.ep[variant!.anchor]!]![1]]} ở vị trí ${variant!.front} làm F mốc, không chọn theo màu tâm. Dùng bản ${variant!.direction === 'right' ? 'R′' : 'L'} theo mốc này. Chuỗi bên dưới đã ghi sẵn theo đúng các mặt của khối bạn đang cầm. ${kind === 'prepare' ? 'Sau lượt này, quan sát thứ tự mới để chọn mốc cho lượt cuối.' : 'Sau lượt này, thứ tự sẽ đúng; nếu cần thì căn D ở cuối.'}`
   const explanations = [
     'Bắt đầu từ mặt bên theo mốc đã chọn. Theo dõi thứ tự cạnh, bỏ qua tâm và các khối khác.',
     'Xoay D2: hai lần cùng chiều để đủ nửa vòng.',

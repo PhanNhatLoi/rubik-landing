@@ -1,8 +1,10 @@
+import { cornerCell } from '../cells'
+import FormulaPreview from './FormulaPreview'
 import { applyMoves } from '../../smart-solver/core/cubie'
 import { CORNER_COLORS } from '../../smart-solver/core/facelets'
 import type { CubieState, Face } from '../../smart-solver/core/types'
 import { LAST_CORNERS_CASES, LAST_CORNERS_COMBINATIONS } from '../copy/lesson7'
-import { buildLastCornersGuide, LAST_CORNER_LABEL, LAST_CORNERS_LEFT, LAST_CORNERS_RIGHT, lastCornersChoices, lastCornersPositionDone } from '../guide/lastCornersGuide'
+import { buildLastCornersGuide, cornerName, cornerPlace, lastCornersChoices, lastCornersPositionDone } from '../guide/lastCornersGuide'
 import LastCornersDiagram from './LastCornersDiagram'
 
 export type LastCornersFrames = Partial<Record<number, string>>
@@ -20,23 +22,24 @@ function CornerChoice({ state, round = 1, faceColors, colorNames, frames, onVari
   return <div style={{ display: 'grid', gap: '10px' }}>
     <strong>Lượt {round}: {guide.title.toLowerCase()}</strong>
     {choices.length > 1 && <>
-      <div>Đề xuất: giữ góc <strong>{LAST_CORNER_LABEL[chosen.anchor]}</strong>, mặt mốc <strong>{chosen.front}</strong>, dùng bản <strong>{chosen.side === 'right' ? 'R′' : 'L'}</strong>.</div>
+      <div>Đề xuất: giữ <strong>{cornerPlace(chosen.anchor, colorNames)}</strong> (khung nét đứt), mặt mốc <strong>{colorNames[chosen.front]}</strong>, bắt đầu bằng nước <strong>{String(chosen.moves[0]).replace("'", '′')}</strong>.</div>
       <details><summary style={{ minHeight: '44px', cursor: 'pointer', color: 'var(--rb-accent-link)' }}>Xem các lựa chọn mốc khác</summary>
       <label style={{ display: 'grid', gap: '6px' }}>Chọn góc giữ lại và phía áp dụng
       <select aria-label={`Chọn góc và phía áp dụng lượt ${round}`} value={chosen.id} onChange={(e) => onVariantChange(round, e.target.value)} style={{ width: '100%', minHeight: '44px', borderRadius: 'var(--rb-r-sm)', color: 'var(--rb-text)', background: 'var(--rb-surface-2)', border: '1px solid var(--rb-border)', padding: '8px' }}>
-        {choices.map((v) => <option key={v.id} value={v.id}>Giữ {LAST_CORNER_LABEL[v.anchor]} · mặt mốc {v.front} · bản {v.side === 'right' ? 'R′' : 'L'}</option>)}
+        {choices.map((v) => <option key={v.id} value={v.id}>Giữ {cornerPlace(v.anchor, colorNames)} · mặt mốc {colorNames[v.front]} · bắt đầu bằng {String(v.moves[0]).replace("'", '′')}</option>)}
       </select>
       </label>
       </details>
     </>}
-    <LastCornersDiagram state={state} faceColors={faceColors} colorNames={colorNames} variant={chosen} clue={guide.clue} label={`Giữ góc ${LAST_CORNER_LABEL[chosen.anchor]}, vòng ${[...chosen.cycle, chosen.cycle[0]!].map((i) => LAST_CORNER_LABEL[i]).join(' → ')}`} />
+    <LastCornersDiagram state={state} faceColors={faceColors} colorNames={colorNames} variant={chosen} clue={guide.clue} label={`Giữ ${cornerPlace(chosen.anchor, colorNames)}, ba góc còn lại đi vòng theo mũi tên`} />
     <div>{guide.intro}</div>
-    <div>Góc giữ lại: <strong>{LAST_CORNER_LABEL[chosen.anchor]}</strong>. Chọn mặt <strong>{chosen.front}</strong> làm F mốc; góc này đóng vai trò <strong>{chosen.side === 'right' ? 'FR' : 'FL'}</strong> trong công thức.</div>
+    <div>Góc giữ lại: <strong>{cornerPlace(chosen.anchor, colorNames)}</strong>. Chọn mặt <strong>{colorNames[chosen.front]}</strong> làm F mốc; góc này nằm ở bên {chosen.side === 'right' ? 'phải' : 'trái'} mặt mốc.</div>
     <div style={{ padding: '10px', border: '1px solid var(--rb-accent-tint-border)', borderRadius: 'var(--rb-r-sm)' }}>
-      <div>Công thức theo F mốc:</div>
-      <strong style={{ display: 'block', fontSize: '16px', color: 'var(--rb-accent-link)' }}>{notation(chosen.side === 'right' ? LAST_CORNERS_RIGHT : LAST_CORNERS_LEFT)}</strong>
-      <div style={{ marginTop: '6px' }}>Theo vị trí cố định của khối ảo:</div><strong>{notation(chosen.moves)}</strong>
+      <div>Các nước cần làm trên khối của bạn:</div>
+      <strong style={{ display: 'block', fontSize: '16px', color: 'var(--rb-accent-link)' }}>{notation(chosen.moves)}</strong>
+      <div style={{ marginTop: '6px', fontSize: '12.5px' }}>Xoay đúng các mặt như trên, không cần đổi cách cầm. Nếu muốn dễ theo dõi hơn, quay khối cho mặt {colorNames[chosen.front]} hướng về bạn rồi dùng công thức ở phần trước.</div>
     </div>
+    <FormulaPreview state={state} moves={chosen.moves} faceColors={faceColors} label={`Đổi góc lượt ${round}`} view="below" cells={[4, 5, 6, 7].map(cornerCell)} result={lastCornersPositionDone(after) ? 'Bốn góc đã đúng vị trí; chưa cần đúng mặt.' : 'Đã có một góc đúng vị trí. Chọn lại mốc cho lượt cuối.'} />
     <details><summary style={{ minHeight: '44px', cursor: 'pointer' }}>Xem vị trí góc sau lượt {round}</summary><LastCornersDiagram state={after} faceColors={faceColors} colorNames={colorNames} label={`Các góc sau lượt ${round}`} /></details>
     {lastCornersPositionDone(after) ? <strong style={{ color: 'var(--rb-accent-link)' }}>Đủ bốn góc đúng vị trí. Dừng ở đây; chưa cần lật góc.</strong> : round < 2 && <CornerChoice state={after} round={round + 1} faceColors={faceColors} colorNames={colorNames} frames={frames} onVariantChange={onVariantChange} />}
   </div>
@@ -66,7 +69,7 @@ export default function LastCornersCases({ faceColors, colorNames, combination, 
       {LAST_CORNERS_COMBINATIONS.map((c, index) => c.kind !== selected.kind || index === combination ? null : <button key={c.id} type="button" className="rb-btn rb-btn--secondary" aria-pressed={combination === index} onClick={() => onCombinationChange(index)} style={{ display: 'grid', gap: '5px', height: 'auto', padding: '8px', borderColor: combination === index ? 'var(--rb-accent-link)' : undefined }}>
         <span>Tổ hợp {index + 1}</span>
         {[4, 5, 6, 7].map((slot) => <span key={slot} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px' }}>
-          <span>{LAST_CORNER_LABEL[slot]}{c.state.cp[slot] === slot ? ' ✓' : ''}</span>
+          <span>{c.state.cp[slot] === slot ? '✓' : '·'}</span>
           {CORNER_COLORS[c.state.cp[slot]!]!.map((f) => <span key={f} title={colorNames[f]} style={{ width: '11px', height: '11px', borderRadius: '2px', background: hex(faceColors[f]) }} />)}
         </span>)}
       </button>)}

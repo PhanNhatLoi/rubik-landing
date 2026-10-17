@@ -28,7 +28,9 @@ export interface NotationViewProps {
 
 const DEFAULT_COLOR_NAMES: Record<Face, string> = { U: 'trắng', D: 'vàng', F: 'xanh lá', B: 'xanh dương', R: 'đỏ', L: 'cam' }
 const DEFAULT_FACE_COLORS: Record<Face, number> = { U: 0xf4f4f4, D: 0xf4c430, F: 0x16c172, B: 0x2a6cff, R: 0xff4b3e, L: 0xff8c2b }
-const viewOf = (face: Face): 'front' | 'back' => (face === 'U' || face === 'F' || face === 'R' ? 'front' : 'back')
+type ViewName = 'front' | 'frontLeft' | 'below' | 'back'
+/** Same hold as the 3D cube (green face towards you) whenever the turned face can be seen from that side. */
+const viewOf = (face: Face): ViewName => (face === 'D' ? 'below' : face === 'L' ? 'frontLeft' : face === 'B' ? 'back' : 'front')
 const SLICE_INFO = { M: 'giữa L và R (cùng chiều L)', E: 'giữa U và D (cùng chiều D)', S: 'giữa F và B (cùng chiều F)' } as const
 const SLICE_AXIS = { M: 'x', E: 'y', S: 'z' } as const
 const ROLE_ORDER: readonly Face[] = ['U', 'D', 'R', 'L', 'F', 'B']
@@ -69,13 +71,21 @@ export default function NotationView({ onBack, onHighlightMove, onSpotlight, onH
     facelets: string,
     label: string,
     caption?: string,
-    extra: { spotlight?: SpotlightTarget | { kind: 'slice'; axis: 'x' | 'y' | 'z' }; view?: 'front' | 'back'; turns?: string[] } = {}
+    extra: { spotlight?: SpotlightTarget | { kind: 'slice'; axis: 'x' | 'y' | 'z' }; view?: ViewName; turns?: string[] } = {}
   ) => (
     <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
       <MiniCube facelets={facelets} faceColors={faceColors} label={label} spotlight={extra.spotlight ?? null} view={extra.view ?? 'front'} turns={extra.turns ?? []} />
       {caption && <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>{caption}</div>}
     </div>
   )
+  const viewNote = (view: ViewName) =>
+    view === 'front' ? null : (
+      <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
+        {view === 'below' && `Hình nhìn từ phía trước (mặt ${name('F')} hướng về bạn) và hơi từ dưới lên, để thấy mặt D.`}
+        {view === 'frontLeft' && `Hình nhìn từ phía trước (mặt ${name('F')} hướng về bạn), lệch sang trái, để thấy mặt L.`}
+        {view === 'back' && `Hình nhìn từ phía sau khối: khác với khối 3D, nơi mặt ${name('F')} vẫn hướng về bạn.`}
+      </div>
+    )
   const arrow = (note?: string) => (
     <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -147,14 +157,17 @@ export default function NotationView({ onBack, onHighlightMove, onSpotlight, onH
               )
             )}
           {page.kind === 'pickFront' &&
-            figure(mini(SOLVED_FACELETS, 'Mặt trước đã chọn', `Mặt trước: ${name(front)}`, { spotlight: { kind: 'face', face: frame.F }, view: viewOf(frame.F) }))}
+            <>{figure(mini(SOLVED_FACELETS, 'Mặt trước đã chọn', `Mặt trước: ${name(front)}`, { spotlight: { kind: 'face', face: frame.F }, view: viewOf(frame.F) }))}{viewNote(viewOf(frame.F))}</>}
           {page.kind === 'face' &&
-            figure(
-              mini(SOLVED_FACELETS, `Mặt ${page.role}`, `${page.role}: mặt ${name(frame[page.role])}`, {
-                spotlight: { kind: 'face', face: frame[page.role] },
-                view: viewOf(frame[page.role])
-              })
-            )}
+            <>
+              {figure(
+                mini(SOLVED_FACELETS, `Mặt ${page.role}`, `${page.role}: mặt ${name(frame[page.role])}`, {
+                  spotlight: { kind: 'face', face: frame[page.role] },
+                  view: viewOf(frame[page.role])
+                })
+              )}
+              {viewNote(viewOf(frame[page.role]))}
+            </>}
           {page.kind === 'slice' &&
             (() => {
               const target = { kind: 'slice', axis: SLICE_AXIS[slice] } as const
@@ -173,11 +186,16 @@ export default function NotationView({ onBack, onHighlightMove, onSpotlight, onH
               const actual = frame[turnRole]
               const target = { kind: 'face', face: actual } as const
               const after = toFacelets(applyMoves(SOLVED, [`${actual}${v}` as Move]))
-              return figure(
+              return (
                 <>
-                  {mini(SOLVED_FACELETS, 'Trước khi xoay', 'Trước', { spotlight: target, view: viewOf(actual) })}
-                  {arrow(`${turnRole}${VARIANT_INFO[v].text}`)}
-                  {mini(after, 'Sau khi xoay', 'Sau', { spotlight: target, view: viewOf(actual) })}
+                  {figure(
+                    <>
+                      {mini(SOLVED_FACELETS, 'Trước khi xoay', 'Trước', { spotlight: target, view: viewOf(actual) })}
+                      {arrow(`${turnRole}${VARIANT_INFO[v].text}`)}
+                      {mini(after, 'Sau khi xoay', 'Sau', { spotlight: target, view: viewOf(actual) })}
+                    </>
+                  )}
+                  {viewNote(viewOf(actual))}
                 </>
               )
             })()}

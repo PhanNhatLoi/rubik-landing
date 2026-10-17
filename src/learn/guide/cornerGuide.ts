@@ -88,24 +88,24 @@ export function buildCornerGuide(state: CubieState, names: ColorNames): CornerGu
 
   const explain = (kind: CornerCase, piece: number, role: Role, m: string, phase: 'lift' | 'flip' | 'insert'): string => {
     const name = pairName(piece)
-    if (role === 'align') return `Xoay tầng dưới để đưa góc ${name} tới vị trí thích hợp: nó phải nằm cạnh chỗ nó sẽ đi lên.`
+    if (role === 'align') return `Xoay mặt ${names.D} để đưa góc ${name} tới vị trí thích hợp: nó phải nằm cạnh chỗ nó sẽ đi lên.`
     if (role === 'lead') {
       return phase === 'lift'
-        ? `Góc ${name} đang ở tầng trên nhưng chưa đúng. Xoay mặt ${m[0]} để kéo nó xuống tầng dưới. Mặt này cũng kéo theo một cạnh dấu cộng, nhưng bước cuối sẽ trả lại.`
-        : `Xoay mặt ${m[0]} để hạ chỗ trống (nơi góc cần vào) xuống tầng dưới. Cạnh dấu cộng đi theo tạm thời, bước cuối sẽ trả lại.`
+        ? `Góc ${name} đang ở phía mặt ${names.U} nhưng chưa đúng. Xoay mặt ${m[0]} để kéo nó xuống phía mặt ${names.D}. Mặt này cũng kéo theo một cạnh dấu cộng, nhưng bước cuối sẽ trả lại.`
+        : `Xoay mặt ${m[0]} để hạ chỗ trống (nơi góc cần vào) xuống phía mặt ${names.D}. Cạnh dấu cộng đi theo tạm thời, bước cuối sẽ trả lại.`
     }
     if (role === 'move') {
       return phase === 'insert'
-        ? `Xoay tầng dưới để đưa góc ${name} vào chỗ trống vừa hạ xuống.`
+        ? `Xoay mặt ${names.D} để đưa góc ${name} vào chỗ trống vừa hạ xuống.`
         : phase === 'flip'
-          ? `Mặt ${firstColor} của góc đang hướng xuống dưới. Xoay tầng dưới để lật hướng nó sang bên hông, chuẩn bị lắp lên.`
-          : 'Xoay tầng dưới để góc nằm ở tầng dưới, tránh nước trả lại kéo nó lên nhầm chỗ.'
+          ? `Mặt ${firstColor} của góc đang hướng xuống dưới. Xoay mặt ${names.D} để lật hướng nó sang bên hông, chuẩn bị lắp lên.`
+          : `Xoay mặt ${names.D} để góc nằm ở phía mặt ${names.D}, tránh nước trả lại kéo nó lên nhầm chỗ.`
     }
     return phase === 'insert'
       ? `Trả mặt ${m[0]} về chỗ cũ: góc ${name} đi lên đúng vị trí, mặt ${firstColor} hướng lên; cạnh dấu cộng quay lại như cũ.`
       : phase === 'flip'
-        ? `Trả mặt ${m[0]} về chỗ cũ. Góc vẫn ở tầng dưới nhưng mặt ${firstColor} đã nằm bên hông.`
-        : `Trả mặt ${m[0]} về chỗ cũ. Góc ${name} giờ đã ở tầng dưới, mặt ${firstColor} ${kind === 'bottom' ? 'có thể hướng xuống hoặc ra hông' : ''}.`.replace(' .', '.')
+        ? `Trả mặt ${m[0]} về chỗ cũ. Góc vẫn ở phía mặt ${names.D} nhưng mặt ${firstColor} đã nằm bên hông.`
+        : `Trả mặt ${m[0]} về chỗ cũ. Góc ${name} giờ đã ở phía mặt ${names.D}, mặt ${firstColor} ${kind === 'bottom' ? 'có thể hướng xuống hoặc ra hông' : ''}.`.replace(' .', '.')
   }
 
   const asSteps = (seq: string[], prefix: number, kind: CornerCase, piece: number, phase: 'lift' | 'flip' | 'insert'): GuideStep[] =>
@@ -179,15 +179,15 @@ export function buildCornerGuide(state: CubieState, names: ColorNames): CornerGu
 
   const name = pairName(best.piece)
   const intro: Record<CornerCase, string> = {
-    top: `Chọn góc ${name}: nó đang ở tầng dưới và mặt ${firstColor} nằm bên hông, nên có thể lắp lên ngay.`,
-    flip: `Chọn góc ${name}: nó ở tầng dưới nhưng mặt ${firstColor} đang hướng xuống. Mình lật nó sang hông trước, rồi lắp lên như bình thường.`,
-    bottom: `Chọn góc ${name}: nó đã ở tầng trên nhưng chưa đúng chỗ hoặc bị ngược mặt. Mình đưa nó xuống tầng dưới rồi lắp lại cho đúng.`
+    top: `Chọn góc ${name}: nó đang ở phía mặt ${names.D} và mặt ${firstColor} nằm bên hông, nên có thể lắp lên ngay.`,
+    flip: `Chọn góc ${name}: nó ở phía mặt ${names.D} nhưng mặt ${firstColor} đang hướng xuống. Mình lật nó sang hông trước, rồi lắp lên như bình thường.`,
+    bottom: `Chọn góc ${name}: nó đã ở phía mặt ${names.U} nhưng chưa đúng chỗ hoặc bị ngược mặt. Mình đưa nó xuống phía mặt ${names.D} rồi lắp lại cho đúng.`
   }
   return {
     piece: best.piece,
     corner: CORNER_NAME[best.piece]!,
     kind: best.kind,
-    title: { top: 'Góc ở tầng dưới', flip: 'Góc ở tầng dưới, mặt trắng hướng xuống', bottom: 'Góc sai chỗ ở tầng trên' }[best.kind],
+    title: { top: `Góc ở phía mặt ${names.D}`, flip: `Góc ở phía mặt ${names.D}, mặt ${firstColor} hướng xuống`, bottom: `Góc sai chỗ ở phía mặt ${names.U}` }[best.kind],
     intro: intro[best.kind],
     steps,
     states,

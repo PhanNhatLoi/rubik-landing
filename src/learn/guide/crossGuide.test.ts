@@ -3,7 +3,7 @@ import { applyMoves, equals, parseAlgorithm, SOLVED } from '../../smart-solver/c
 import { layerTurnToEvent, readOrientation } from '../../smart-solver/adapter/stickerModel'
 import { CROSS, edgeDone } from '../goals'
 import { buildCrossGuide, type CrossCase } from './crossGuide'
-import { applyNotation, fromCubie, notationToTurn, toCubie } from './physical'
+import { applyNotation, findEdge, fromCubie, notationToTurn, toCubie } from './physical'
 
 const NAMES = { U: 'trắng', D: 'vàng', F: 'xanh lá', B: 'xanh dương', R: 'đỏ', L: 'cam' }
 const FACE_MOVES = ['U', 'D', 'R', 'L', 'F', 'B']
@@ -75,6 +75,17 @@ describe('buildCrossGuide', () => {
         } else expect(guide!.halves[k]).toEqual([])
         expect(step.why.length).toBeGreaterThan(10)
       })
+      const middle = guide!.states[guide!.middleIndex]!
+      expect(findEdge(fromCubie(middle), 'U', guide!.target)!.grid.y).toBe(1)
+      for (const e of placed) expect(edgeDone(middle, e)).toBe(true)
+      const insertion = guide!.steps.slice(guide!.middleIndex).map((s) => s.notation)
+      expect(insertion.filter((m) => /^[FRBL]'?$/.test(m))).toHaveLength(1)
+      expect(insertion.every((m) => /^[UFRBL](?:'|2)?$/.test(m))).toBe(true)
+      if (insertion.length === 3) {
+        expect(insertion[0]![0]).toBe('U')
+        const undo = insertion[0] === 'U' ? "U'" : insertion[0] === "U'" ? 'U' : 'U2'
+        expect(insertion[2]).toBe(undo)
+      } else expect(insertion).toHaveLength(1)
       const end = guide!.states[guide!.states.length - 1]!
       expect(edgeDone(end, guide!.piece)).toBe(true)
       for (const e of placed) expect(edgeDone(end, e)).toBe(true)

@@ -74,8 +74,8 @@ export const LESSON3_PAGES: readonly Lesson3Page[] = [
     ],
     reason: [
       'Có dấu cộng rồi, bốn góc sẽ làm tròn tầng đầu: cả mặt trên đúng và mỗi mặt bên đều có một hàng đúng ở trên.',
-      'Khối góc chỉ có thể nằm ở tầng dưới cùng hoặc tầng trên, nên ta chỉ cần phân biệt hai trường hợp: góc ở tầng dưới (lắp lên) hoặc góc ở tầng trên nhưng sai (đưa xuống rồi lắp lại).',
-      'Xong bước này, các bước sau chỉ làm việc ở hai tầng dưới, không phá tầng đầu.'
+      'Mỗi góc dùng cùng một công thức 3 nước: xoay một mặt bên để mở chỗ trống, xoay mặt trắng hoặc mặt vàng cho góc tới đúng chỗ, rồi trả mặt bên về. Góc nằm cạnh mặt vàng thì lắp lên; góc đang ở mặt trắng nhưng sai chỗ thì đưa xuống rồi lắp lại.',
+      'Xong bước này, các bước sau chỉ làm việc ở phần còn lại của khối, không phá tầng đầu.'
     ]
   }
 ]

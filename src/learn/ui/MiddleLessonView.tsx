@@ -1,3 +1,4 @@
+import FormulaPreview from './FormulaPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
@@ -5,7 +6,7 @@ import { toFacelets } from '../../smart-solver/core/facelets'
 import { MIDDLE, edgeDone, firstLayerDone } from '../goals'
 import type { SpotlightTarget } from '../../smart-solver/adapter/types'
 import { edgeCell, middleEdgeCells, crossEdgeCells, firstCornerCells } from '../cells'
-import { MIDDLE_LEVELS, MIDDLE_PICTURE_SCRAMBLE, LESSON4_PAGES, MIDDLE_FORMULAS, generateMiddleScramble, type MiddleLevelId } from '../copy/lesson4'
+import { MIDDLE_LEVELS, MIDDLE_PICTURE_SCRAMBLE, LESSON4_PAGES, MIDDLE_EXAMPLES, MIDDLE_FORMULAS, generateMiddleScramble, type MiddleLevelId } from '../copy/lesson4'
 import { buildMiddleGuide, type MiddleGuide } from '../guide/middleGuide'
 import { notationToTurn } from '../guide/physical'
 import { layerTurnToToken } from '../../smart-solver/adapter/nxnModel'
@@ -91,6 +92,12 @@ export default function MiddleLessonView({
     }
   }, [])
 
+  const wrongExample = useMemo(() => {
+    const before = applyMoves(SOLVED, MIDDLE_EXAMPLES[1].scramble)
+    const formula = MIDDLE_FORMULAS[1]!
+    return { before, moves: formula.moves, cell: edgeCell(before.ep.indexOf(formula.edgePiece)) }
+  }, [])
+
   const [level, setLevel] = useState<MiddleLevelId | null>(null)
   const lastSetup = useRef<Move[] | undefined>(undefined)
   const [plan, setPlan] = useState<HintPlan | null>(null)
@@ -135,13 +142,15 @@ export default function MiddleLessonView({
   useEffect(() => {
     if (seenCube.current === cube) return
     seenCube.current = cube
+    // A status message belongs to the cube it was shown for: any later move or undo clears it.
+    if (!plan) setMessage(null)
     if (!plan || !cube) return
     const { guide } = plan
     const where = locateOnGuide(guide, cube)
     if (where.kind === 'done') {
       setPlan(null)
       onHighlightTurn(null)
-      setMessage(`Xong ${guide.edge}! Bấm Gợi ý để làm tiếp cạnh khác, hoặc tự làm.`)
+      setMessage(`Xong cạnh này! Bấm Gợi ý để làm tiếp cạnh khác, hoặc tự làm.`)
       return
     }
     if (where.kind === 'step') {
@@ -183,7 +192,7 @@ export default function MiddleLessonView({
   }, [practice, cube, level, plan, onMark])
 
   const banner = (
-    <div
+    <div data-no-typing
       role="note"
       style={{ ...card, borderColor: 'var(--rb-accent-tint-border)', background: 'var(--rb-accent-tint)' }}
     >
@@ -204,7 +213,7 @@ export default function MiddleLessonView({
     <LessonPlayer
       label="Bài 4"
       pages={LESSON4_PAGES}
-      onEnter={() => onSpotlight(null)}
+      onEnter={(page) => { onSpotlight(null); if (page.kind !== 'middleFormula') onPracticeChange(false) }}
       onLeave={() => {
         onSpotlight(null)
         onHighlightTurn(null)
@@ -212,9 +221,9 @@ export default function MiddleLessonView({
         onPracticeChange(false)
       }}
       onExit={onExit}
-      practiceFor={() => ({ active: practice, onToggle: () => onPracticeChange(!practice) })}
+      practiceFor={(page) => page.kind === 'middleFormula' ? ({ active: practice, onToggle: () => onPracticeChange(!practice) }) : undefined}
       renderPage={(page) =>
-        practice ? (
+        practice && page.kind === 'middleFormula' ? (
           <>
             {banner}
             <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>
@@ -244,15 +253,15 @@ export default function MiddleLessonView({
             {level && cube && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Cạnh đúng</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{done}/4</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Nước đi</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{moveCount}</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Gợi ý</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{hints}</div>
                   </div>
@@ -273,7 +282,7 @@ export default function MiddleLessonView({
                   >
                     <div>
                       <div className="rb-overline" style={{ fontSize: '10px', color: 'var(--rb-accent-2)' }}>
-                        Cạnh {plan.guide.edge} · {plan.guide.title}
+                        {plan.guide.title}
                       </div>
                       {plan.index === 0 && (
                         <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>{plan.guide.intro}</p>
@@ -326,16 +335,16 @@ export default function MiddleLessonView({
               const moving = (state: CubieState) => ({ kind: 'cells' as const, cells: [[1, 1, 2], edgeCell(state.ep.indexOf(f.edgePiece))] })
               const view = f.target === 'L' ? 'frontLeft' : 'front'
               return (
-                <div key={f.id} style={card}>
+                <div data-no-typing key={f.id} style={card}>
                   <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--rb-text)' }}>{f.title}</div>
                   <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', marginTop: '6px', lineHeight: 1.6 }}>
-                    <strong>Bước 1:</strong> D hoặc D′ (hoặc D2) để cạnh cùng mặt với tâm cùng màu<br />
+                    <strong>Bước 1 (căn, để dễ xác định khối):</strong> D hoặc D′ (hoặc D2) cho cạnh cùng mặt với tâm cùng màu<br />
                     <strong>Bước 2:</strong> <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-accent-link)', letterSpacing: '0.5px' }}>{f.moves.join(' ').replace(/'/g, '′')}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
                     <div style={{ flex: 1, minWidth: 0, maxWidth: '170px', textAlign: 'center' }}>
                       <MiniCube facelets={toFacelets(f.before)} faceColors={faceColors} view={view} label={`Trước khi ${f.title.toLowerCase()}`} spotlight={moving(f.before)} grayRest />
-                      <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước</div>
+                      <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước</div>
                     </div>
                     <div style={{ flex: 'none', color: 'var(--rb-accent-link)' }}>
                       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -345,19 +354,27 @@ export default function MiddleLessonView({
                     </div>
                     <div style={{ flex: 1, minWidth: 0, maxWidth: '170px', textAlign: 'center' }}>
                       <MiniCube facelets={toFacelets(f.after)} faceColors={faceColors} view={view} label={`Sau khi ${f.title.toLowerCase()}`} spotlight={moving(f.after)} grayRest />
-                      <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Sau</div>
+                      <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Sau</div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center', marginTop: '6px' }}>
+                  <FormulaPreview state={f.before} moves={f.moves} faceColors={faceColors} label={f.title} view={view} cells={[edgeCell(f.before.ep.indexOf(f.edgePiece))]} result="Cạnh đã vào rãnh tầng giữa; tầng trắng được trả lại sau cả công thức." />
+                  <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center', marginTop: '6px' }}>
                     Chỉ tâm mặt F (mặt mốc) và cạnh cần lắp có màu. Các khối khác để xám.
                   </div>
                 </div>
               )
             })}
+            {wrongExample && <div data-no-typing style={{ ...card, display: 'grid', gap: '10px' }}>
+              <strong style={{ color: 'var(--rb-text)' }}>Ví dụ thêm: cạnh ở tầng giữa nhưng sai mặt hoặc sai vị trí</strong>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--rb-text)', lineHeight: 1.5 }}>
+                Dùng công thức sang phải ở trên để đưa cạnh sai xuống tầng đáy D. Sau đó căn D và áp dụng một trong hai công thức trên để lắp lại.
+              </p>
+              <FormulaPreview state={wrongExample.before} moves={wrongExample.moves} faceColors={faceColors} label="Đưa cạnh sai xuống tầng đáy D" cells={[wrongExample.cell]} result="Cạnh đã xuống D. Căn D rồi dùng công thức trái hoặc phải ở trên để lắp lại; tầng trắng vẫn được giữ nguyên." />
+            </div>}
             <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>
               Hai công thức viết khi mặt mốc là mặt {colorNames.F} (F). Nếu mặt mốc là mặt khác, giữ nguyên D và đổi tên các mặt còn lại theo vòng F → R → B → L → F (ví dụ mặt mốc là {colorNames.R}: F thành R, L thành F). Gợi ý trong phần Thực hành tự đổi sẵn cho bạn.
             </div>
-            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+            <div data-no-typing style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
               <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
               {page.reason.map((text, i) => (
                 <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>
@@ -372,21 +389,21 @@ export default function MiddleLessonView({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp tầng giữa" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="4" y1="12" x2="20" y2="12" />
                   <polyline points="14 6 20 12 14 18" />
                 </svg>
-                <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
+                <div data-no-typing style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp tầng giữa" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng giữa đã đúng chỗ</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng giữa đã đúng chỗ</div>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
+            <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
               Phần phát sáng: 6 tâm (mốc cố định) và 4 cạnh tầng giữa. Tầng đầu đã làm ở Bài 2–3 giữ màu, không phát sáng. Các phần còn lại chưa cần đúng.
             </div>
 
@@ -395,7 +412,7 @@ export default function MiddleLessonView({
                 {text}
               </p>
             ))}
-            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+            <div data-no-typing style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
               <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
               {page.reason.map((text, i) => (
                 <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>

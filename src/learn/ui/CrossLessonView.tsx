@@ -13,6 +13,9 @@ import { layerTurnToToken } from '../../smart-solver/adapter/nxnModel'
 import { locateOnGuide } from '../guide/follow'
 import LessonPlayer from './LessonPlayer'
 import MiniCube from './MiniCube'
+import CrossPrincipleExamples from './CrossPrincipleExamples'
+import CrossMiddleStory, { CROSS_STORY_DURATION } from './CrossMiddleStory'
+import { NarrationScene } from './LessonNarration'
 
 export interface CrossLessonViewProps {
   faceColors: Record<Face, number>
@@ -107,7 +110,7 @@ export default function CrossLessonView({
   }
 
   const askHint = () => {
-    if (!cube) return
+    if (!cube || plan) return
     const guide = buildCrossGuide(cube, colorNames)
     if (!guide) {
       setMessage('Dấu cộng đã hoàn thành.')
@@ -125,13 +128,15 @@ export default function CrossLessonView({
   useEffect(() => {
     if (seenCube.current === cube) return
     seenCube.current = cube
+    // A status message belongs to the cube it was shown for: any later move or undo clears it.
+    if (!plan) setMessage(null)
     if (!plan || !cube) return
     const { guide } = plan
     const where = locateOnGuide(guide, cube)
     if (where.kind === 'done') {
       setPlan(null)
       onHighlightTurn(null)
-      setMessage(`Xong ${guide.edge}! Bấm Gợi ý để làm tiếp cạnh khác, hoặc tự làm.`)
+      setMessage(`Xong cạnh này! Bấm Gợi ý để làm tiếp cạnh khác, hoặc tự làm.`)
       return
     }
     if (where.kind === 'step') {
@@ -173,7 +178,7 @@ export default function CrossLessonView({
   }, [practice, cube, level, plan, onMark])
 
   const banner = (
-    <div
+    <div data-no-typing
       role="note"
       style={{ ...card, borderColor: 'var(--rb-accent-tint-border)', background: 'var(--rb-accent-tint)' }}
     >
@@ -182,7 +187,6 @@ export default function CrossLessonView({
         Mặt trên (U) — màu {colorNames.U}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Đây là mặt đối diện mặt {colorNames.D}, không phải mặt đáy. Đừng lắp dấu cộng ở mặt {colorNames.D}.
         {practice && ' Các cạnh đang phát sáng là những cạnh cần đưa về mặt trên; kéo nền để xoay khối và nhìn thấy mặt trên.'}
       </div>
     </div>
@@ -194,7 +198,7 @@ export default function CrossLessonView({
     <LessonPlayer
       label="Bài 2"
       pages={LESSON2_PAGES}
-      onEnter={() => onSpotlight(null)}
+      onEnter={(page) => { onSpotlight(null); if (page.kind !== 'align') onPracticeChange(false) }}
       onLeave={() => {
         onSpotlight(null)
         onHighlightTurn(null)
@@ -202,9 +206,9 @@ export default function CrossLessonView({
         onPracticeChange(false)
       }}
       onExit={onExit}
-      practiceFor={() => ({ active: practice, onToggle: () => onPracticeChange(!practice) })}
+      practiceFor={(page) => page.kind === 'align' ? ({ active: practice, onToggle: () => onPracticeChange(!practice) }) : undefined}
       renderPage={(page) =>
-        practice ? (
+        practice && page.kind === 'align' ? (
           <>
             {banner}
             <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>
@@ -234,15 +238,15 @@ export default function CrossLessonView({
             {level && cube && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Cạnh đúng</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{done}/4</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Nước đi</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{moveCount}</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Gợi ý</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{hints}</div>
                   </div>
@@ -263,7 +267,7 @@ export default function CrossLessonView({
                   >
                     <div>
                       <div className="rb-overline" style={{ fontSize: '10px', color: 'var(--rb-accent-2)' }}>
-                        Cạnh {plan.guide.edge} · {plan.guide.title}
+                        {plan.index < plan.guide.middleIndex ? 'Đưa cạnh về tầng giữa' : 'Căn U → đưa cạnh lên → trả U'}
                       </div>
                       {plan.index === 0 && (
                         <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>{plan.guide.intro}</p>
@@ -295,7 +299,7 @@ export default function CrossLessonView({
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <button type="button" className="rb-btn rb-btn--secondary" style={{ height: '44px' }} disabled={solved} onClick={askHint}>
+                  <button type="button" className="rb-btn rb-btn--secondary" style={{ height: '44px' }} disabled={solved || !!plan} onClick={askHint}>
                     Gợi ý
                   </button>
                   <button type="button" className="rb-btn rb-btn--secondary" style={{ height: '44px' }} disabled={moveCount === 0} onClick={onUndo}>
@@ -308,33 +312,39 @@ export default function CrossLessonView({
         ) : (
           <>
             {banner}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            {page.kind === 'crossIntro' && <>
+            <div data-no-typing style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp dấu cộng" spotlight={picture.beforeSpot} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="4" y1="12" x2="20" y2="12" />
                   <polyline points="14 6 20 12 14 18" />
                 </svg>
-                <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
+                <div data-no-typing style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp dấu cộng" spotlight={picture.afterSpot} grayRest view="front" />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã đúng chỗ (nhìn từ tầng trên)</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Dấu cộng đã đúng chỗ (nhìn từ trên xuống)</div>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
+            <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
               Phần phát sáng: 6 tâm (mốc cố định) và 4 cạnh của dấu cộng. Các phần còn lại chưa cần đúng.
             </div>
 
-            {page.body.map((text, i) => (
+            </>}
+
+            {page.kind !== 'middle' && page.body.map((text, i) => (
               <p key={i} style={{ margin: 0, fontSize: '14px', color: 'var(--rb-text)', lineHeight: 1.5 }}>
                 {text}
               </p>
             ))}
-            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+            {page.kind === 'middle' && <NarrationScene duration={CROSS_STORY_DURATION}><CrossMiddleStory faceColors={faceColors} /></NarrationScene>}
+            {(page.kind === 'lift' || page.kind === 'align') && <CrossPrincipleExamples mode={page.kind} faceColors={faceColors} />}
+
+            <div data-no-typing style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
               <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
               {page.reason.map((text, i) => (
                 <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>

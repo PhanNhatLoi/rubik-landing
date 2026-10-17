@@ -48,5 +48,20 @@ export function buildLastFaceGuide(state: CubieState, preferred?: string) {
     states.push(toCubie(physical)!)
     return { notation, why: i === 7 ? 'Xong nửa đầu: cạnh còn đang đổi chỗ. Tiếp tục ngay nửa đối diện.' : i === 15 ? 'Đủ hai nửa: cạnh và vị trí góc đã trở lại. Quan sát mặt dưới để chọn lượt tiếp theo.' : i < 8 ? 'Làm nửa đầu từ phía đã chọn.' : 'Làm nửa đối diện để trả các cạnh về đúng chỗ.' }
   })
-  return { variant, steps, states, halves: steps.map(() => [] as CubieState[]), formula: variant.moves.join(' ').replaceAll("'", '′') }
+  return { variant, steps, states, halves: steps.map(() => [] as CubieState[]), formula: compactHalfTurns(variant.moves).replaceAll("'", '′') }
 }
+
+/** The formula as the learner reads it: a pair of equal quarter turns of D is one half turn ("D D" is D2, "D' D'" is D2'). */
+export interface FormulaToken { token: string; from: number; to: number }
+export function formulaTokens(moves: readonly string[]): FormulaToken[] {
+  const tokens: FormulaToken[] = []
+  for (let i = 0; i < moves.length; i += 1) {
+    const move = moves[i]!
+    if ((move === 'D' || move === "D'") && moves[i + 1] === move) {
+      tokens.push({ token: move === 'D' ? 'D2' : "D2'", from: i, to: i + 1 })
+      i += 1
+    } else tokens.push({ token: move, from: i, to: i })
+  }
+  return tokens
+}
+export const compactHalfTurns = (moves: readonly string[]): string => formulaTokens(moves).map((t) => t.token).join(' ')

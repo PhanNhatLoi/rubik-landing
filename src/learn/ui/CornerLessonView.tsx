@@ -1,3 +1,5 @@
+import { CORNER_FORMULA_PREVIEWS } from '../copy/formulaPreviews'
+import FormulaPreview from './FormulaPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Face, CubieState, Move } from '../../smart-solver/core/types'
 import { applyMoves, equals, SOLVED } from '../../smart-solver/core/cubie'
@@ -135,13 +137,15 @@ export default function CornerLessonView({
   useEffect(() => {
     if (seenCube.current === cube) return
     seenCube.current = cube
+    // A status message belongs to the cube it was shown for: any later move or undo clears it.
+    if (!plan) setMessage(null)
     if (!plan || !cube) return
     const { guide } = plan
     const where = locateOnGuide(guide, cube)
     if (where.kind === 'done') {
       setPlan(null)
       onHighlightTurn(null)
-      setMessage(`Xong ${guide.corner}! Bấm Gợi ý để làm tiếp góc khác, hoặc tự làm.`)
+      setMessage(`Xong góc này! Bấm Gợi ý để làm tiếp góc khác, hoặc tự làm.`)
       return
     }
     if (where.kind === 'step') {
@@ -183,7 +187,7 @@ export default function CornerLessonView({
   }, [practice, cube, level, plan, onMark])
 
   const banner = (
-    <div
+    <div data-no-typing
       role="note"
       style={{ ...card, borderColor: 'var(--rb-accent-tint-border)', background: 'var(--rb-accent-tint)' }}
     >
@@ -192,7 +196,7 @@ export default function CornerLessonView({
         Mặt trên (U) — màu {colorNames.U}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-        Dấu cộng ở mặt trên đã xong; giờ gắn 4 góc vào mặt này (mặt đối diện mặt {colorNames.D}, không phải mặt đáy).
+        Dấu cộng ở mặt trên đã xong; giờ gắn 4 góc vào mặt này.
         {practice && ' Các góc đang phát sáng là những góc cần đưa về mặt trên; kéo nền để xoay khối và nhìn thấy mặt trên.'}
       </div>
     </div>
@@ -244,15 +248,15 @@ export default function CornerLessonView({
             {level && cube && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Góc đúng</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{done}/4</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Nước đi</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{moveCount}</div>
                   </div>
-                  <div style={{ ...card, textAlign: 'center' }}>
+                  <div data-no-typing style={{ ...card, textAlign: 'center' }}>
                     <div className="rb-overline" style={{ fontSize: '10px' }}>Gợi ý</div>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)' }}>{hints}</div>
                   </div>
@@ -273,7 +277,7 @@ export default function CornerLessonView({
                   >
                     <div>
                       <div className="rb-overline" style={{ fontSize: '10px', color: 'var(--rb-accent-2)' }}>
-                        Góc {plan.guide.corner} · {plan.guide.title}
+                        {plan.guide.title}
                       </div>
                       {plan.index === 0 && (
                         <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--rb-text-muted)', lineHeight: 1.5 }}>{plan.guide.intro}</p>
@@ -321,21 +325,21 @@ export default function CornerLessonView({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.before} faceColors={faceColors} label="Khối trước khi lắp góc" spotlight={picture.beforeSpot} keep={picture.beforeKeep} grayRest />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Trước khi lắp</div>
               </div>
               <div style={{ flex: 'none', textAlign: 'center', color: 'var(--rb-accent-link)' }}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="4" y1="12" x2="20" y2="12" />
                   <polyline points="14 6 20 12 14 18" />
                 </svg>
-                <div style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
+                <div data-no-typing style={{ fontSize: '11px', color: 'var(--rb-text-muted)' }}>sau khi lắp</div>
               </div>
               <div style={{ flex: 1, minWidth: 0, maxWidth: '190px', textAlign: 'center' }}>
                 <MiniCube facelets={picture.after} faceColors={faceColors} label="Khối sau khi lắp góc" spotlight={picture.afterSpot} keep={picture.afterKeep} grayRest view="front" />
-                <div style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng đầu hoàn chỉnh (nhìn từ tầng trên)</div>
+                <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-muted)' }}>Tầng đầu hoàn chỉnh (nhìn từ trên xuống)</div>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
+            <div data-no-typing style={{ fontSize: '12px', color: 'var(--rb-text-subtle)', textAlign: 'center' }}>
               Phần phát sáng: 6 tâm (mốc cố định) và 4 khối góc. Dấu cộng đã làm ở Bài 2 giữ màu, không phát sáng. Các phần còn lại chưa cần đúng.
             </div>
 
@@ -344,7 +348,11 @@ export default function CornerLessonView({
                 {text}
               </p>
             ))}
-            <div style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
+            {CORNER_FORMULA_PREVIEWS.map((example) => <div key={example.title} style={{ display: 'grid', gap: '8px' }}>
+              <strong style={{ color: 'var(--rb-text)', fontSize: '14px' }}>{example.title}</strong>
+              <FormulaPreview state={example.before} moves={example.moves} faceColors={faceColors} label={example.title} cells={firstCornerCells(example.before)} result="Góc đã lên đúng vị trí, trắng hướng lên. Dấu cộng được giữ nguyên sau cả công thức." />
+            </div>)}
+            <div data-no-typing style={{ ...card, borderColor: 'var(--rb-accent-tint-border)' }}>
               <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)', marginBottom: '4px' }}>Vì sao?</div>
               {page.reason.map((text, i) => (
                 <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: '13px', color: 'var(--rb-text-soft)', lineHeight: 1.5 }}>

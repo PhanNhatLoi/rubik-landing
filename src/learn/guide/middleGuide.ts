@@ -68,18 +68,18 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     const front = `${v.front} (${names[v.front as Face]})`
     const side = `${v.target} (${names[v.target as Face]})`
     const texts = [
-      `Xoay tầng dưới để đưa cạnh sang phía ${otherWord}, tránh khỏi mặt ${side} sắp xoay.`,
+      `Xoay mặt ${names.D} để đưa cạnh sang phía ${otherWord}, tránh khỏi mặt ${side} sắp xoay.`,
       `Xoay mặt ${side} để kéo góc của tầng đầu xuống và mở rãnh giữa mặt ${front} và ${side}. Các khối ở mặt này đi theo tạm thời.`,
-      'Xoay tầng dưới trở lại: cạnh về phía mặt mốc, còn góc vừa hạ xuống bị đẩy sang một bên.',
+      `Xoay mặt ${names.D} trở lại: cạnh về phía mặt mốc, còn góc vừa hạ xuống bị đẩy sang một bên.`,
       `Trả mặt ${side} về: góc của tầng đầu được đặt lại ngay cạnh khối cạnh, hai khối đứng cạnh nhau thành một cặp.`,
-      `Xoay tầng dưới để đưa cặp này sang phía ${sideWord}, nhường chỗ cho mặt mốc xoay mà không va vào cặp.`,
+      `Xoay mặt ${names.D} để đưa cặp này sang phía ${sideWord}, nhường chỗ cho mặt mốc xoay mà không va vào cặp.`,
       `Xoay mặt mốc ${front} để mở chỗ trống của tầng giữa: các khối tầng đầu của mặt này đi xuống tạm thời.`,
-      'Xoay tầng dưới đưa cặp về đúng phía dưới chỗ trống vừa mở.',
+      `Xoay mặt ${names.D} đưa cặp về đúng phía dưới chỗ trống vừa mở.`,
       `Trả mặt mốc ${front} về: cặp trượt lên cùng lúc, cạnh vào rãnh giữa ${front} và ${side}, góc về lại tầng đầu.`
     ]
     const base = texts[i]!
     if (kick && i === 0) {
-      return `Cạnh ${pairName(piece)} đang ở tầng giữa nhưng sai chỗ hoặc bị ngược. Dùng chính công thức này ở rãnh đó để đẩy nó xuống tầng dưới. ${base}`
+      return `Cạnh ${pairName(piece)} đang ở tầng giữa nhưng sai chỗ hoặc bị ngược. Dùng chính công thức này ở rãnh đó để đẩy nó xuống phía mặt ${names.D}. ${base}`
     }
     return base
   }
@@ -95,26 +95,30 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     return null
   }
 
+  /** An alignment turn that the formula's own first turn undoes (D then D'): both are dropped. */
+  const cancels = (c: { v: AlgVariant; prefix: string[] }) =>
+    c.prefix.length === 1 && c.prefix[0]![0] === c.v.seq[0]![0] && !c.prefix[0]!.endsWith('2') && !c.v.seq[0]!.endsWith('2') && c.prefix[0] !== c.v.seq[0]
+
   const describe = (c: { v: AlgVariant; prefix: string[] }, piece: number, kick: boolean): GuideStep[] => [
-    ...c.prefix.map((m) => ({
+    ...(cancels(c) ? [] : c.prefix).map((m) => ({
       notation: m,
-      why: `Xoay tầng dưới cho màu ở mặt mốc của cạnh ${pairName(piece)} khớp với tâm mặt đó: cạnh phải đứng ngay trước tâm ${names[c.v.front as Face]}.`
+      why: `Bước căn: xoay mặt ${names.D} cho màu ở mặt mốc của cạnh ${pairName(piece)} khớp với tâm mặt đó, tức là cạnh đứng ngay trước tâm ${names[c.v.front as Face]}. Căn trước giúp bạn xác định khối và rãnh cần lắp dễ hơn, rồi mới làm công thức.`
     })),
-    ...c.v.seq.map((m, i) => ({ notation: m, why: roleText(c.v, i, piece, kick) }))
+    ...c.v.seq.map((m, i) => ({ notation: m, why: roleText(c.v, i, piece, kick) })).filter((_, i) => !(cancels(c) && i === 0))
   ]
 
-  const plans: { kind: MiddleCase; piece: number; steps: GuideStep[]; aligned: boolean }[] = []
+  const plans: { kind: MiddleCase; piece: number; steps: GuideStep[]; aligned: boolean; cancelled: boolean }[] = []
   for (const piece of todo) {
     const ed = edgeAt(start, piece)
     if (ed.grid.y === 0) {
       const hit = find(start, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
-      if (hit) plans.push({ kind: 'top', piece, steps: describe(hit, piece, false), aligned: hit.prefix.length > 0 })
+      if (hit) plans.push({ kind: 'top', piece, steps: describe(hit, piece, false), aligned: hit.prefix.length > 0 && !cancels(hit), cancelled: cancels(hit) })
     } else if (ed.grid.y === 1) {
       const kick = find(start, (q) => edgeAt(q, piece).grid.y === 0 && safe(q))
       if (!kick || kick.prefix.length) continue
       const lifted = kick.v.seq.reduce(applyNotation, start)
       const hit = find(lifted, (q) => edgeDone(toCubie(q) ?? state, piece) && safe(q))
-      if (hit) plans.push({ kind: 'wrong', piece, steps: [...describe(kick, piece, true), ...describe(hit, piece, false)], aligned: hit.prefix.length > 0 })
+      if (hit) plans.push({ kind: 'wrong', piece, steps: [...describe(kick, piece, true), ...describe(hit, piece, false)], aligned: hit.prefix.length > 0 && !cancels(hit), cancelled: cancels(hit) })
     }
   }
   if (!plans.length) return null
@@ -150,11 +154,11 @@ export function buildMiddleGuide(state: CubieState, names: ColorNames): MiddleGu
     piece: best.piece,
     edge: EDGE_NAME[best.piece]!,
     kind: best.kind,
-    title: best.kind === 'top' ? 'Cạnh ở tầng dưới' : 'Cạnh sai chỗ ở tầng giữa',
+    title: best.kind === 'top' ? `Cạnh ở phía mặt ${names.D}` : 'Cạnh sai chỗ ở tầng giữa',
     intro:
       best.kind === 'top'
-        ? `Chọn cạnh ${name}: nó đang ở tầng dưới (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). ${best.aligned ? 'Bước 1: xoay tầng dưới (D hoặc D′) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu. Sau đó dùng công thức trượt nó lên đúng rãnh.' : 'Màu bên hông của nó đã nằm cùng mặt với tâm cùng màu, nên dùng ngay công thức trượt nó lên đúng rãnh.'}`
-        : `Chọn cạnh ${name}: nó đã ở tầng giữa nhưng sai chỗ hoặc bị ngược. Mình dùng chính công thức để đẩy nó xuống tầng dưới, rồi lắp lại cho đúng.`,
+        ? `Chọn cạnh ${name}: nó đang ở phía mặt ${names.D} (cạnh nào không có màu ${names.U} hay ${names.D} là cạnh của tầng giữa). ${best.cancelled ? 'Bước căn và nước D đầu tiên của công thức sẽ xoay ngược nhau nên mình bỏ cả hai: danh sách bên dưới bắt đầu từ nước thứ hai của công thức, kết quả vẫn như làm đủ.' : best.aligned ? `Bước 1 là bước căn: xoay mặt ${names.D} (D, D′ hoặc D2) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu, để dễ xác định khối và rãnh cần lắp. Sau đó mới dùng công thức trượt nó lên đúng rãnh.` : 'Màu bên hông của nó đã nằm cùng mặt với tâm cùng màu, nên dùng ngay công thức trượt nó lên đúng rãnh.'}`
+        : `Chọn cạnh ${name}: nó đã ở tầng giữa nhưng sai chỗ hoặc bị ngược. Mình dùng chính công thức để đẩy nó xuống phía mặt ${names.D}, rồi lắp lại cho đúng.`,
     steps,
     states,
     halves,

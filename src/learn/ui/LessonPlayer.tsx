@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import LessonNarration, { NarrationSkip } from './LessonNarration'
 
 export interface LessonPage {
   id: string
@@ -37,6 +38,19 @@ export default function LessonPlayer<P extends LessonPage>({
   const isFirst = index === 0
   const isLast = index === pages.length - 1
   const practice = practiceFor?.(page)
+  const lessonRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    // Scroll the actual panel, without moving the surrounding playground or page.
+    let parent = lessonRef.current?.parentElement
+    while (parent) {
+      if (/^(auto|scroll)$/.test(window.getComputedStyle(parent).overflowY)) {
+        parent.scrollTo({ top: 0, behavior: 'instant' })
+        break
+      }
+      parent = parent.parentElement
+    }
+  }, [page])
 
   const onEnterRef = useRef(onEnter)
   onEnterRef.current = onEnter
@@ -52,11 +66,13 @@ export default function LessonPlayer<P extends LessonPage>({
   const sectionNo = sections.indexOf(page.section) + 1
 
   return (
+    <LessonNarration key={`${label}:${page.id}`} visitKey={`${label}:${page.id}`} enabled={/^Bài [2-8]$/.test(label) && !practice?.active}>
     <div
+      ref={lessonRef}
       className="rb-learn-lesson"
       style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0 0', minHeight: 'calc(100dvh - 280px)' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div data-no-typing style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="rb-overline" style={{ fontSize: '11px', color: 'var(--rb-accent-link)' }}>
             {label} · Phần {sectionNo}/{sections.length} · {page.section}
@@ -65,9 +81,12 @@ export default function LessonPlayer<P extends LessonPage>({
             {page.title}
           </h2>
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
         <button type="button" className="rb-btn rb-btn--link" onClick={onExit} style={{ minHeight: '44px', flexShrink: 0 }}>
           Bỏ qua
         </button>
+        {/^Bài [2-8]$/.test(label) && <NarrationSkip />}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '4px' }} role="progressbar" aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={index + 1}>
@@ -129,5 +148,6 @@ export default function LessonPlayer<P extends LessonPage>({
         </button>
       </div>
     </div>
+    </LessonNarration>
   )
 }

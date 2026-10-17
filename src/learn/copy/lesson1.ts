@@ -52,7 +52,7 @@ export const LESSON1_PAGES: readonly Lesson1Page[] = [
     spotlight: { kind: 'centers' },
     body: [
       'Các khối đang phát sáng trên khối 3D là tâm. Tâm nằm giữa mỗi mặt và chỉ có 1 màu.',
-      'Tâm không bao giờ đổi vị trí so với nhau, chúng chỉ quay tại chỗ. Vì vậy tâm quyết định màu của cả mặt: mặt có tâm trắng sẽ là mặt trắng khi giải xong.',
+      'Tâm là mốc để xác định màu của cả mặt so với các khối còn lại: mặt có tâm trắng sẽ là mặt trắng khi giải xong.',
       'Các màu đối diện nhau là cố định: trắng – vàng, xanh lá – xanh dương, đỏ – cam.'
     ],
     facts: [
@@ -98,7 +98,8 @@ export const LESSON1_PAGES: readonly Lesson1Page[] = [
     kind: 'pickFront',
     body: [
       'Các mặt được gọi theo vị trí so với bạn, không theo màu. Nên trước tiên hãy chọn mặt nào sẽ hướng về phía bạn: đó là mặt trước (F).',
-      'Chọn mặt nào cũng được. Mọi tên gọi và ký hiệu phía sau đều dựa vào lựa chọn này, và sẽ đổi theo nếu bạn chọn mặt khác.'
+      'Chọn mặt nào cũng được. Mọi tên gọi và ký hiệu trong bài này đều dựa vào lựa chọn của bạn, và sẽ đổi theo nếu bạn chọn mặt khác.',
+      'Bài 1 chỉ giúp bạn làm quen cách đọc ký hiệu theo tâm. Từ Bài 2, các bài giải sẽ cố định một cách cầm khối (mặt trắng ở trên, mặt xanh lá hướng về bạn) và thông báo cho bạn.'
     ]
   },
   { id: 'up', section: FACES_SECTION, title: 'Mặt trên (U)', kind: 'face', role: 'U', name: FACE_ROLE_NAME.U, body: ['Mặt trên là mặt hướng lên trên, phía đỉnh khối. Chữ U lấy từ Up.'] },

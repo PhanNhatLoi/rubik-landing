@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { FACES, type Face, type Move } from '../../smart-solver/core/types'
 import type { GuideState } from '../../smart-solver/guidance/fsm'
 import type { Scheme } from '../../smart-solver/ui/palette'
-import { format, getMove, getStage } from '../copy/copy'
+import { format, getMove } from '../copy/copy'
+import { getCurriculumStageCopy } from '../curriculum'
 import type { StageDef } from '../stages'
 
 export interface StepViewProps {
@@ -13,6 +14,10 @@ export interface StepViewProps {
   algorithms?: string[]
   stageStartIndex?: number
   stageEndIndex?: number
+  /** Basic solve: seven big steps, no count of the moves inside them. */
+  bigSteps?: boolean
+  /** Why this move is made (from the lesson guide). */
+  moveWhy?: string
   onDone: () => void
   onWrong: (move: Move) => void
   onOpenRoadmap: () => void
@@ -30,6 +35,8 @@ export default function StepView({
   algorithms,
   stageStartIndex = 0,
   stageEndIndex = guide.solution.length,
+  bigSteps = false,
+  moveWhy,
   onDone,
   onWrong,
   onOpenRoadmap,
@@ -44,13 +51,15 @@ export default function StepView({
   const total = guide.solution.length
   if (!move) return null
 
-  const stageCopy = getStage(currentStage.id)
+  const stageCopy = getCurriculumStageCopy(currentStage.id)
   const moveCopy = getMove(move)
 
   // Progress relative to total solution or current stage
   const stageTotal = Math.max(1, stageEndIndex - stageStartIndex)
   const stageStep = Math.min(stageTotal, Math.max(1, guide.index - stageStartIndex + 1))
-  const progressPercent = Math.min(100, Math.round(((guide.index) / Math.max(1, total)) * 100))
+  const progressPercent = bigSteps
+    ? Math.min(100, Math.round(((currentStage.index + guide.index / Math.max(1, total)) / 7) * 100))
+    : Math.min(100, Math.round(((guide.index) / Math.max(1, total)) * 100))
 
   return (
     <div className="rb-learn-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0 16px' }}>
@@ -111,9 +120,9 @@ export default function StepView({
         <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--rb-text)', margin: 0, lineHeight: 1.3 }}>
           {format('stageCounter', { index: currentStage.index + 1, title: stageTitle ?? stageCopy.title })}
         </h3>
-        <span style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', flexShrink: 0, marginLeft: '8px' }}>
+        {!bigSteps && <span style={{ fontSize: '12.5px', color: 'var(--rb-text-muted)', flexShrink: 0, marginLeft: '8px' }}>
           {format('stepCounter', { step: stageStep, total: stageTotal })}
-        </span>
+        </span>}
       </div>
 
       {/* Nhắc nhở cầm khối */}
@@ -125,7 +134,7 @@ export default function StepView({
       <div
         className="rb-card"
         role="region"
-        aria-label={format('stepCardAria', { step: guide.index + 1, total, title: moveCopy.title })}
+        aria-label={bigSteps ? format('moveCardAria', { step: guide.index + 1, title: moveCopy.title }) : format('stepCardAria', { step: guide.index + 1, total, title: moveCopy.title })}
         style={{ padding: '12px 14px', gap: '14px', margin: '4px 0' }}
       >
         <div className="rb-move-hero">
@@ -133,7 +142,7 @@ export default function StepView({
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
           <div className="rb-overline" style={{ fontSize: '10.5px' }}>
-            {format('stepCounter', { step: guide.index + 1, total })}
+            {bigSteps ? format('moveNumber', { step: guide.index + 1 }) : format('stepCounter', { step: guide.index + 1, total })}
           </div>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rb-text)', lineHeight: 1.25 }}>
             {moveCopy.title}
@@ -141,6 +150,11 @@ export default function StepView({
           <div style={{ fontSize: '13px', color: 'var(--rb-text-muted)', lineHeight: 1.35 }}>
             {moveCopy.hint}
           </div>
+          {moveWhy && (
+            <div style={{ fontSize: '12.5px', color: 'var(--rb-text)', lineHeight: 1.45, marginTop: '4px' }}>
+              {moveWhy}
+            </div>
+          )}
           {algorithms && algorithms.length > 0 && (
             <div style={{ fontSize: '12px', color: 'var(--rb-accent-link)', marginTop: '4px', fontWeight: 500 }}>
               {format('algorithmLabel')} {[...new Set(algorithms)].join(' · ')}

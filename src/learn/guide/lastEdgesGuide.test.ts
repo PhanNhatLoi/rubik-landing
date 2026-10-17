@@ -46,7 +46,8 @@ describe('lesson 6 last-edge guide', () => {
     expect(equals(picture.after, applyMoves(picture.before, picture.moves))).toBe(true)
     expect(picture.after.ep[5]).toBe(picture.before.ep[5])
     for (const i of [4, 6, 7]) expect(picture.after.ep[i]).not.toBe(picture.before.ep[i])
-    expect(lastEdgesDone(picture.after)).toBe(false)
+    expect(lastEdgesDone(picture.before)).toBe(false)
+    expect(lastEdgesDone(picture.after)).toBe(true)
     for (const example of [picture, ...LAST_EDGES_FORMULA_PICTURES]) {
       expect(equals(example.after, applyMoves(example.before, example.moves))).toBe(true)
       expect(equals(example.after, SOLVED)).toBe(false)

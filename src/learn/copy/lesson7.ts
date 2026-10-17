@@ -52,14 +52,14 @@ export const LESSON7_PAGES: readonly (LessonPage & { body: string[]; reason: str
     'Đúng vị trí khác đúng mặt: góc vàng–xanh lá–đỏ thuộc chỗ giao của ba mặt D–F–R, dù ô vàng còn quay sang bên. Chưa lật góc trong bài này.'
   ], reason: 'Mỗi góc được nhận diện bằng bộ ba màu. Vị trí đúng khi đủ ba màu thuộc đúng ba mặt giao nhau; hướng của các ô màu để Bài 8.' },
   { id: 'recognize', section: 'Nhận diện góc và chọn chiều', title: 'Tìm góc đúng, rồi nhìn hai góc bên cạnh', body: [
-    'FR là góc trước–phải, FL trước–trái, BR sau–phải và BL sau–trái của tầng đáy. F/B và R/L luôn tính theo mặt mốc đang dùng; B là phía sau, nối với cả góc BR và BL.',
+    'Trong hình, tên ghi trên mỗi góc là ba tâm mà vị trí đó chạm vào, ví dụ “vàng–xanh lá–đỏ” là vị trí giữa ba tâm vàng, xanh lá và đỏ; màu của khối đang đứng ở đó có thể khác và được vẽ trong hình. Mặt mốc là mặt đang hướng về bạn; hai góc ở phía bạn là hai góc trước, hai góc còn lại ở phía sau.',
     'Tìm một góc có đủ bộ ba màu thuộc đúng vị trí. Lấy góc đó làm mốc giữ lại; không yêu cầu màu vàng hướng xuống.',
     'Trong hai góc bên cạnh mốc, có đúng một góc chia sẻ 2/3 màu với vị trí đang đứng: màu vàng và một màu bên. Hãy đưa góc vừa tìm sang góc đối diện mốc; chiều đổi vòng được xác định từ đường đi đó.',
     '“2/3 màu đúng” là xét bộ màu của khối so với vị trí, không đếm hai ô đang hướng đúng mặt. Ô vàng có thể đang ở bên hông.'
   ], reason: 'Khi giữ một góc đúng, ba góc còn lại chỉ có hai chiều đổi vòng. Góc bên cạnh có hai màu chung giúp nhận ra chiều cần dùng mà không phải thử công thức.' },
   { id: 'formula', section: 'Công thức và đường đi', title: 'Một công thức, áp dụng từ hai phía', body: [
-    'Bản bắt đầu R′ giữ góc FR: FL → BL → BR → FL. Bản đối xứng bắt đầu L giữ góc FL: FR → BR → BL → FR.',
-    'Nếu góc đúng ở vị trí khác, đổi mặt mốc để góc đó đóng vai trò FR hoặc FL. App sẽ chỉ rõ mốc và quy đổi công thức sang vị trí cố định của khối ảo.',
+    'Bản bắt đầu R′ giữ góc trước–bên phải (khung nét đứt trong hình), ba góc còn lại đi vòng theo mũi tên. Bản đối xứng bắt đầu L giữ góc trước–bên trái và đi vòng theo chiều ngược lại.',
+    'Nếu góc đúng ở vị trí khác, đổi mặt mốc để góc đó nằm ở phía trước, bên phải hoặc bên trái. App sẽ chỉ rõ mốc và ghi sẵn các nước theo đúng mặt của khối bạn đang cầm, không cần tự đổi.',
     'Không xoay D riêng để đổi chỗ mốc: các cạnh vừa làm ở Bài 6 phải giữ đúng. Làm hết 10 nước của công thức rồi quan sát.'
   ], reason: 'Công thức giữ một góc, hoán đổi ba góc còn lại. Từ hai phía, đường đi đổi chiều; các góc có thể đổi hướng nhưng việc lật chúng chưa phải mục tiêu.' },
   { id: 'practice', section: 'Tổ hợp và thực hành', title: 'Ba trường hợp: 4 đúng, 1 đúng, chưa có góc đúng', body: [

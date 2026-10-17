@@ -34,14 +34,14 @@ export function generateLastEdgesScramble(level: LastEdgesLevel, rng: () => numb
   return choices[Math.max(0, Math.min(choices.length - 1, Math.floor(rng() * choices.length)))]!.slice()
 }
 
-// Each illustration is a real exchange, with unfinished corners left for later lessons.
-const pictureBefore = applyMoves(SOLVED, pools.easy[0]!)
+// Show the lesson goal: all four edges correctly placed, with corners left for later lessons.
+const edgesMatchedCornersUnfinished = applyMoves(SOLVED, [...LAST_EDGES_RIGHT, ...LAST_EDGES_LEFT])
+const pictureBefore = applyMoves(edgesMatchedCornersUnfinished, invertMoves(LAST_EDGES_LEFT))
 export const LAST_EDGES_EXCHANGE_PICTURE = {
   before: pictureBefore,
   after: applyMoves(pictureBefore, LAST_EDGES_LEFT),
   moves: LAST_EDGES_LEFT
 }
-const edgesMatchedCornersUnfinished = applyMoves(SOLVED, [...LAST_EDGES_RIGHT, ...LAST_EDGES_LEFT])
 export const LAST_EDGES_FORMULA_PICTURES = ([
   { direction: 'right', moves: LAST_EDGES_RIGHT, route: 'R → L → B → R' },
   { direction: 'left', moves: LAST_EDGES_LEFT, route: 'L → R → B → L' }
@@ -98,8 +98,8 @@ export function generateLastEdgesOrderScramble(level: LastEdgesLevel, rng: () =>
 
 export const LESSON6_PAGES: readonly (LessonPage & { body: string[]; reason: string })[] = [
   { id: 'goal', section: 'Mục tiêu', title: 'Đưa các cạnh vàng về đúng chỗ', body: [
-    'Bài 5 đã tạo dấu cộng vàng ở đáy. Bây giờ, ta đổi vị trí các cạnh để màu bên hông của từng cạnh khớp tâm cùng mặt.',
-    'Hai ảnh là cùng một khối trước và sau một lượt đổi cạnh. Ba khối phát sáng đổi chỗ cho nhau; cạnh ở mặt trước được giữ lại. Đây là kết quả của một lượt đổi cạnh, chưa phải khối Rubik hoàn thành.',
+    'Sau Bài 5, dấu cộng vàng đã có nhưng các cạnh vẫn có thể ở sai vị trí. Hãy so màu bên hông của từng cạnh với tâm cùng mặt.',
+    'Học xong bài này, bạn sẽ biết cách xoay để cả bốn cạnh tầng cuối về đúng vị trí: màu bên hông khớp tâm, dấu cộng vàng và hai tầng phía trên vẫn được giữ nguyên. Hai ảnh minh hoạ từ vị trí đang sai đến vị trí đã đúng.',
     'Giữ trắng ở trên, vàng ở dưới. Các góc vàng sẽ học ở Bài 7–8.'
   ], reason: 'Cạnh có mặt vàng hướng xuống vẫn có thể ở sai chỗ. Ta cần đổi thứ tự bốn cạnh quanh đáy trước, rồi căn tầng đáy ở cuối.' },
   { id: 'movement', section: 'Nguyên tắc di chuyển', title: 'Giữ một cạnh, ba cạnh kia đi vòng tròn', body: [
@@ -114,8 +114,8 @@ export const LESSON6_PAGES: readonly (LessonPage & { body: string[]; reason: str
   ], reason: 'Cùng một cách đổi vòng, áp dụng từ hai phía. Hình trước/sau gắn mỗi chuỗi xoay với chiều di chuyển cụ thể.' },
   { id: 'practice', section: 'Các thứ tự và áp dụng', title: 'Nhận diện thứ tự, chọn cạnh làm mặt mốc', body: [
     'Đọc bốn màu theo vòng F → R → B → L. Thứ tự chuẩn là xanh lá → đỏ → xanh dương → cam; bắt đầu từ cạnh nào cũng được, miễn giữ đúng chiều đọc.',
-    'Khi gom các hình chỉ khác nhau do xoay D, có 6 tổ hợp. Hình dưới đặt cạnh xanh lá ở đầu vòng để dễ so sánh; đây không phải yêu cầu căn cạnh xanh lá khớp tâm.',
+    'Khi gom các hình chỉ khác nhau do xoay D, có 6 thứ tự. Một thứ tự đã đúng sẵn (chỉ cần căn D, không cần công thức) nên dưới đây là 5 tổ hợp cần xử lý. Hình dưới đặt cạnh xanh lá ở đầu vòng để dễ so sánh; đây không phải yêu cầu căn cạnh xanh lá khớp tâm.',
     'Lấy tâm D vàng làm mốc đáy để đọc hướng di chuyển. Chọn tổ hợp giống khối của bạn. Nếu có hai cạnh có thể giữ làm mốc, chọn một cạnh: công thức và hình kết quả sẽ đổi theo lựa chọn đó.',
     LAST_EDGES_FINAL_ALIGNMENT_NOTE
-  ], reason: 'Bốn cạnh có 24 cách xếp vào bốn vị trí. Mỗi nhóm 4 hình chỉ khác nhau do xoay D có cùng một thứ tự vòng, nên chỉ cần nhận diện 6 tổ hợp.' }
+  ], reason: 'Bốn cạnh có 24 cách xếp vào bốn vị trí. Mỗi nhóm 4 hình chỉ khác nhau do xoay D có cùng một thứ tự vòng, nên chỉ cần nhận diện 5 tổ hợp cần công thức, cộng một thứ tự đã đúng.' }
 ]

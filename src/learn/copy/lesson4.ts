@@ -71,8 +71,8 @@ export const LESSON4_PAGES: readonly Lesson4Page[] = [
       'Mỗi cạnh tầng giữa có 2 màu khớp với hai tâm của hai mặt bên cạnh nó, và không có màu của mặt trên hay mặt đáy.'
     ],
     reason: [
-      'Có tầng đầu rồi, tầng giữa làm hai phần ba khối đúng; chỉ còn lại tầng dưới.',
-      'Một cạnh nằm ở tầng dưới mà không có màu mặt đáy thì chắc chắn là cạnh của tầng giữa, nên dễ nhận ra cạnh nào cần lắp.',
+      'Có tầng đầu rồi, tầng giữa làm hai phần ba khối đúng; chỉ còn lại phần phía mặt vàng.',
+      'Một cạnh nằm ở phía mặt vàng mà không có màu vàng thì chắc chắn là cạnh của tầng giữa, nên dễ nhận ra cạnh nào cần lắp.',
       'Chỉ cần một công thức (cùng bản đối xứng của nó) cho cả 4 rãnh, và công thức này giữ nguyên tầng đầu, nên ta không phá những gì đã làm.'
     ]
   },
@@ -82,8 +82,8 @@ export const LESSON4_PAGES: readonly Lesson4Page[] = [
     title: 'Hai công thức trượt cạnh',
     kind: 'middleFormula',
     body: [
-      'Mỗi lần chỉ lắp một cạnh. Cạnh đang nằm ở tầng dưới (tầng vàng) sẽ được trượt lên tầng giữa bằng một trong hai công thức dưới đây: sang trái hoặc sang phải.',
-      'Bước 1, luôn làm trước: xoay D (hoặc D′, đôi khi D2) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu. Mặt đó là mặt mốc F của công thức.',
+      'Mỗi lần chỉ lắp một cạnh. Cạnh đang nằm ở phía mặt vàng sẽ được trượt lên tầng giữa bằng một trong hai công thức dưới đây: sang trái hoặc sang phải.',
+      'Bước 1 là bước căn, luôn làm trước: xoay D (hoặc D′, đôi khi D2) cho màu bên hông của cạnh nằm cùng mặt với tâm cùng màu. Bước này giúp bạn xác định khối cần lắp và mặt mốc F của công thức dễ hơn.',
       'Bước 2: nhìn màu còn lại của cạnh. Nếu nó trùng tâm mặt bên trái của mặt mốc thì dùng công thức trái; trùng tâm bên phải thì dùng công thức phải.'
     ],
     reason: [
@@ -118,3 +118,19 @@ export const MIDDLE_FORMULAS: readonly MiddleFormulaCard[] = [
   cardOf('L', 'Trượt cạnh sang trái (rãnh F–L)', 9, 1),
   cardOf('R', 'Trượt cạnh sang phải (rãnh F–R)', 8, 0)
 ]
+
+/** Fixed worked examples (always the same cubes). Both start with the first layer done. */
+export const MIDDLE_EXAMPLES = [
+  {
+    id: 'top',
+    title: 'Cạnh nằm ở phía mặt vàng',
+    when: 'Cạnh không có màu vàng nằm ở phía mặt vàng: căn D cho cạnh cùng mặt với tâm cùng màu, rồi dùng một trong hai công thức.',
+    scramble: parsePhysicalAlgorithm("D F D' F' D' R' D R D'")
+  },
+  {
+    id: 'wrong',
+    title: 'Cạnh ở tầng giữa nhưng sai chỗ hoặc bị ngược',
+    when: 'Cạnh đã nằm trong tầng giữa nhưng không khớp hai tâm của rãnh đó: dùng công thức tại chính rãnh này để đẩy nó xuống phía mặt vàng, rồi làm như trường hợp trước.',
+    scramble: parsePhysicalAlgorithm("D F D' F' D' R' D R D2 D F D' F' D' R' D R")
+  }
+] as const

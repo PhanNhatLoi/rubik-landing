@@ -45,12 +45,13 @@ it('moves the arrow cycle with the selected anchor and matches the actual formul
   }
 })
 
-it('preserves all six combinations and shows combination 1 as the correct order without arrows or formula', () => {
+it('lists only the five combinations that need a formula and opens on the first of them', () => {
   const html = renderToStaticMarkup(<LastEdgesOrderCases faceColors={COLORS} colorNames={NAMES} />)
-  expect(html).not.toContain('data-from=')
-  expect([...html.matchAll(/Tổ hợp [1-6] ·/g)]).toHaveLength(6)
+  expect([...html.matchAll(/Tổ hợp [1-5] ·/g)]).toHaveLength(5)
+  expect(html).not.toContain('Tổ hợp 6')
   expect(LAST_EDGES_ORDER_CASES[0]!.rounds).toBe(0)
-  expect(html).toContain('không cần dùng công thức nào')
+  expect(html).toContain('Tổ hợp 1: đọc theo vòng')
+  expect(html).toContain('data-from=')
 })
 
 it('renders the selected combination and frame supplied by the lesson for practice', () => {
@@ -58,7 +59,7 @@ it('renders the selected combination and frame supplied by the lesson for practi
   const c = LAST_EDGES_ORDER_CASES[index]!
   for (const v of lastEdgesOrderChoices(c.state)) {
     const html = renderToStaticMarkup(<LastEdgesOrderCases faceColors={COLORS} colorNames={NAMES} selectedCaseIndex={index} selectedFrames={{ 1: v.front }} />)
-    expect(html).toContain(`Tổ hợp ${index + 1}:`)
+    expect(html).toContain(`Tổ hợp ${index}:`)
     expect(html).toContain(v.moves.join(' ').replaceAll("'", '′'))
     const arrows = [...html.matchAll(/data-from="([FRBL])" data-to="([FRBL])"/g)]
     expect(arrows).toHaveLength(3)
